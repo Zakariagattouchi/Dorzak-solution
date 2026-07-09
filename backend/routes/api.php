@@ -55,11 +55,15 @@ Route::prefix('v1')->group(function () {
     Route::post('staff/invitations/{token}/accept', [StaffInvitationController::class, 'accept'])
         ->middleware('throttle:10,1');
 
-    // --- Authenticated, store-scoped endpoints ---
-    Route::middleware(['auth:sanctum', 'store'])->group(function () {
+    // --- Session (works with or without a store: members get store context,
+    //     store-less platform admins get a platform session). ---
+    Route::middleware(['auth:sanctum', 'store.context'])->group(function () {
         Route::get('auth/me', [AuthController::class, 'me']);
         Route::post('auth/logout', [AuthController::class, 'logout']);
+    });
 
+    // --- Authenticated, store-scoped endpoints ---
+    Route::middleware(['auth:sanctum', 'store'])->group(function () {
         // Settings hub (read: any member; writes: settings.manage via FormRequest).
         Route::get('settings', [SettingsController::class, 'show']);
         Route::put('settings/general', [SettingsController::class, 'updateGeneral']);

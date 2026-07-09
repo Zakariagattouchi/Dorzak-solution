@@ -18,6 +18,7 @@ import { UsersPage } from '../pages/users/UsersPage';
 import { BillingPage } from '../pages/billing/BillingPage';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { SignupPage } from '../pages/auth/SignupPage';
+import { PlatformShell } from '../layouts/PlatformShell';
 import { PlatformPage } from '../pages/platform/PlatformPage';
 
 export const router = createBrowserRouter([
@@ -42,7 +43,6 @@ export const router = createBrowserRouter([
       { path: 'config', element: <SettingsPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'billing', element: <BillingPage /> },
-      { path: 'platform', element: <PlatformPage /> },
       { path: '*', element: <Navigate to="/checkout" replace /> }
     ]
   },
@@ -57,6 +57,10 @@ export const router = createBrowserRouter([
   {
     path: '/store/:slug/orders/:orderNumber',
     element: <OrderStatusPage />
+  },
+  {
+    path: '/platform',
+    element: <PlatformShell><PlatformPage /></PlatformShell>
   },
   {
     path: '/login',

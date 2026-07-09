@@ -21,5 +21,4 @@ export const mainNavigation: NavItem[] = [
   { label: 'Analytics', path: '/analytics', icon: 'reports', group: 'Finance', ability: 'reports.view' },
   { label: 'Users', path: '/users', icon: 'userPlus', group: 'System', ability: 'staff.view' },
   { label: 'Settings', path: '/config', icon: 'settings', group: 'System', ability: 'settings.manage' },
-  { label: 'Platform Admin', path: '/platform', icon: 'building', group: 'Platform', ability: 'platform.admin' },
 ];

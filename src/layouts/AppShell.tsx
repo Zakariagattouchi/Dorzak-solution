@@ -14,27 +14,30 @@ import { useOrderPolling } from '../hooks/useOrderPolling';
 
 export const AppShell: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { status, bootstrap } = useAuthStore();
+  const { status, bootstrap, store, user } = useAuthStore();
   const { fetchProducts, fetchCategories } = useProductStore();
   const { fetchCustomers } = useCustomerStore();
   const { fetchOrders } = useOrderStore();
   const { fetchSettings } = useSettingsStore();
+
+  // A store-less platform admin belongs in the platform console, not here.
+  const isPlatformOnly = status === 'authenticated' && store === null && user?.is_platform_admin === true;
 
   // Establish the session on first mount.
   useEffect(() => {
     if (status === 'idle') bootstrap();
   }, [status, bootstrap]);
 
-  // Once authenticated, hydrate the store data (settings first — money formatting depends on it).
+  // Once authenticated as a MERCHANT, hydrate the store data (settings first — money formatting depends on it).
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (status === 'authenticated' && !isPlatformOnly) {
       fetchSettings();
       fetchProducts();
       fetchCategories();
       fetchCustomers();
       fetchOrders();
     }
-  }, [status]);
+  }, [status, isPlatformOnly]);
 
   // Live polling for new orders (sound + badge) while logged in.
   useOrderPolling(status === 'authenticated');
@@ -49,6 +52,10 @@ export const AppShell: React.FC = () => {
 
   if (status === 'guest') {
     return <Navigate to="/login" replace />;
+  }
+
+  if (isPlatformOnly) {
+    return <Navigate to="/platform" replace />;
   }
 
   return (

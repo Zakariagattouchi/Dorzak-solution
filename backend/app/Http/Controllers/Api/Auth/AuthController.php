@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\AuthSessionResource;
+use App\Http\Resources\PlatformSessionResource;
 use App\Models\User;
 use App\Support\StoreContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -20,7 +22,7 @@ class AuthController extends Controller
      * POST /auth/login — email + password. Establishes the SPA session cookie and,
      * when a device_name is supplied, also returns a bearer token. See docs 05.
      */
-    public function login(LoginRequest $request): AuthSessionResource
+    public function login(LoginRequest $request): JsonResource
     {
         $data = $request->validated();
 
@@ -35,7 +37,20 @@ class AuthController extends Controller
         $storeId = $request->hasHeader('X-Store-Id') ? (int) $request->header('X-Store-Id') : null;
         $membership = $user->currentMembership($storeId);
 
+        // A store-less platform (super) admin gets a store-less session that the
+        // SPA routes to the platform console instead of the merchant back office.
         if ($membership === null) {
+            if ($user->is_platform_admin) {
+                if ($request->hasSession()) {
+                    Auth::guard('web')->login($user);
+                    $request->session()->regenerate();
+                }
+
+                $token = isset($data['device_name']) ? $user->createToken($data['device_name'])->plainTextToken : null;
+
+                return new PlatformSessionResource($user, $token);
+            }
+
             abort(403, 'You do not belong to any store.');
         }
 
@@ -64,13 +79,29 @@ class AuthController extends Controller
         return new AuthSessionResource($membership, $token);
     }
 
-    /** GET /auth/me — current session/store/role/abilities. */
-    public function me(Request $request): AuthSessionResource
+    /** GET /auth/me — current session/store/role/abilities (or platform session). */
+    public function me(Request $request): JsonResource
     {
         $membership = app(StoreContext::class)->membership();
-        $membership->setRelation('user', $request->user());
 
-        return new AuthSessionResource($membership);
+        if ($membership !== null) {
+            if (! $membership->isActive() && ! $request->user()->is_platform_admin) {
+                abort(response()->json([
+                    'message' => 'Your access to this store has been disabled.',
+                    'code' => 'ACCOUNT_DISABLED',
+                ], 403));
+            }
+
+            $membership->setRelation('user', $request->user());
+
+            return new AuthSessionResource($membership);
+        }
+
+        if ($request->user()->is_platform_admin) {
+            return new PlatformSessionResource($request->user());
+        }
+
+        abort(403, 'You do not belong to any store.');
     }
 
     /** POST /auth/logout — revoke current token and/or invalidate the session. */

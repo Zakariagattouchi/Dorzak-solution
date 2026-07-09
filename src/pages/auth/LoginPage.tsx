@@ -16,7 +16,8 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/checkout');
+      const { store, user } = useAuthStore.getState();
+      navigate(store === null && user?.is_platform_admin ? '/platform' : '/checkout');
     } catch {
       /* error surfaced from store */
     } finally {
