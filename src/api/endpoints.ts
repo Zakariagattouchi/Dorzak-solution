@@ -109,6 +109,7 @@ const PLATFORM_BASE = (import.meta as any).env?.VITE_API_URL || '/api/v1';
 export const platformApi = {
   overview: () => request('/platform/overview', { base: PLATFORM_BASE }),
   auditLogs: (params?: Record<string, string>) => request('/platform/audit-logs', { base: PLATFORM_BASE, params }),
+  planFeatures: () => request('/platform/plan-features', { base: PLATFORM_BASE }),
   plans: {
     list: () => request('/platform/plans', { base: PLATFORM_BASE }),
     create: (payload: Record<string, unknown>) => request('/platform/plans', { base: PLATFORM_BASE, method: 'POST', body: payload }),

@@ -59,7 +59,7 @@ class PlatformAdminTest extends TestCase
                 'name_en' => 'Starter',
                 'name_ar' => 'مبتدئ',
                 'price' => 29,
-                'billing_cycle' => 'month',
+                'billing_cycle' => 'monthly',
                 'features' => [
                     ['feature' => 'ONLINE_ORDERING'],
                     ['feature' => 'STAFF_SEATS', 'limit_value' => 2],
@@ -104,7 +104,7 @@ class PlatformAdminTest extends TestCase
         // Create a disposable plan.
         $plan = Plan::create([
             'code' => 'TEMP', 'name_en' => 'Temp', 'name_ar' => 'مؤقت', 'price' => 0,
-            'billing_cycle' => 'month', 'is_default' => false, 'is_active' => true, 'sort_order' => 99,
+            'billing_cycle' => 'monthly', 'is_default' => false, 'is_active' => true, 'sort_order' => 99,
         ]);
 
         $this->actingAsMember($this->admin)

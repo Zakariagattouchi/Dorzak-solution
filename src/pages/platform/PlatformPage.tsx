@@ -15,8 +15,10 @@ interface Plan {
   code: string;
   name_en: string;
   name_ar: string;
+  description_en?: string | null;
   price: number;
   billing_cycle: string;
+  trial_days?: number;
   is_default: boolean;
   is_active: boolean;
   sort_order: number;
@@ -424,68 +426,208 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'audit', label: 'Audit log' },
 ];
 
-// PlansTab is unchanged from V1.
+interface FeatureMeta {
+  key: string;
+  kind: 'toggle' | 'limit';
+  label: string;
+  description: string;
+  group: string;
+  enforced: boolean;
+  unit: string | null;
+}
+
+const blankPlan: Plan = {
+  id: 0, code: '', name_en: '', name_ar: '', price: 0, billing_cycle: 'monthly',
+  is_default: false, is_active: true, sort_order: 0, features: [],
+};
+
+// Full create/edit form with the feature matrix.
+const PlanEditor: React.FC<{ plan: Plan; catalog: FeatureMeta[]; onSaved: () => void; onCancel: () => void }> = ({ plan, catalog, onSaved, onCancel }) => {
+  const { addToast } = useToastStore();
+  const isNew = plan.id === 0;
+  const [code, setCode] = useState(plan.code);
+  const [nameEn, setNameEn] = useState(plan.name_en);
+  const [nameAr, setNameAr] = useState(plan.name_ar || '');
+  const [descEn, setDescEn] = useState(plan.description_en || '');
+  const [price, setPrice] = useState(String(plan.price));
+  const [cycle, setCycle] = useState(plan.billing_cycle || 'monthly');
+  const [trialDays, setTrialDays] = useState(String((plan as any).trial_days ?? 0));
+  const [isActive, setIsActive] = useState(plan.is_active);
+  const [saving, setSaving] = useState(false);
+
+  // toggles: key -> on; limits: key -> cap string ('' = unlimited)
+  const [toggles, setToggles] = useState<Record<string, boolean>>({});
+  const [limits, setLimits] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const t: Record<string, boolean> = {};
+    const l: Record<string, string> = {};
+    for (const f of catalog) {
+      const row = plan.features.find((r) => r.feature === f.key);
+      if (f.kind === 'toggle') t[f.key] = !!row;
+      else l[f.key] = row && row.limit_value != null ? String(row.limit_value) : '';
+    }
+    setToggles(t); setLimits(l);
+  }, [plan, catalog]);
+
+  const groups = Array.from(new Set(catalog.map((f) => f.group)));
+
+  const save = async () => {
+    setSaving(true);
+    const features = [
+      ...catalog.filter((f) => f.kind === 'toggle' && toggles[f.key]).map((f) => ({ feature: f.key })),
+      ...catalog.filter((f) => f.kind === 'limit' && limits[f.key] !== '').map((f) => ({ feature: f.key, limit_value: Number(limits[f.key]) })),
+    ];
+    const payload: Record<string, unknown> = {
+      code, name_en: nameEn, name_ar: nameAr, description_en: descEn || null,
+      price: parseFloat(price) || 0, billing_cycle: cycle, trial_days: parseInt(trialDays, 10) || 0,
+      is_active: isActive, features,
+    };
+    try {
+      if (isNew) await platformApi.plans.create(payload);
+      else await platformApi.plans.update(plan.id, payload);
+      addToast(isNew ? 'Plan created' : `${nameEn} updated`, 'success');
+      onSaved();
+    } catch (e: any) {
+      const errs = e?.errors ? Object.values(e.errors).flat().join(' ') : null;
+      addToast(errs ?? e?.message ?? 'Save failed', 'danger');
+    } finally { setSaving(false); }
+  };
+
+  const field = (label: string, node: React.ReactNode) => (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
+      {label}{node}
+    </label>
+  );
+
+  return (
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      <h3 style={{ margin: 0 }}>{isNew ? 'New plan' : `Edit ${plan.name_en}`}</h3>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+        {field('Code', <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} disabled={plan.is_default} style={inputStyle} placeholder="STARTER" />)}
+        {field('Name (EN)', <input value={nameEn} onChange={(e) => setNameEn(e.target.value)} style={inputStyle} />)}
+        {field('Name (AR)', <input value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" style={inputStyle} />)}
+        {field('Price', <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} style={inputStyle} />)}
+        {field('Billing cycle', (
+          <select value={cycle} onChange={(e) => setCycle(e.target.value)} style={inputStyle}>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+            <option value="once">One-time</option>
+          </select>
+        ))}
+        {field('Free trial (days)', <input type="number" value={trialDays} onChange={(e) => setTrialDays(e.target.value)} style={inputStyle} />)}
+      </div>
+      {field('Description (EN)', <input value={descEn} onChange={(e) => setDescEn(e.target.value)} style={inputStyle} placeholder="Short pitch shown on the pricing page" />)}
+      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} /> Active (shown on the upgrade page)
+      </label>
+
+      {/* Feature matrix */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {groups.map((group) => (
+          <div key={group}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '8px' }}>{group}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {catalog.filter((f) => f.group === group).map((f) => (
+                <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {f.label}
+                      {!f.enforced && <span title="Configurable, not server-enforced yet" style={{ fontSize: '0.62rem', color: 'var(--text-muted)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '0 5px' }}>soft</span>}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{f.description}</div>
+                  </div>
+                  {f.kind === 'toggle' ? (
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem' }}>
+                      <input type="checkbox" checked={!!toggles[f.key]} onChange={(e) => setToggles((p) => ({ ...p, [f.key]: e.target.checked }))} />
+                      {toggles[f.key] ? 'On' : 'Off'}
+                    </label>
+                  ) : (
+                    <input
+                      type="number" min="1" placeholder="Unlimited"
+                      value={limits[f.key] ?? ''}
+                      onChange={(e) => setLimits((p) => ({ ...p, [f.key]: e.target.value }))}
+                      style={{ ...inputStyle, width: '120px' }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <AppButton variant="primary" loading={saving} onClick={save}>{isNew ? 'Create plan' : 'Save changes'}</AppButton>
+        <AppButton variant="tertiary" onClick={onCancel}>Cancel</AppButton>
+      </div>
+    </div>
+  );
+};
+
 const PlansTab: React.FC = () => {
   const { addToast } = useToastStore();
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [catalog, setCatalog] = useState<FeatureMeta[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editPrice, setEditPrice] = useState('');
-  const [editActive, setEditActive] = useState(true);
+  const [editing, setEditing] = useState<Plan | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { const res = (await platformApi.plans.list()) as any; setPlans(res.data ?? []); }
-    catch { addToast('Failed to load plans', 'danger'); }
+    try {
+      const [plansRes, catRes] = await Promise.all([
+        platformApi.plans.list() as any,
+        platformApi.planFeatures() as any,
+      ]);
+      setPlans(plansRes.data ?? []);
+      setCatalog(catRes.data ?? []);
+    } catch { addToast('Failed to load plans', 'danger'); }
     finally { setLoading(false); }
   }, [addToast]);
 
   useEffect(() => { load(); }, [load]);
 
-  const saveEdit = async (p: Plan) => {
-    try {
-      await platformApi.plans.update(p.id, { price: parseFloat(editPrice), is_active: editActive });
-      addToast(`${p.name_en} updated`, 'success');
-      setEditingId(null); load();
-    } catch { addToast('Update failed', 'danger'); }
+  const deletePlan = async (p: Plan) => {
+    if (!confirm(`Delete the ${p.name_en} plan?`)) return;
+    try { await platformApi.plans.destroy(p.id); addToast('Plan deleted', 'success'); load(); }
+    catch (e: any) { addToast(e?.message ?? 'Delete failed', 'danger'); }
   };
 
+  const labelFor = (key: string) => catalog.find((f) => f.key === key)?.label ?? key;
+
   if (loading) return <Loading />;
+  if (editing) return <PlanEditor plan={editing} catalog={catalog} onSaved={() => { setEditing(null); load(); }} onCancel={() => setEditing(null)} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <AppButton variant="primary" onClick={() => setEditing({ ...blankPlan })}>
+          <AppIcon name="plus" size={14} /> New plan
+        </AppButton>
+      </div>
       {plans.map((p) => (
         <div key={p.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'space-between', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ fontWeight: 700, fontSize: '1rem' }}>{p.name_en}</span>
               <span style={codePill(p.code)}>{p.code}</span>
               {p.is_default && <span style={{ fontSize: '0.72rem', color: 'var(--dorzak-primary)', fontWeight: 600 }}>DEFAULT</span>}
               {!p.is_active && <span style={{ fontSize: '0.72rem', color: 'var(--dorzak-warning)', fontWeight: 600 }}>INACTIVE</span>}
             </div>
-            {editingId === p.id ? (
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <label style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input type="checkbox" checked={editActive} onChange={(e) => setEditActive(e.target.checked)} /> Active
-                </label>
-                <input type="number" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} style={{ ...inputStyle, width: '80px', padding: '4px 8px' }} />
-                <AppButton variant="primary" onClick={() => saveEdit(p)}>Save</AppButton>
-                <AppButton variant="tertiary" onClick={() => setEditingId(null)}>Cancel</AppButton>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontWeight: 700, fontSize: '1.05rem' }}>{p.price === 0 ? 'Free' : `${p.price} / ${p.billing_cycle}`}</span>
-                <AppButton variant="tertiary" onClick={() => { setEditingId(p.id); setEditPrice(String(p.price)); setEditActive(p.is_active); }}>
-                  <AppIcon name="settings" size={14} /> Edit
-                </AppButton>
-              </div>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontWeight: 700, fontSize: '1.05rem' }}>{p.price === 0 ? 'Free' : `${p.price} / ${p.billing_cycle}`}</span>
+              <AppButton variant="tertiary" onClick={() => setEditing(p)}>
+                <AppIcon name="settings" size={14} /> Edit
+              </AppButton>
+              {!p.is_default && <AppButton variant="tertiary" onClick={() => deletePlan(p)} style={{ color: 'var(--dorzak-error)' }}>Delete</AppButton>}
+            </div>
           </div>
           {p.features.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {p.features.map((f, i) => (
                 <span key={i} style={{ fontSize: '0.73rem', padding: '2px 8px', borderRadius: '12px', background: 'var(--dorzak-primary-light)', color: 'var(--dorzak-primary)', fontWeight: 600 }}>
-                  {f.feature}{f.limit_value != null ? ` (${f.limit_value})` : ''}
+                  {labelFor(f.feature)}{f.limit_value != null ? `: ${f.limit_value}` : ''}
                 </span>
               ))}
             </div>
