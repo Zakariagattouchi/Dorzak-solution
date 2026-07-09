@@ -127,6 +127,7 @@ export function toAccountInfo(env: any, storeId?: string): Partial<Account> {
     language: g.language,
     ownerName: b.owner_name ?? '', email: b.email ?? '', address: b.address ?? '', city: b.city ?? '',
     state: b.state ?? '', zipCode: b.zip_code ?? '', country: b.country,
+    latitude: b.latitude ?? null, longitude: b.longitude ?? null,
     currency: c.currency, currencySymbol: c.currency_symbol, symbolPlacement: c.symbol_placement,
     taxRate: num(t.tax_rate), taxId: t.tax_id ?? '', taxIncludedInPrice: !!t.tax_included_in_price,
     chargeSalesTax: t.charge_sales_tax ?? true,
@@ -154,7 +155,7 @@ export function toAccountInfo(env: any, storeId?: string): Partial<Account> {
 /** Which flat accountInfo keys belong to each settings group. */
 const GROUP_KEYS: Record<string, (keyof Account)[]> = {
   general: ['businessName', 'tagline', 'phone', 'whatsapp', 'language'],
-  business: ['ownerName', 'email', 'address', 'city', 'state', 'zipCode', 'country'],
+  business: ['ownerName', 'email', 'address', 'city', 'state', 'zipCode', 'country', 'latitude', 'longitude'],
   currency: ['currency', 'symbolPlacement'],
   taxes: ['taxRate', 'taxId', 'taxIncludedInPrice'],
   receipts: ['receiptHeader', 'receiptFooter', 'receiptShowLogo', 'receiptShowAddress', 'receiptShowTax', 'autoPrintReceipt'],
@@ -178,7 +179,7 @@ function buildGroupPayload(group: string, a: Account): Record<string, unknown> {
     case 'general':
       return { business_name: a.businessName, tagline: a.tagline, phone: a.phone, whatsapp: a.whatsapp, language: a.language };
     case 'business':
-      return { owner_name: a.ownerName, email: a.email, address: a.address, city: a.city, state: a.state, zip_code: a.zipCode, country: a.country };
+      return { owner_name: a.ownerName, email: a.email, address: a.address, city: a.city, state: a.state, zip_code: a.zipCode, country: a.country, latitude: (a as any).latitude ?? null, longitude: (a as any).longitude ?? null };
     case 'currency':
       return { currency: a.currency, symbol_placement: a.symbolPlacement };
     case 'taxes':

@@ -23,6 +23,9 @@ class UpdateBusinessRequest extends SettingsRequest
             'state' => ['nullable', 'string', 'max:80'],
             'zip_code' => ['nullable', 'string', 'max:20'],
             'country' => ['required', Rule::in(self::COUNTRIES)],
+            // Store origin — where deliveries start from. Both or neither.
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
         ];
     }
 }

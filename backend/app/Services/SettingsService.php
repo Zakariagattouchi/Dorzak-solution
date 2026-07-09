@@ -30,7 +30,7 @@ class SettingsService
     /** @var array<string, list<string>> group => allowed API field names */
     private const FIELDS = [
         'general' => ['business_name', 'tagline', 'phone', 'whatsapp', 'language'],
-        'business' => ['owner_name', 'email', 'address', 'city', 'state', 'zip_code', 'country'],
+        'business' => ['owner_name', 'email', 'address', 'city', 'state', 'zip_code', 'country', 'latitude', 'longitude'],
         'currency' => ['currency', 'symbol_placement'],
         'taxes' => ['charge_sales_tax', 'tax_rate', 'tax_id', 'tax_included_in_price'],
         'receipts' => ['header', 'footer', 'show_logo', 'show_address', 'show_tax', 'auto_print'],

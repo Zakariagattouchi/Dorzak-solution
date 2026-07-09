@@ -6,6 +6,7 @@ import { TextInput } from '../../components/forms/TextInput';
 import { SelectInput } from '../../components/forms/SelectInput';
 import { ToggleSwitch } from '../../components/forms/ToggleSwitch';
 import { CheckboxInput } from '../../components/forms/CheckboxInput';
+import { LocationPicker } from '../../components/forms/LocationPicker';
 import { AppButton } from '../../components/buttons/AppButton';
 import { AppIcon, IconName } from '../../components/icons/AppIcon';
 import { settingsApi, subscriptionApi } from '../../api/endpoints';
@@ -48,6 +49,8 @@ export const SettingsPage: React.FC = () => {
   const [stateField, setStateField] = useState(accountInfo.state || '');
   const [zipCode, setZipCode] = useState(accountInfo.zipCode || '');
   const [country, setCountry] = useState(accountInfo.country || 'United States');
+  const [latitude, setLatitude] = useState<number | null>(accountInfo.latitude ?? null);
+  const [longitude, setLongitude] = useState<number | null>(accountInfo.longitude ?? null);
 
   // CURRENCY
   const [currency, setCurrency] = useState(accountInfo.currency);
@@ -97,6 +100,12 @@ export const SettingsPage: React.FC = () => {
   const currencySymbol = currency === 'QAR'
     ? 'QAR '
     : ({ USD: '$', EUR: '€', GBP: '£', CAD: 'CA$', BRL: 'R$', MXN: '$', COP: '$', ARS: '$', AUD: 'A$' } as Record<string, string>)[currency] || currency;
+
+  // Store coordinates hydrate asynchronously with the settings envelope.
+  useEffect(() => {
+    setLatitude(accountInfo.latitude ?? null);
+    setLongitude(accountInfo.longitude ?? null);
+  }, [accountInfo.latitude, accountInfo.longitude]);
 
   // Load payment + subscription data when their tabs become active
   useEffect(() => {
@@ -148,6 +157,7 @@ export const SettingsPage: React.FC = () => {
         businessName, tagline, phone, whatsapp,
         ownerName, email, address, city,
         state: stateField, zipCode, country,
+        latitude, longitude,
         language, currency, currencySymbol: currencySymbol.trim(), symbolPlacement,
         taxRate: parseFloat(taxRate) || 0,
         taxId, taxIncludedInPrice: taxIncluded,
@@ -322,6 +332,22 @@ export const SettingsPage: React.FC = () => {
                   { value: 'Qatar', label: 'Qatar' },
                 ]}
               />
+
+              <h4 style={{ margin: '4px 0 0 0', fontSize: '0.95rem' }}>Store Location on the Map</h4>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Required to offer delivery — this is where your deliveries start from and how delivery fees are calculated.
+              </p>
+              <LocationPicker
+                latitude={latitude ?? undefined}
+                longitude={longitude ?? undefined}
+                onChange={(lat, lng) => { setLatitude(lat); setLongitude(lng); }}
+                onAddressResolved={(resolvedAddress) => { if (!address) setAddress(resolvedAddress); }}
+              />
+              {latitude != null && longitude != null && (
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Pinned at {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
+                </span>
+              )}
             </div>
           )}
 

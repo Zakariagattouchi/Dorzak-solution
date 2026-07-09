@@ -57,6 +57,35 @@ class UpdateSettingsTest extends TestCase
             ->assertJsonPath('data.business.country', 'Qatar');
     }
 
+    public function test_update_business_persists_store_location(): void
+    {
+        $this->actingAsMember($this->owner)
+            ->putJson('/api/v1/settings/business', [
+                'country' => 'Qatar',
+                'latitude' => 25.2854123,
+                'longitude' => 51.5310456,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.business.latitude', 25.2854123)
+            ->assertJsonPath('data.business.longitude', 51.5310456);
+
+        $store = $this->owner->currentMembership()->store->fresh();
+        $this->assertTrue($store->hasLocation());
+    }
+
+    public function test_update_business_rejects_half_a_coordinate_and_bad_ranges(): void
+    {
+        $this->actingAsMember($this->owner)
+            ->putJson('/api/v1/settings/business', ['country' => 'Qatar', 'latitude' => 25.28])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['longitude']);
+
+        $this->actingAsMember($this->owner)
+            ->putJson('/api/v1/settings/business', ['country' => 'Qatar', 'latitude' => 95, 'longitude' => 51.5])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['latitude']);
+    }
+
     public function test_currency_qar_forces_symbol_before(): void
     {
         $this->actingAsMember($this->owner)

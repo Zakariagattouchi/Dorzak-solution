@@ -44,6 +44,8 @@ class SettingsResource extends JsonResource
                 'state' => $store->state,
                 'zip_code' => $store->zip_code,
                 'country' => $store->country,
+                'latitude' => $store->latitude !== null ? (float) $store->latitude : null,
+                'longitude' => $store->longitude !== null ? (float) $store->longitude : null,
             ],
             'currency' => [
                 'currency' => $store->currency,

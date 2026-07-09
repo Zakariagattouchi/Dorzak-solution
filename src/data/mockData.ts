@@ -125,6 +125,8 @@ export const initialAccountInfo = {
   state: 'CA',
   zipCode: '94107',
   country: 'United States',
+  latitude: null as number | null,
+  longitude: null as number | null,
   language: 'en' as 'en' | 'ar',
   currency: 'USD',
   currencySymbol: '$',

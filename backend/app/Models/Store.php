@@ -31,7 +31,7 @@ class Store extends Model
 
     protected $fillable = [
         'name', 'tagline', 'owner_name', 'email', 'phone', 'whatsapp',
-        'address', 'city', 'state', 'zip_code', 'country', 'timezone',
+        'address', 'city', 'state', 'zip_code', 'country', 'latitude', 'longitude', 'timezone',
         'language', 'currency', 'symbol_placement', 'charge_sales_tax',
         'tax_rate', 'tax_id', 'tax_included_in_price', 'accepted_payment_methods',
         'payment_details', 'menu_token', 'suspended_at',
@@ -43,10 +43,18 @@ class Store extends Model
             'charge_sales_tax' => 'boolean',
             'tax_included_in_price' => 'boolean',
             'tax_rate' => 'decimal:2',
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
             'accepted_payment_methods' => 'array',
             'payment_details' => 'array',
             'suspended_at' => 'datetime',
         ];
+    }
+
+    /** The store has a pinned origin location (required to offer courier delivery). */
+    public function hasLocation(): bool
+    {
+        return $this->latitude !== null && $this->longitude !== null;
     }
 
     public function isSuspended(): bool
