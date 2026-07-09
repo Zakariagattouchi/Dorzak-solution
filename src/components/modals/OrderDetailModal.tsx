@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { BaseModal } from './BaseModal';
 import { AppButton } from '../buttons/AppButton';
 import { useModalStore } from '../../stores/modalStore';
@@ -9,14 +9,18 @@ import { StatusPill } from '../feedback/StatusPill';
 import { AppIcon, IconName } from '../icons/AppIcon';
 import { useMoney } from '../../hooks/useMoney';
 import { orderApi } from '../../api/endpoints';
+import { useToastStore } from '../../stores/toastStore';
 
 const statusFlow: OrderStatus[] = ['CONFIRMING', 'ACCEPTED', 'PREPARING', 'OUT_FOR_DELIVERY', 'COMPLETE'];
 
 export const OrderDetailModal: React.FC = () => {
   const { activeModal, payload, openModal, closeModal } = useModalStore();
-  const { updateStatus, updatePaymentStatus, orders } = useOrderStore();
+  const { updateStatus, updatePaymentStatus, orders, fetchOrders } = useOrderStore();
   const { accountInfo } = useSettingsStore();
+  const { addToast } = useToastStore();
   const money = useMoney();
+  const [feeInput, setFeeInput] = useState('');
+  const [feeSaving, setFeeSaving] = useState(false);
 
   const order = useMemo(() => {
     if (!payload?.order) return null;
@@ -57,6 +61,24 @@ export const OrderDetailModal: React.FC = () => {
     openModal('RECEIPT', { order });
   };
 
+  const handleSetDeliveryFee = async () => {
+    if (!order.apiId || feeInput === '') return;
+    setFeeSaving(true);
+    try {
+      await orderApi.setDeliveryFee(Number(order.apiId), parseFloat(feeInput));
+      addToast('Delivery fee set — the customer can now pay', 'success');
+      setFeeInput('');
+      await fetchOrders();
+    } catch (e: any) {
+      addToast(e?.message ?? 'Could not set the fee', 'danger');
+    } finally {
+      setFeeSaving(false);
+    }
+  };
+
+  const feePending = order.fulfillment === 'DELIVERY' && order.deliveryFeeStatus === 'PENDING';
+  const feeEditable = order.fulfillment === 'DELIVERY' && order.paymentStatus === 'UNPAID' && order.status !== 'CANCELLED';
+
   return (
     <BaseModal
       isOpen={activeModal === 'ORDER_DETAIL'}
@@ -87,6 +109,32 @@ export const OrderDetailModal: React.FC = () => {
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* WhatsApp manual-quote loop: the customer is waiting for a fee */}
+        {feePending && feeEditable && (
+          <div className="card" style={{ padding: '14px', backgroundColor: '#fef3c7', border: '1px solid #f59e0b', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AppIcon name="alert" size={16} /> Customer is waiting for a delivery quote
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#92400e' }}>
+              Check the drop-off location, then set the delivery fee — the customer will see the updated total and pay from their order page.
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                type="number" min="0" step="0.5" placeholder="Delivery fee"
+                value={feeInput} onChange={(e) => setFeeInput(e.target.value)}
+                style={{ padding: '8px 12px', border: '1px solid #f59e0b', borderRadius: '8px', width: '140px', fontSize: '0.95rem' }}
+              />
+              <AppButton variant="primary" loading={feeSaving} disabled={feeInput === ''} onClick={handleSetDeliveryFee}>Set fee</AppButton>
+              {order.deliveryLatitude != null && order.deliveryLongitude != null && (
+                <a href={`https://maps.google.com/?q=${order.deliveryLatitude},${order.deliveryLongitude}`} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '0.85rem', fontWeight: 600, color: '#92400e', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <AppIcon name="mapPin" size={14} /> Open drop-off in Maps
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
           <div>
@@ -198,6 +246,16 @@ export const OrderDetailModal: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--dorzak-success)' }}>
               <span>Discount</span>
               <span>-{money(order.discount, 2, order.currencyCode)}</span>
+            </div>
+          )}
+          {order.fulfillment === 'DELIVERY' && (
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>
+                Delivery{order.deliveryProviderName ? ` · ${order.deliveryProviderName}` : ''}{order.deliveryDistanceKm != null ? ` (${order.deliveryDistanceKm} km)` : ''}
+              </span>
+              {order.deliveryFeeStatus === 'PENDING'
+                ? <span style={{ color: '#92400e', fontWeight: 700 }}>Pending quote</span>
+                : <span>{money(order.deliveryFee ?? 0, 2, order.currencyCode)}</span>}
             </div>
           )}
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.1rem', marginTop: '6px', paddingTop: '8px', borderTop: '1px dashed var(--color-border)' }}>

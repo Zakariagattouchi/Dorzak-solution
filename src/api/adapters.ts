@@ -99,6 +99,12 @@ export function toOrder(api: any): Order {
     tableNumber: api.table_number == null ? undefined : num(api.table_number),
     deliveryAddress: api.delivery_address ?? undefined,
     deliveryCity: api.delivery_city ?? undefined,
+    deliveryLatitude: api.delivery_latitude != null ? Number(api.delivery_latitude) : undefined,
+    deliveryLongitude: api.delivery_longitude != null ? Number(api.delivery_longitude) : undefined,
+    deliveryFee: num(api.delivery_fee),
+    deliveryFeeStatus: api.delivery_fee_status ?? undefined,
+    deliveryProviderName: api.delivery_provider_name ?? undefined,
+    deliveryDistanceKm: api.delivery_distance_km != null ? Number(api.delivery_distance_km) : undefined,
     paymentReference: api.payment_reference ?? undefined,
     hasPaymentProof: !!api.has_payment_proof,
     notes: api.notes ?? undefined,
@@ -142,7 +148,7 @@ export function toAccountInfo(env: any, storeId?: string): Partial<Account> {
     allowDineIn: !!s.allow_dine_in, dineInTableCount: num(s.dine_in_table_count),
     deliveryFee: num(s.delivery_fee), freeDeliveryThreshold: num(s.free_delivery_threshold),
     minOrderAmount: num(s.min_order_amount),
-    whatsappOrderingEnabled: !!s.whatsapp_ordering_enabled, showOutOfStockOnline: !!s.show_out_of_stock_online,
+    whatsappOrderingEnabled: !!s.whatsapp_ordering_enabled, whatsappDeliveryFallback: !!s.whatsapp_delivery_fallback, showOutOfStockOnline: !!s.show_out_of_stock_online,
     fawranEnabled: !!s.fawran_enabled, fawranAlias: s.fawran_alias ?? '',
     fawranMobile: s.fawran_mobile ?? '', fawranIban: s.fawran_iban ?? '',
     productCardLayout: (s.product_card_layout as 'vertical' | 'horizontal') || 'vertical',
@@ -159,7 +165,7 @@ const GROUP_KEYS: Record<string, (keyof Account)[]> = {
   currency: ['currency', 'symbolPlacement'],
   taxes: ['taxRate', 'taxId', 'taxIncludedInPrice'],
   receipts: ['receiptHeader', 'receiptFooter', 'receiptShowLogo', 'receiptShowAddress', 'receiptShowTax', 'autoPrintReceipt'],
-  storefront: ['onlineStoreEnabled', 'storeSlug', 'publicUrl', 'storeBio', 'storeAccentColor', 'allowDelivery', 'allowPickup', 'allowDineIn', 'dineInTableCount', 'deliveryFee', 'freeDeliveryThreshold', 'minOrderAmount', 'whatsappOrderingEnabled', 'fawranEnabled', 'fawranAlias', 'fawranMobile', 'fawranIban', 'showOutOfStockOnline', 'productCardLayout', 'showStoreHeader', 'showStoreGradient', 'storeNavbarColor'],
+  storefront: ['onlineStoreEnabled', 'storeSlug', 'publicUrl', 'storeBio', 'storeAccentColor', 'allowDelivery', 'allowPickup', 'allowDineIn', 'dineInTableCount', 'deliveryFee', 'freeDeliveryThreshold', 'minOrderAmount', 'whatsappOrderingEnabled', 'whatsappDeliveryFallback', 'fawranEnabled', 'fawranAlias', 'fawranMobile', 'fawranIban', 'showOutOfStockOnline', 'productCardLayout', 'showStoreHeader', 'showStoreGradient', 'storeNavbarColor'],
 };
 
 /** Given a merged accountInfo + the changed partial, return [group, payload] pairs to PUT. */
@@ -195,6 +201,7 @@ function buildGroupPayload(group: string, a: Account): Record<string, unknown> {
         delivery_fee: Number(a.deliveryFee), free_delivery_threshold: Number(a.freeDeliveryThreshold),
         min_order_amount: Number(a.minOrderAmount),
         whatsapp_ordering_enabled: !!a.whatsappOrderingEnabled,
+        whatsapp_delivery_fallback: !!(a as any).whatsappDeliveryFallback,
         fawran_enabled: !!a.fawranEnabled, fawran_alias: a.fawranAlias || null,
         fawran_mobile: a.fawranMobile || null, fawran_iban: a.fawranIban || null,
         show_out_of_stock_online: !!a.showOutOfStockOnline,

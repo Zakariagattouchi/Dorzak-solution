@@ -87,6 +87,7 @@ export const orderApi = {
   get: (id: number) => request(`/orders/${id}`),
   create: (payload: Record<string, unknown>) => request('/orders', { method: 'POST', body: payload }),
   updateStatus: (id: number, status: string) => request(`/orders/${id}/status`, { method: 'PATCH', body: { status } }),
+  setDeliveryFee: (id: number, fee: number) => request(`/orders/${id}/delivery-fee`, { method: 'PATCH', body: { delivery_fee: fee } }),
   updatePaymentStatus: (id: number, payment_status: string) =>
     request(`/orders/${id}/payment-status`, { method: 'PATCH', body: { payment_status } }),
   paymentProof: (id: number) => requestBlob(`/orders/${id}/payment-proof`),
@@ -162,6 +163,11 @@ export const publicApi = {
     request(`/stores/${slug}/orders`, { base: PUBLIC_BASE, method: 'POST', body: payload, auth: false }),
   getOrder: (slug: string, orderNumber: string) =>
     request(`/stores/${slug}/orders/${orderNumber}`, { base: PUBLIC_BASE, auth: false }),
+  uploadOrderPaymentProof: (slug: string, orderNumber: string, file: File) => {
+    const fd = new FormData();
+    fd.append('payment_proof', file);
+    return request(`/stores/${slug}/orders/${orderNumber}/payment-proof`, { base: PUBLIC_BASE, method: 'POST', body: fd, auth: false });
+  },
   lookupCustomer: (slug: string, phone: string) =>
     request(`/stores/${slug}/customers/lookup`, { base: PUBLIC_BASE, params: { phone }, auth: false }),
 };

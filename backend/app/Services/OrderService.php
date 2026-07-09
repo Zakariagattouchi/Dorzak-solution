@@ -111,6 +111,34 @@ class OrderService
         });
     }
 
+    /**
+     * Merchant sets (or corrects) the delivery fee — the back-office half of the
+     * WhatsApp manual-quote loop. Safe total math: OrderTotalsService never taxes
+     * the delivery fee, so total = total − old_fee + new_fee.
+     */
+    public function setDeliveryFee(Order $order, float $fee, ?User $user = null): Order
+    {
+        if ($order->fulfillment !== 'DELIVERY') {
+            throw ValidationException::withMessages(['delivery_fee' => ['Only delivery orders carry a delivery fee.']]);
+        }
+        if ($order->payment_status === PaymentStatus::PAID) {
+            throw ValidationException::withMessages(['delivery_fee' => ['This order is already paid — the fee can no longer change.']]);
+        }
+        if ($order->status === OrderStatus::CANCELLED) {
+            throw ValidationException::withMessages(['delivery_fee' => ['This order was cancelled.']]);
+        }
+
+        $fee = round($fee, 2);
+
+        $order->update([
+            'delivery_fee' => $fee,
+            'total' => round((float) $order->total - (float) $order->delivery_fee + $fee, 2),
+            'delivery_fee_status' => 'SET',
+        ]);
+
+        return $order->fresh(['items', 'customer']);
+    }
+
     public function updateStatus(Order $order, OrderStatus $to, ?User $user = null): Order
     {
         return DB::transaction(function () use ($order, $to, $user): Order {

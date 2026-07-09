@@ -40,6 +40,7 @@ export const StorefrontPage: React.FC = () => {
   const [minOrderAmount, setMinOrderAmount] = useState('10.0');
 
   const [whatsappOrdering, setWhatsappOrdering] = useState(true);
+  const [whatsappDeliveryFallback, setWhatsappDeliveryFallback] = useState(false);
   const [fawranEnabled, setFawranEnabled] = useState(false);
   const [fawranAlias, setFawranAlias] = useState('');
   const [fawranMobile, setFawranMobile] = useState('');
@@ -79,6 +80,7 @@ export const StorefrontPage: React.FC = () => {
       setFreeDeliveryThreshold((accountInfo.freeDeliveryThreshold || 0).toString());
       setMinOrderAmount((accountInfo.minOrderAmount || 0).toString());
       setWhatsappOrdering(accountInfo.whatsappOrderingEnabled ?? true);
+      setWhatsappDeliveryFallback((accountInfo as any).whatsappDeliveryFallback ?? false);
       setFawranEnabled(accountInfo.fawranEnabled ?? false);
       setFawranAlias(accountInfo.fawranAlias || '');
       setFawranMobile(accountInfo.fawranMobile || '');
@@ -149,6 +151,7 @@ export const StorefrontPage: React.FC = () => {
         freeDeliveryThreshold: parseFloat(freeDeliveryThreshold) || 0,
         minOrderAmount: parseFloat(minOrderAmount) || 0,
         whatsappOrderingEnabled: whatsappOrdering,
+        whatsappDeliveryFallback,
         fawranEnabled,
         fawranAlias,
         fawranMobile,
@@ -359,6 +362,12 @@ export const StorefrontPage: React.FC = () => {
           <>
             <h3 className="text-title-md" style={{ margin: 0 }}>Fulfillment & Shipping Rules</h3>
             <ToggleSwitch checked={allowDelivery} onChange={setAllowDelivery} label="Enable Home Delivery Service" />
+            <ToggleSwitch
+              checked={whatsappDeliveryFallback}
+              onChange={setWhatsappDeliveryFallback}
+              label="WhatsApp delivery quotes"
+              description="When no courier covers an order, accept it anyway — you confirm the delivery fee over WhatsApp and the customer pays once it's set."
+            />
             <ToggleSwitch checked={allowPickup} onChange={setAllowPickup} label="Enable In-Store Pickup" />
             <ToggleSwitch
               checked={allowDineIn}

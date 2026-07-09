@@ -100,6 +100,7 @@ class SettingsResource extends JsonResource
                 'free_delivery_threshold' => $storefront?->free_delivery_threshold,
                 'min_order_amount' => $storefront?->min_order_amount,
                 'whatsapp_ordering_enabled' => (bool) $storefront?->whatsapp_ordering_enabled,
+                'whatsapp_delivery_fallback' => (bool) $storefront?->whatsapp_delivery_fallback,
                 'fawran_enabled' => (bool) $storefront?->fawran_enabled,
                 'fawran_alias' => $storefront?->fawran_alias,
                 'fawran_mobile' => $storefront?->fawran_mobile,

@@ -107,6 +107,12 @@ export interface Order {
   tableNumber?: number;
   deliveryAddress?: string;
   deliveryCity?: string;
+  deliveryLatitude?: number;
+  deliveryLongitude?: number;
+  deliveryFee?: number;
+  deliveryFeeStatus?: 'QUOTED' | 'PENDING' | 'SET';
+  deliveryProviderName?: string;
+  deliveryDistanceKm?: number;
   paymentReference?: string;
   hasPaymentProof?: boolean;
   notes?: string;
@@ -153,6 +159,7 @@ export const initialAccountInfo = {
   freeDeliveryThreshold: 50.00,
   minOrderAmount: 10.00,
   whatsappOrderingEnabled: true,
+  whatsappDeliveryFallback: false,
   showOutOfStockOnline: true,
   fawranEnabled: false,
   fawranAlias: '',

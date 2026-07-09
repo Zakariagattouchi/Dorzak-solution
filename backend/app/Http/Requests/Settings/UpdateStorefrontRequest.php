@@ -50,6 +50,7 @@ class UpdateStorefrontRequest extends SettingsRequest
             'free_delivery_threshold' => ['nullable', 'numeric', 'min:0'],
             'min_order_amount' => ['required', 'numeric', 'min:0'],
             'whatsapp_ordering_enabled' => ['required', 'boolean'],
+            'whatsapp_delivery_fallback' => ['sometimes', 'boolean'],
             'fawran_enabled' => ['sometimes', 'boolean'],
             'fawran_alias' => ['nullable', 'string', 'max:80'],
             'fawran_mobile' => ['nullable', 'string', 'max:32'],

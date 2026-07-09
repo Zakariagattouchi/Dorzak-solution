@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\CategoryImageController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CustomerImportController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\OrderDeliveryFeeController;
 use App\Http\Controllers\Api\OrderPaymentProofController;
 use App\Http\Controllers\Api\OrderPaymentStatusController;
 use App\Http\Controllers\Api\OrderStatusController;
@@ -28,6 +29,7 @@ use App\Http\Controllers\Api\Public\MenuController;
 use App\Http\Controllers\Api\Public\PublicCustomerLookupController;
 use App\Http\Controllers\Api\Public\PublicDeliveryQuoteController;
 use App\Http\Controllers\Api\Public\PublicOrderController;
+use App\Http\Controllers\Api\Public\PublicOrderPaymentProofController;
 use App\Http\Controllers\Api\Public\PublicOrderShowController;
 use App\Http\Controllers\Api\Public\StorefrontController as PublicStorefrontController;
 use App\Http\Controllers\Api\Reports\AnalyticsController;
@@ -122,6 +124,7 @@ Route::prefix('v1')->group(function () {
         Route::get('orders/export', [OrderController::class, 'export']);
         Route::get('orders/{order}', [OrderController::class, 'show']);
         Route::patch('orders/{order}/status', [OrderStatusController::class, 'update']);
+        Route::patch('orders/{order}/delivery-fee', [OrderDeliveryFeeController::class, 'update']);
         Route::patch('orders/{order}/payment-status', [OrderPaymentStatusController::class, 'update']);
         Route::get('orders/{order}/payment-proof', OrderPaymentProofController::class);
 
@@ -203,6 +206,7 @@ Route::prefix('public')->group(function () {
     Route::get('stores/{slug}/delivery-quote', PublicDeliveryQuoteController::class)->middleware('throttle:30,1');
     Route::post('stores/{slug}/orders', PublicOrderController::class)->middleware('throttle:5,1');
     Route::get('stores/{slug}/orders/{orderNumber}', PublicOrderShowController::class)->middleware('throttle:60,1');
+    Route::post('stores/{slug}/orders/{orderNumber}/payment-proof', PublicOrderPaymentProofController::class)->middleware('throttle:5,1');
     Route::get('stores/{slug}/customers/lookup', PublicCustomerLookupController::class)->middleware('throttle:60,1');
 
     // Anonymous menu — free-tier stores; view-only, no ordering.

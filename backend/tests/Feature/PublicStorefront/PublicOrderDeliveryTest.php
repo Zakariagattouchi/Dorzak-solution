@@ -124,6 +124,34 @@ class PublicOrderDeliveryTest extends TestCase
         $this->assertDatabaseHas('orders', ['delivery_fee_status' => null, 'delivery_provider_id' => null]);
     }
 
+    public function test_fallback_accepts_out_of_range_orders_as_fee_pending(): void
+    {
+        DeliveryProvider::create(['name' => 'Tiny', 'base_fee' => 5, 'per_km_fee' => 2, 'min_fee' => 0, 'max_radius_km' => 1]);
+        $this->store->storefrontSetting->update(['whatsapp_delivery_fallback' => true]);
+        $p = $this->product();
+
+        $response = $this->postJson('/api/public/stores/delivery-shop/orders', $this->payload($p))
+            ->assertCreated()
+            ->assertJsonPath('data.delivery_fee', '0.00')
+            ->assertJsonPath('data.delivery_fee_status', 'PENDING');
+
+        // The WhatsApp text tells the merchant to quote and carries the pin.
+        $text = rawurldecode(substr($response->json('data.whatsapp_url'), strpos($response->json('data.whatsapp_url'), 'text=') + 5));
+        $this->assertStringContainsString('TO BE QUOTED', $text);
+        $this->assertStringContainsString('maps.google.com', $text);
+    }
+
+    public function test_fallback_orders_cannot_pay_by_fawran_upfront(): void
+    {
+        DeliveryProvider::create(['name' => 'Tiny', 'base_fee' => 5, 'per_km_fee' => 2, 'min_fee' => 0, 'max_radius_km' => 1]);
+        $this->store->storefrontSetting->update(['whatsapp_delivery_fallback' => true, 'fawran_enabled' => true]);
+        $p = $this->product();
+
+        $this->postJson('/api/public/stores/delivery-shop/orders', $this->payload($p, ['payment_method' => 'FAWRAN']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['payment_method']);
+    }
+
     public function test_whatsapp_message_includes_the_maps_pin_and_provider_line(): void
     {
         DeliveryProvider::create(['name' => 'Courier', 'base_fee' => 5, 'per_km_fee' => 2, 'min_fee' => 0, 'max_radius_km' => 20]);

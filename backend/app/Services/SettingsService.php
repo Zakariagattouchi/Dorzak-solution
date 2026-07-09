@@ -38,7 +38,7 @@ class SettingsService
         'storefront' => [
             'online_store_enabled', 'store_slug', 'store_bio', 'banner_url', 'logo_url',
             'accent_color', 'allow_delivery', 'allow_pickup', 'allow_dine_in', 'dine_in_table_count', 'delivery_fee',
-            'free_delivery_threshold', 'min_order_amount', 'whatsapp_ordering_enabled',
+            'free_delivery_threshold', 'min_order_amount', 'whatsapp_ordering_enabled', 'whatsapp_delivery_fallback',
             'fawran_enabled', 'fawran_alias', 'fawran_mobile', 'fawran_iban', 'show_out_of_stock_online',
             'product_card_layout', 'show_store_header', 'show_store_gradient',
             'navbar_color',

@@ -41,6 +41,15 @@ const labels = {
       DINE_IN: 'Dine-in',
     },
     table: 'Table',
+    feePending: 'Pending confirmation',
+    feePendingHelp: 'The store is confirming your delivery fee — the total will update here.',
+    payNow: 'Complete your payment',
+    fawranPayHelp: 'Transfer the total to the Fawran account below, then upload your receipt.',
+    fawranAlias: 'Alias',
+    reference: 'Reference',
+    uploadProof: 'Upload payment receipt',
+    proofSent: 'Receipt received — the store is verifying your payment.',
+    uploadFailed: 'Upload failed. Try again.',
   },
   ar: {
     title: 'حالة الطلب',
@@ -74,6 +83,15 @@ const labels = {
       DINE_IN: 'داخل المطعم',
     },
     table: 'طاولة',
+    feePending: 'بانتظار التأكيد',
+    feePendingHelp: 'يقوم المتجر بتأكيد رسوم التوصيل — سيتم تحديث الإجمالي هنا.',
+    payNow: 'أكمل الدفع',
+    fawranPayHelp: 'حوّل المبلغ الإجمالي إلى حساب فوران أدناه، ثم ارفع الإيصال.',
+    fawranAlias: 'الاسم المستعار',
+    reference: 'المرجع',
+    uploadProof: 'رفع إيصال الدفع',
+    proofSent: 'تم استلام الإيصال — يقوم المتجر بالتحقق من الدفع.',
+    uploadFailed: 'فشل الرفع. حاول مرة أخرى.',
   },
 };
 
@@ -88,6 +106,22 @@ export const OrderStatusPage: React.FC = () => {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(false);
+
+  const handleProofUpload = async (file: File) => {
+    if (!slug || !orderNumber) return;
+    setUploading(true);
+    setUploadError(false);
+    try {
+      await publicApi.uploadOrderPaymentProof(slug, orderNumber, file);
+      await fetchOrder();
+    } catch {
+      setUploadError(true);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const fetchOrder = async () => {
     if (!slug || !orderNumber) return;
@@ -249,11 +283,55 @@ export const OrderStatusPage: React.FC = () => {
           </ul>
           <div className="order-status-totals">
             <div><span>{t.subtotal}</span><span>{money(order.subtotal)}</span></div>
+            {order.fulfillment === 'DELIVERY' && (
+              <div>
+                <span>{t.deliveryFee}{order.deliveryProviderName ? ` · ${order.deliveryProviderName}` : ''}</span>
+                {order.deliveryFeeStatus === 'PENDING'
+                  ? <span style={{ color: '#b45309', fontWeight: 700 }}>{t.feePending}</span>
+                  : <span>{money(order.deliveryFee ?? 0)}</span>}
+              </div>
+            )}
             {Number(order.taxAmount) > 0 && <div><span>{t.tax}</span><span>{money(order.taxAmount)}</span></div>}
             {Number(order.discount) > 0 && <div className="discount"><span>{t.discount}</span><span>-{money(order.discount)}</span></div>}
             <div className="grand-total"><span>{t.total}</span><span>{money(order.total)}</span></div>
           </div>
+          {order.deliveryFeeStatus === 'PENDING' && (
+            <p style={{ fontSize: '0.82rem', color: '#b45309', margin: '8px 0 0' }}>{t.feePendingHelp}</p>
+          )}
         </section>
+
+        {/* Pay after the merchant sets the fee (WhatsApp manual-quote loop). */}
+        {order.fulfillment === 'DELIVERY' && order.status !== 'CANCELLED' && order.paymentStatus === 'UNPAID'
+          && order.deliveryFeeStatus === 'SET' && store.fawran_enabled && (
+          <section className="order-status-card">
+            <h3 className="order-status-section-title">{t.payNow}</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)', margin: '0 0 10px' }}>{t.fawranPayHelp}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem' }}>
+              {store.fawran_mobile && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#f8fafc', borderRadius: '8px' }}>
+                  <span>{t.fawranAlias}</span><strong>{store.fawran_mobile}</strong>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#f8fafc', borderRadius: '8px' }}>
+                <span>{t.reference}</span><strong>{order.customerName}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#f8fafc', borderRadius: '8px' }}>
+                <span>{t.total}</span><strong>{money(order.total)}</strong>
+              </div>
+            </div>
+            <label className="file-picker" style={{ display: 'block', marginTop: '12px', fontWeight: 600 }}>
+              {uploading ? '…' : t.uploadProof}
+              <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading}
+                onChange={(event) => { const f = event.target.files?.[0]; if (f) handleProofUpload(f); event.target.value = ''; }} />
+            </label>
+            {uploadError && <p style={{ color: '#b91c1c', fontSize: '0.82rem', marginTop: '6px' }}>{t.uploadFailed}</p>}
+          </section>
+        )}
+        {order.paymentStatus === 'PENDING_VERIFICATION' && (
+          <section className="order-status-card" style={{ borderInlineStart: '4px solid #f59e0b' }}>
+            <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600 }}>{t.proofSent}</p>
+          </section>
+        )}
 
         <section className="order-status-card order-status-info">
           <h3 className="order-status-section-title">{t.fulfillment[order.fulfillment ?? 'PICKUP']}</h3>
