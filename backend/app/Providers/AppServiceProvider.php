@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Contracts\PaymentGateway;
 use App\Contracts\TranslationProvider;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\StorefrontSetting;
 use App\Observers\CatalogCacheObserver;
+use App\Payment\FakeGateway;
 use App\Services\GoogleCloudTranslationProvider;
 use App\Services\PlanGate;
 use Illuminate\Support\ServiceProvider;
@@ -22,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Request-scoped so its per-store capability map is memoized within a request.
         $this->app->singleton(PlanGate::class);
+
+        // Gateway contract — swap for a real provider (Dibsy, MyFatoorah, Tap) in production.
+        $this->app->bind(PaymentGateway::class, FakeGateway::class);
     }
 
     /**
