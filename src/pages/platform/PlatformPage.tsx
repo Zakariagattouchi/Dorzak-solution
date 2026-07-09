@@ -75,11 +75,12 @@ const Metric: React.FC<{ label: string; value: string | number; accent?: string 
 const OverviewTab: React.FC = () => {
   const { addToast } = useToastStore();
   const [data, setData] = useState<any>(null);
+  const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (platformApi.overview() as Promise<any>)
-      .then((r) => setData(r.data))
+    Promise.all([platformApi.overview() as Promise<any>, platformApi.analytics() as Promise<any>])
+      .then(([o, a]) => { setData(o.data); setAnalytics(a.data); })
       .catch(() => addToast('Failed to load overview', 'danger'))
       .finally(() => setLoading(false));
   }, [addToast]);
@@ -88,6 +89,7 @@ const OverviewTab: React.FC = () => {
   if (!data) return null;
 
   const maxSignup = Math.max(1, ...data.signups_last_14_days.map((d: any) => d.count));
+  const maxRev = analytics ? Math.max(1, ...analytics.revenue_last_30_days.map((d: any) => d.revenue)) : 1;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -127,6 +129,60 @@ const OverviewTab: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Commercial (across all stores) */}
+      {analytics && (
+        <>
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginTop: '4px' }}>Commercial · all stores</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+            <Metric label="GMV (completed)" value={analytics.gmv.toLocaleString()} />
+            <Metric label="Orders" value={analytics.orders} />
+            <Metric label="Avg order" value={analytics.aov.toLocaleString()} />
+            <Metric label="New customers 30d" value={analytics.new_customers_30d} accent="var(--dorzak-primary)" />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+            <div className="card">
+              <h4 style={{ margin: '0 0 12px' }}>Top stores by revenue</h4>
+              {analytics.top_stores.length === 0 ? <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No sales yet.</div> : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {analytics.top_stores.map((s: any) => (
+                    <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                      <span>{s.name} <span style={{ color: 'var(--text-muted)' }}>· {s.orders} orders</span></span>
+                      <strong>{s.revenue.toLocaleString()}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="card">
+              <h4 style={{ margin: '0 0 12px' }}>Trending products (platform)</h4>
+              {analytics.trending_products.length === 0 ? <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No sales yet.</div> : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {analytics.trending_products.map((p: any, i: number) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                      <span>{p.name} <span style={{ color: 'var(--text-muted)' }}>· {p.qty} sold</span></span>
+                      <strong>{p.revenue.toLocaleString()}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="card">
+            <h4 style={{ margin: '0 0 12px' }}>Revenue — last 30 days</h4>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '80px' }}>
+              {analytics.revenue_last_30_days.map((d: any) => (
+                <div key={d.date} title={`${d.date}: ${d.revenue.toLocaleString()}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%' }}>
+                  <div style={{ height: `${(d.revenue / maxRev) * 100}%`, minHeight: d.revenue ? '3px' : '0', background: 'var(--dorzak-success)', borderRadius: '2px 2px 0 0' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
@@ -145,6 +201,7 @@ const StoresTab: React.FC = () => {
   const [assigningId, setAssigningId] = useState<number | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<number | ''>('');
   const [detail, setDetail] = useState<StoreDetail | null>(null);
+  const [storeStats, setStoreStats] = useState<any>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [deleteName, setDeleteName] = useState('');
 
@@ -170,13 +227,18 @@ const StoresTab: React.FC = () => {
   useEffect(() => { load(); }, [load]);
 
   const openDetail = async (id: number) => {
-    if (detailId === id) { setDetailId(null); setDetail(null); return; }
+    if (detailId === id) { setDetailId(null); setDetail(null); setStoreStats(null); return; }
     setDetailId(id);
     setDetail(null);
+    setStoreStats(null);
     setDeleteName('');
     try {
-      const res = (await platformApi.stores.show(id)) as any;
-      setDetail(res.data);
+      const [d, a] = await Promise.all([
+        platformApi.stores.show(id) as any,
+        platformApi.stores.analytics(id) as any,
+      ]);
+      setDetail(d.data);
+      setStoreStats(a.data);
     } catch { addToast('Failed to load store detail', 'danger'); }
   };
 
@@ -278,6 +340,30 @@ const StoresTab: React.FC = () => {
                           <span><strong>{detail.metrics.orders}</strong> orders</span>
                           <span><strong>{detail.metrics.revenue.toLocaleString()}</strong> revenue</span>
                         </div>
+
+                        {storeStats && (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', background: 'var(--color-bg)', padding: '12px', borderRadius: '8px' }}>
+                            <div>
+                              <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '6px' }}>Trending products</div>
+                              {storeStats.trending_products.length === 0 ? <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No sales yet.</span> : storeStats.trending_products.slice(0, 5).map((p: any, i: number) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}><span>{p.name}</span><strong>{p.qty} sold</strong></div>
+                              ))}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '6px' }}>Top customers</div>
+                              {storeStats.top_customers.length === 0 ? <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>None yet.</span> : storeStats.top_customers.slice(0, 5).map((c: any, i: number) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}><span>{c.name}</span><strong>{c.spent.toLocaleString()}</strong></div>
+                              ))}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '6px' }}>Recent orders</div>
+                              {storeStats.recent_orders.length === 0 ? <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>None yet.</span> : storeStats.recent_orders.slice(0, 5).map((o: any, i: number) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}><span>{o.customer ?? o.order_number}</span><strong>{o.total.toLocaleString()}</strong></div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', paddingTop: '8px' }}>
                           <input placeholder={`Type "${detail.name}" to delete`} value={deleteName} onChange={(e) => setDeleteName(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '200px' }} />
                           <AppButton variant="danger" disabled={deleteName !== detail.name} onClick={() => deleteStore(detail)}>

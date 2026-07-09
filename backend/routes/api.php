@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\OrderPaymentProofController;
 use App\Http\Controllers\Api\OrderPaymentStatusController;
 use App\Http\Controllers\Api\OrderStatusController;
 use App\Http\Controllers\Api\PlanCatalogController;
+use App\Http\Controllers\Api\Platform\AnalyticsController as PlatformAnalyticsController;
 use App\Http\Controllers\Api\Platform\AuditLogController as PlatformAuditLogController;
 use App\Http\Controllers\Api\Platform\ImpersonationController as PlatformImpersonationController;
 use App\Http\Controllers\Api\Platform\OverviewController as PlatformOverviewController;
@@ -137,8 +138,9 @@ Route::prefix('v1')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::prefix('v1/platform')->middleware(['auth:sanctum', 'platform.admin'])->group(function () {
-    // Fleet dashboard + accountability trail.
+    // Fleet dashboard + commercial analytics + accountability trail.
     Route::get('overview', [PlatformOverviewController::class, 'index']);
+    Route::get('analytics', [PlatformAnalyticsController::class, 'platform']);
     Route::get('audit-logs', [PlatformAuditLogController::class, 'index']);
 
     // Plans: CRUD + feature composition.
@@ -152,6 +154,7 @@ Route::prefix('v1/platform')->middleware(['auth:sanctum', 'platform.admin'])->gr
     // Stores: list, detail, lifecycle, plan override, impersonation, delete.
     Route::get('stores', [PlatformStoreController::class, 'index']);
     Route::get('stores/{store}', [PlatformStoreController::class, 'show']);
+    Route::get('stores/{store}/analytics', [PlatformAnalyticsController::class, 'store']);
     Route::put('stores/{store}/suspend', [PlatformStoreController::class, 'suspend']);
     Route::put('stores/{store}/reactivate', [PlatformStoreController::class, 'reactivate']);
     Route::put('stores/{store}/plan', [PlatformStoreController::class, 'assignPlan']);

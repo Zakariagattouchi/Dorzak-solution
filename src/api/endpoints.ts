@@ -108,6 +108,7 @@ const PLATFORM_BASE = (import.meta as any).env?.VITE_API_URL || '/api/v1';
 
 export const platformApi = {
   overview: () => request('/platform/overview', { base: PLATFORM_BASE }),
+  analytics: () => request('/platform/analytics', { base: PLATFORM_BASE }),
   auditLogs: (params?: Record<string, string>) => request('/platform/audit-logs', { base: PLATFORM_BASE, params }),
   planFeatures: () => request('/platform/plan-features', { base: PLATFORM_BASE }),
   plans: {
@@ -119,6 +120,7 @@ export const platformApi = {
   stores: {
     list: (params?: Record<string, string>) => request('/platform/stores', { base: PLATFORM_BASE, params }),
     show: (id: number) => request(`/platform/stores/${id}`, { base: PLATFORM_BASE }),
+    analytics: (id: number) => request(`/platform/stores/${id}/analytics`, { base: PLATFORM_BASE }),
     suspend: (id: number) => request(`/platform/stores/${id}/suspend`, { base: PLATFORM_BASE, method: 'PUT' }),
     reactivate: (id: number) => request(`/platform/stores/${id}/reactivate`, { base: PLATFORM_BASE, method: 'PUT' }),
     assignPlan: (id: number, planId: number) => request(`/platform/stores/${id}/plan`, { base: PLATFORM_BASE, method: 'PUT', body: { plan_id: planId } }),
