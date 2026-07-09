@@ -102,6 +102,23 @@ export const subscriptionApi = {
   portal: () => request('/subscription/portal', { method: 'POST' }),
 };
 
+const PLATFORM_BASE = (import.meta as any).env?.VITE_API_URL || '/api/v1';
+
+export const platformApi = {
+  plans: {
+    list: () => request('/platform/plans', { base: PLATFORM_BASE }),
+    create: (payload: Record<string, unknown>) => request('/platform/plans', { base: PLATFORM_BASE, method: 'POST', body: payload }),
+    update: (id: number, payload: Record<string, unknown>) => request(`/platform/plans/${id}`, { base: PLATFORM_BASE, method: 'PUT', body: payload }),
+    destroy: (id: number) => request(`/platform/plans/${id}`, { base: PLATFORM_BASE, method: 'DELETE' }),
+  },
+  stores: {
+    list: (params?: Record<string, string>) => request('/platform/stores', { base: PLATFORM_BASE, params }),
+    suspend: (id: number) => request(`/platform/stores/${id}/suspend`, { base: PLATFORM_BASE, method: 'PUT' }),
+    reactivate: (id: number) => request(`/platform/stores/${id}/reactivate`, { base: PLATFORM_BASE, method: 'PUT' }),
+    assignPlan: (id: number, planId: number) => request(`/platform/stores/${id}/plan`, { base: PLATFORM_BASE, method: 'PUT', body: { plan_id: planId } }),
+  },
+};
+
 // Anonymous storefront (no credentials needed; different base).
 export const publicApi = {
   store: (slug: string) => request(`/stores/${slug}`, { base: PUBLIC_BASE, auth: false }),

@@ -26,7 +26,7 @@ class MeTest extends TestCase
             ->assertExactJson([
                 'data' => [
                     'token' => null,
-                    'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email],
+                    'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'is_platform_admin' => false],
                     'store' => [
                         'id' => $store->id,
                         'name' => $store->name,

@@ -6,10 +6,11 @@ use App\Models\Store;
 
 trait ResolvesMenuStore
 {
-    /** Resolve a store by its anonymous menu token (free-tier public surface). */
+    /** Resolve a store by its anonymous menu token (free-tier public surface). Suspended stores return 404. */
     protected function resolveMenuStore(string $token): Store
     {
-        $store = Store::where('menu_token', $token)
+        $store = Store::whereNull('suspended_at')
+            ->where('menu_token', $token)
             ->with('storefrontSetting')
             ->first();
 

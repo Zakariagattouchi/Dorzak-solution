@@ -6,6 +6,7 @@ use App\Enums\PlanFeature;
 use App\Models\Product;
 use App\Models\Store;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class AnonymousMenuTest extends TestCase
@@ -98,7 +99,7 @@ class AnonymousMenuTest extends TestCase
 
     public function test_paid_store_can_accept_orders_via_slug(): void
     {
-        \Illuminate\Support\Facades\Notification::fake();
+        Notification::fake();
         ['store' => $store] = $this->createStoreWithOwner();
         $this->assignPlan($store, 'PRO');
         $store->storefrontSetting->update([

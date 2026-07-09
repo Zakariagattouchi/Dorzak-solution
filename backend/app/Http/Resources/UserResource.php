@@ -18,6 +18,7 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            'is_platform_admin' => (bool) $this->is_platform_admin,
         ];
     }
 }

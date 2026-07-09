@@ -6,13 +6,14 @@ use App\Models\Store;
 
 trait ResolvesPublicStore
 {
-    /** Resolve a store by its public slug, or 404 when missing / online store disabled. */
+    /** Resolve a store by its public slug, or 404 when missing / online store disabled / suspended. */
     protected function resolvePublicStore(string $slug): Store
     {
-        $store = Store::whereHas('storefrontSetting', fn ($q) => $q
-            ->where('slug', strtolower($slug))
-            ->where('online_store_enabled', true)
-        )->with('storefrontSetting')->first();
+        $store = Store::whereNull('suspended_at')
+            ->whereHas('storefrontSetting', fn ($q) => $q
+                ->where('slug', strtolower($slug))
+                ->where('online_store_enabled', true)
+            )->with('storefrontSetting')->first();
 
         abort_if($store === null, 404, 'Store not found.');
 

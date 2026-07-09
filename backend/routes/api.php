@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderPaymentProofController;
 use App\Http\Controllers\Api\OrderPaymentStatusController;
 use App\Http\Controllers\Api\OrderStatusController;
+use App\Http\Controllers\Api\Platform\PlanController as PlatformPlanController;
+use App\Http\Controllers\Api\Platform\StoreController as PlatformStoreController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductImageController;
 use App\Http\Controllers\Api\ProductTranslationController;
@@ -120,6 +122,26 @@ Route::prefix('v1')->group(function () {
         Route::post('subscription/portal', [SubscriptionController::class, 'portal']);
         Route::get('subscription/invoice/latest', [SubscriptionController::class, 'invoiceLatest']);
     });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Platform admin (is_platform_admin users only — bypasses store context)
+|--------------------------------------------------------------------------
+*/
+Route::prefix('v1/platform')->middleware(['auth:sanctum', 'platform.admin'])->group(function () {
+    // Plans: CRUD + feature composition.
+    Route::get('plans', [PlatformPlanController::class, 'index']);
+    Route::post('plans', [PlatformPlanController::class, 'store']);
+    Route::get('plans/{plan}', [PlatformPlanController::class, 'show']);
+    Route::put('plans/{plan}', [PlatformPlanController::class, 'update']);
+    Route::delete('plans/{plan}', [PlatformPlanController::class, 'destroy']);
+
+    // Stores: list, suspend, reactivate, manual plan assignment.
+    Route::get('stores', [PlatformStoreController::class, 'index']);
+    Route::put('stores/{store}/suspend', [PlatformStoreController::class, 'suspend']);
+    Route::put('stores/{store}/reactivate', [PlatformStoreController::class, 'reactivate']);
+    Route::put('stores/{store}/plan', [PlatformStoreController::class, 'assignPlan']);
 });
 
 /*

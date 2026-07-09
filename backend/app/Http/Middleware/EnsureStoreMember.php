@@ -35,6 +35,13 @@ class EnsureStoreMember
             ], 403));
         }
 
+        if ($membership->store?->isSuspended()) {
+            abort(response()->json([
+                'message' => 'This store has been suspended.',
+                'code' => 'STORE_SUSPENDED',
+            ], 403));
+        }
+
         return $next($request);
     }
 }

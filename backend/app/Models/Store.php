@@ -34,7 +34,7 @@ class Store extends Model
         'address', 'city', 'state', 'zip_code', 'country', 'timezone',
         'language', 'currency', 'symbol_placement', 'charge_sales_tax',
         'tax_rate', 'tax_id', 'tax_included_in_price', 'accepted_payment_methods',
-        'payment_details', 'menu_token',
+        'payment_details', 'menu_token', 'suspended_at',
     ];
 
     protected function casts(): array
@@ -45,7 +45,13 @@ class Store extends Model
             'tax_rate' => 'decimal:2',
             'accepted_payment_methods' => 'array',
             'payment_details' => 'array',
+            'suspended_at' => 'datetime',
         ];
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
     }
 
     public function users(): BelongsToMany

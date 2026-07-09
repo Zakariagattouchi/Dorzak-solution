@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { authApi } from '../api/endpoints';
 import { ApiError, getToken, setToken } from '../api/apiClient';
 
-interface SessionUser { id: number; name: string; email: string; }
+interface SessionUser { id: number; name: string; email: string; is_platform_admin: boolean; }
 interface SessionStore { id: number; name: string; currency: string; symbol_placement: string; language: string; country: string; }
 
 interface AuthState {
@@ -60,5 +60,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: null, store: null, role: null, abilities: [], status: 'guest' });
   },
 
-  can: (ability) => get().abilities.includes(ability),
+  can: (ability) => {
+    if (ability === 'platform.admin') return get().user?.is_platform_admin === true;
+    return get().abilities.includes(ability);
+  },
 }));

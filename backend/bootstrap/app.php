@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\EnsureStoreMember;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetStoreContext;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'store.context' => SetStoreContext::class,
             'store.member' => EnsureStoreMember::class,
+            'platform.admin' => EnsurePlatformAdmin::class,
         ]);
         $middleware->group('store', [
             SetStoreContext::class,
