@@ -10,6 +10,12 @@ use Illuminate\Http\Request;
 
 class PlanController extends Controller
 {
+    /** GET /platform/plan-features — the capability catalogue for the plan editor. */
+    public function catalog(): JsonResponse
+    {
+        return response()->json(['data' => PlanFeature::catalog()]);
+    }
+
     public function index(): JsonResponse
     {
         $plans = Plan::with('featureLimits')->orderBy('sort_order')->get();
@@ -39,16 +45,12 @@ class PlanController extends Controller
             'is_active' => 'boolean',
             'sort_order' => 'integer',
             'features' => 'array',
-            'features.*.feature' => 'required|string|max:32',
+            'features.*.feature' => 'required|string|in:'.$this->featureKeys(),
             'features.*.limit_value' => 'nullable|integer|min:1',
         ]);
 
         $plan = Plan::create($data);
-
-        foreach ($data['features'] ?? [] as $f) {
-            $plan->featureLimits()->create($f);
-        }
-
+        $this->persistFeatures($plan, $data['features'] ?? []);
         $plan->load('featureLimits');
 
         return response()->json(['data' => $this->planShape($plan)], 201);
@@ -69,7 +71,7 @@ class PlanController extends Controller
             'is_active' => 'boolean',
             'sort_order' => 'integer',
             'features' => 'array',
-            'features.*.feature' => 'required|string|max:32',
+            'features.*.feature' => 'required|string|in:'.$this->featureKeys(),
             'features.*.limit_value' => 'nullable|integer|min:1',
         ]);
 
@@ -77,9 +79,7 @@ class PlanController extends Controller
 
         if (array_key_exists('features', $data)) {
             $plan->featureLimits()->delete();
-            foreach ($data['features'] as $f) {
-                $plan->featureLimits()->create($f);
-            }
+            $this->persistFeatures($plan, $data['features']);
         }
 
         $plan->load('featureLimits');
@@ -97,6 +97,30 @@ class PlanController extends Controller
         $plan->delete();
 
         return response()->json(status: 204);
+    }
+
+    /** Comma-joined enum values for the `in:` validation rule. */
+    private function featureKeys(): string
+    {
+        return implode(',', array_map(fn (PlanFeature $f) => $f->value, PlanFeature::cases()));
+    }
+
+    /**
+     * Persist a plan's feature rows, keeping the last entry per feature so a
+     * duplicated key in the payload can't trip the (plan_id, feature) unique key.
+     *
+     * @param  array<int, array{feature:string, limit_value?:int|null}>  $features
+     */
+    private function persistFeatures(Plan $plan, array $features): void
+    {
+        $byKey = [];
+        foreach ($features as $f) {
+            $byKey[$f['feature']] = $f['limit_value'] ?? null;
+        }
+
+        foreach ($byKey as $feature => $limit) {
+            $plan->featureLimits()->create(['feature' => $feature, 'limit_value' => $limit]);
+        }
     }
 
     private function planShape(Plan $plan): array

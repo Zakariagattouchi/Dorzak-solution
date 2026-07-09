@@ -37,10 +37,16 @@ final class DefaultPlans
                 'is_default' => true,
                 'is_active' => true,
                 'sort_order' => 0,
-                // Full back-office; public presence is the anonymous view-only menu.
-                // One seat = the owner alone. No online ordering, no branded URL.
+                // Full back-office (POS + CRM) with modest catalogue caps; public
+                // presence is the anonymous view-only menu. One seat = the owner
+                // alone. No online ordering, no branded URL.
                 'features' => [
+                    PlanFeature::POS_ACCESS->value => null,
+                    PlanFeature::CUSTOMER_CRM->value => null,
                     PlanFeature::STAFF_SEATS->value => 1,
+                    PlanFeature::PRODUCTS_LIMIT->value => 50,
+                    PlanFeature::CATEGORIES_LIMIT->value => 10,
+                    PlanFeature::PRODUCT_IMAGES_LIMIT->value => 3,
                 ],
             ],
             [
@@ -56,12 +62,17 @@ final class DefaultPlans
                 'is_active' => true,
                 'sort_order' => 1,
                 'features' => [
+                    PlanFeature::POS_ACCESS->value => null,
                     PlanFeature::ONLINE_ORDERING->value => null,
                     PlanFeature::BRANDED_STOREFRONT->value => null,
                     PlanFeature::DELIVERY_SERVICES->value => null,
+                    PlanFeature::DINE_IN->value => null,
+                    PlanFeature::WHATSAPP_ORDERING->value => null,
+                    PlanFeature::CUSTOMER_CRM->value => null,
                     PlanFeature::ADVANCED_REPORTS->value => null,
                     PlanFeature::STAFF_SEATS->value => 5,
-                    // PRODUCTS_LIMIT absent => unlimited products.
+                    PlanFeature::PRODUCT_IMAGES_LIMIT->value => 8,
+                    // PRODUCTS_LIMIT / CATEGORIES_LIMIT absent => unlimited.
                 ],
             ],
             [
@@ -77,12 +88,16 @@ final class DefaultPlans
                 'is_active' => true,
                 'sort_order' => 2,
                 'features' => [
+                    PlanFeature::POS_ACCESS->value => null,
                     PlanFeature::ONLINE_ORDERING->value => null,
                     PlanFeature::BRANDED_STOREFRONT->value => null,
                     PlanFeature::CUSTOM_DOMAIN->value => null,
                     PlanFeature::DELIVERY_SERVICES->value => null,
+                    PlanFeature::DINE_IN->value => null,
+                    PlanFeature::WHATSAPP_ORDERING->value => null,
+                    PlanFeature::CUSTOMER_CRM->value => null,
                     PlanFeature::ADVANCED_REPORTS->value => null,
-                    // STAFF_SEATS + PRODUCTS_LIMIT absent => unlimited.
+                    // All limits absent => unlimited staff/products/categories/photos.
                 ],
             ],
         ];

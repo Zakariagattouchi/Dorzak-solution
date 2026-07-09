@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\PlanFeature;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Order\StoreOrderRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use App\Services\OrderService;
+use App\Services\PlanGate;
 use App\Support\StoreContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +19,7 @@ class OrderController extends Controller
     public function __construct(
         private readonly OrderService $orders,
         private readonly StoreContext $context,
+        private readonly PlanGate $plans,
     ) {}
 
     /** GET /orders — filters + a summary over the filtered set. */
@@ -46,6 +49,9 @@ class OrderController extends Controller
 
     public function store(StoreOrderRequest $request): JsonResponse
     {
+        // The register (in-person selling) is a plan capability.
+        $this->plans->ensure($this->context->store(), PlanFeature::POS_ACCESS);
+
         $order = $this->orders->create($this->context->store(), $request->validated(), $request->user());
 
         return (new OrderResource($order))->response()->setStatusCode(201);

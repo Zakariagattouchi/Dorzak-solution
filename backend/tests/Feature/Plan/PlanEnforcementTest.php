@@ -2,12 +2,15 @@
 
 namespace Tests\Feature\Plan;
 
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\PlanGate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PlanEnforcementTest extends TestCase
@@ -120,7 +123,9 @@ class PlanEnforcementTest extends TestCase
         // Give the store a plan with a tiny product cap.
         $this->assignPlan($this->store, 'FREE');
         $plan = $this->store->subscription->plan;
-        $plan->featureLimits()->create(['feature' => 'PRODUCTS_LIMIT', 'limit_value' => 1]);
+        // FREE seeds a PRODUCTS_LIMIT; override it down to 1 (updateOrCreate, since
+        // the (plan_id, feature) pair is unique).
+        $plan->featureLimits()->updateOrCreate(['feature' => 'PRODUCTS_LIMIT'], ['limit_value' => 1]);
         app(PlanGate::class)->forget($this->store);
 
         Product::factory()->create(['store_id' => $this->store->id]); // one existing = at the cap
@@ -129,5 +134,86 @@ class PlanEnforcementTest extends TestCase
             ->postJson('/api/v1/products', ['name' => 'Second', 'price' => 5])
             ->assertStatus(402)
             ->assertJsonPath('feature', 'PRODUCTS_LIMIT');
+    }
+
+    public function test_pos_access_is_required_to_ring_up_an_order(): void
+    {
+        $this->assignPlan($this->store, 'PRO');
+        // Strip POS access from this plan.
+        $this->store->subscription->plan->featureLimits()->where('feature', 'POS_ACCESS')->delete();
+        app(PlanGate::class)->forget($this->store);
+
+        $product = Product::factory()->create(['store_id' => $this->store->id, 'price' => 10]);
+
+        $this->actingAsMember($this->owner)
+            ->postJson('/api/v1/orders', [
+                'items' => [['product_id' => $product->id, 'quantity' => 1]],
+                'payment_method' => 'CASH',
+            ])
+            ->assertStatus(402)
+            ->assertJsonPath('feature', 'POS_ACCESS');
+    }
+
+    public function test_pos_orders_succeed_when_the_plan_grants_pos_access(): void
+    {
+        $this->assignPlan($this->store, 'FREE'); // FREE includes POS_ACCESS
+
+        $product = Product::factory()->create(['store_id' => $this->store->id, 'price' => 10]);
+
+        $this->actingAsMember($this->owner)
+            ->postJson('/api/v1/orders', [
+                'items' => [['product_id' => $product->id, 'quantity' => 1]],
+                'payment_method' => 'CASH',
+            ])
+            ->assertCreated();
+    }
+
+    public function test_category_limit_is_enforced_at_the_cap(): void
+    {
+        $this->assignPlan($this->store, 'FREE');
+        $this->store->subscription->plan->featureLimits()->updateOrCreate(['feature' => 'CATEGORIES_LIMIT'], ['limit_value' => 1]);
+        app(PlanGate::class)->forget($this->store);
+
+        Category::factory()->create(['store_id' => $this->store->id]); // at the cap
+
+        $this->actingAsMember($this->owner)
+            ->postJson('/api/v1/categories', ['name' => 'Second'])
+            ->assertStatus(402)
+            ->assertJsonPath('feature', 'CATEGORIES_LIMIT');
+    }
+
+    public function test_product_photo_limit_is_enforced(): void
+    {
+        Storage::fake('public');
+        $this->assignPlan($this->store, 'FREE');
+        $this->store->subscription->plan->featureLimits()->updateOrCreate(['feature' => 'PRODUCT_IMAGES_LIMIT'], ['limit_value' => 1]);
+        app(PlanGate::class)->forget($this->store);
+
+        $product = Product::factory()->create(['store_id' => $this->store->id, 'additional_images' => ['stores/x/a.webp']]);
+
+        $this->actingAsMember($this->owner)
+            ->postJson("/api/v1/products/{$product->id}/additional-images", [
+                'file' => UploadedFile::fake()->image('extra.jpg'),
+            ])
+            ->assertStatus(402)
+            ->assertJsonPath('feature', 'PRODUCT_IMAGES_LIMIT');
+    }
+
+    public function test_plan_feature_catalog_lists_every_capability(): void
+    {
+        $admin = User::factory()->create(['is_platform_admin' => true]);
+
+        $response = $this->actingAsMember($admin)
+            ->getJson('/api/v1/platform/plan-features')
+            ->assertOk();
+
+        $keys = collect($response->json('data'))->pluck('key');
+        $this->assertContains('POS_ACCESS', $keys->all());
+        $this->assertContains('PRODUCT_IMAGES_LIMIT', $keys->all());
+        $this->assertContains('STAFF_SEATS', $keys->all());
+        // Descriptors carry kind + enforced so the editor can render honestly.
+        $pos = collect($response->json('data'))->firstWhere('key', 'POS_ACCESS');
+        $this->assertSame('toggle', $pos['kind']);
+        $this->assertTrue($pos['enforced']);
     }
 }

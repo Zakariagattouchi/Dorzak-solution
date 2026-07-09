@@ -142,6 +142,7 @@ Route::prefix('v1/platform')->middleware(['auth:sanctum', 'platform.admin'])->gr
     Route::get('audit-logs', [PlatformAuditLogController::class, 'index']);
 
     // Plans: CRUD + feature composition.
+    Route::get('plan-features', [PlatformPlanController::class, 'catalog']);
     Route::get('plans', [PlatformPlanController::class, 'index']);
     Route::post('plans', [PlatformPlanController::class, 'store']);
     Route::get('plans/{plan}', [PlatformPlanController::class, 'show']);

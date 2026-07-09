@@ -2,15 +2,24 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\PlanFeature;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Catalog\UploadProductImageRequest;
 use App\Models\Product;
+use App\Services\PlanGate;
 use App\Support\MediaUrl;
+use App\Support\StoreContext;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class ProductImageController extends Controller
 {
+    public function __construct(
+        private readonly PlanGate $plans,
+        private readonly StoreContext $context,
+    ) {}
+
     public function store(UploadProductImageRequest $request, int $product): JsonResponse
     {
         $product = Product::findOrFail($product);
@@ -31,9 +40,9 @@ class ProductImageController extends Controller
     {
         $product = Product::findOrFail($product);
         $images = $product->additional_images ?? [];
-        if (count($images) >= 3) {
-            return response()->json(['message' => 'Maximum 3 additional images allowed'], 422);
-        }
+
+        // Extra photos per product are capped by the plan (null = unlimited).
+        $this->plans->ensureWithinLimit($this->context->store(), PlanFeature::PRODUCT_IMAGES_LIMIT, count($images));
 
         $path = $request->file('file')->store("stores/{$product->store_id}/products", 'public');
         $images[] = $path;
@@ -44,12 +53,12 @@ class ProductImageController extends Controller
                 'path' => $path,
                 'url' => MediaUrl::public($path),
                 'additional_images' => $images,
-                'additional_image_urls' => array_map(fn ($p) => MediaUrl::public($p), $images)
+                'additional_image_urls' => array_map(fn ($p) => MediaUrl::public($p), $images),
             ],
         ]);
     }
 
-    public function destroyAdditional(\Illuminate\Http\Request $request, int $product): JsonResponse
+    public function destroyAdditional(Request $request, int $product): JsonResponse
     {
         $product = Product::findOrFail($product);
         $images = $product->additional_images ?? [];
@@ -67,7 +76,7 @@ class ProductImageController extends Controller
         return response()->json([
             'data' => [
                 'additional_images' => $images,
-                'additional_image_urls' => array_map(fn ($p) => MediaUrl::public($p), $images)
+                'additional_image_urls' => array_map(fn ($p) => MediaUrl::public($p), $images),
             ],
         ]);
     }

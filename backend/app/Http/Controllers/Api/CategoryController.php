@@ -2,17 +2,25 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\PlanFeature;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Catalog\ReorderCategoriesRequest;
 use App\Http\Requests\Catalog\StoreCategoryRequest;
 use App\Http\Requests\Catalog\UpdateCategoryRequest;
 use App\Http\Resources\CategoryResource;
 use App\Models\Category;
+use App\Services\PlanGate;
+use App\Support\StoreContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class CategoryController extends Controller
 {
+    public function __construct(
+        private readonly PlanGate $plans,
+        private readonly StoreContext $context,
+    ) {}
+
     /** GET /categories — any member. */
     public function index(): AnonymousResourceCollection
     {
@@ -26,6 +34,13 @@ class CategoryController extends Controller
 
     public function store(StoreCategoryRequest $request): JsonResponse
     {
+        // Block the create that would take the store past its plan's category cap.
+        $this->plans->ensureWithinLimit(
+            $this->context->store(),
+            PlanFeature::CATEGORIES_LIMIT,
+            Category::query()->count(),
+        );
+
         $category = Category::create($request->validated());
 
         return (new CategoryResource($category))->response()->setStatusCode(201);
