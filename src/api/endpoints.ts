@@ -107,6 +107,8 @@ export const subscriptionApi = {
 const PLATFORM_BASE = (import.meta as any).env?.VITE_API_URL || '/api/v1';
 
 export const platformApi = {
+  overview: () => request('/platform/overview', { base: PLATFORM_BASE }),
+  auditLogs: (params?: Record<string, string>) => request('/platform/audit-logs', { base: PLATFORM_BASE, params }),
   plans: {
     list: () => request('/platform/plans', { base: PLATFORM_BASE }),
     create: (payload: Record<string, unknown>) => request('/platform/plans', { base: PLATFORM_BASE, method: 'POST', body: payload }),
@@ -115,9 +117,19 @@ export const platformApi = {
   },
   stores: {
     list: (params?: Record<string, string>) => request('/platform/stores', { base: PLATFORM_BASE, params }),
+    show: (id: number) => request(`/platform/stores/${id}`, { base: PLATFORM_BASE }),
     suspend: (id: number) => request(`/platform/stores/${id}/suspend`, { base: PLATFORM_BASE, method: 'PUT' }),
     reactivate: (id: number) => request(`/platform/stores/${id}/reactivate`, { base: PLATFORM_BASE, method: 'PUT' }),
     assignPlan: (id: number, planId: number) => request(`/platform/stores/${id}/plan`, { base: PLATFORM_BASE, method: 'PUT', body: { plan_id: planId } }),
+    impersonate: (id: number) => request(`/platform/stores/${id}/impersonate`, { base: PLATFORM_BASE, method: 'POST' }),
+    destroy: (id: number, confirmName: string) => request(`/platform/stores/${id}`, { base: PLATFORM_BASE, method: 'DELETE', body: { confirm_name: confirmName } }),
+  },
+  users: {
+    list: (params?: Record<string, string>) => request('/platform/users', { base: PLATFORM_BASE, params }),
+    grantAdmin: (id: number) => request(`/platform/users/${id}/grant-admin`, { base: PLATFORM_BASE, method: 'PUT' }),
+    revokeAdmin: (id: number) => request(`/platform/users/${id}/revoke-admin`, { base: PLATFORM_BASE, method: 'PUT' }),
+    setActive: (id: number, isActive: boolean) => request(`/platform/users/${id}/active`, { base: PLATFORM_BASE, method: 'PUT', body: { is_active: isActive } }),
+    resetPassword: (id: number) => request(`/platform/users/${id}/reset-password`, { base: PLATFORM_BASE, method: 'POST' }),
   },
 };
 

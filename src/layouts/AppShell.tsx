@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { Sidebar } from '../components/navigation/Sidebar';
 import { Topbar } from '../components/navigation/Topbar';
+import { ImpersonationBanner } from '../components/navigation/ImpersonationBanner';
 import { ModalHost } from '../components/modals/ModalHost';
 import { ToastHost } from '../components/feedback/ToastHost';
 import { useAuthStore } from '../stores/authStore';
@@ -57,6 +58,7 @@ export const AppShell: React.FC = () => {
         <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setIsMenuOpen(false)} />
       )}
       <div className="app-main">
+        <ImpersonationBanner />
         <Topbar onOpenMenu={() => setIsMenuOpen(true)} />
         <main className="app-content">
           <Outlet />
