@@ -73,8 +73,12 @@ class SettingsController extends Controller
     public function updateStorefront(UpdateStorefrontRequest $request): SettingsResource
     {
         // A branded slug (the basis of the subdomain storefront) is a paid feature.
-        // Free stores may still edit menu appearance — only claiming a slug is gated.
-        if ($request->filled('store_slug')) {
+        // Free stores may still edit menu appearance — only CLAIMING OR CHANGING a
+        // slug is gated. Resubmitting the slug already on file (the form always
+        // sends the whole payload) must not block unrelated edits.
+        $currentSlug = $this->store()->storefrontSetting?->slug;
+
+        if ($request->filled('store_slug') && $request->string('store_slug')->toString() !== $currentSlug) {
             $this->plans->ensure($this->store(), PlanFeature::BRANDED_STOREFRONT);
         }
 

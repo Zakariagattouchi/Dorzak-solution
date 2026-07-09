@@ -7,7 +7,7 @@ import { SelectInput } from '../../components/forms/SelectInput';
 import { AppButton } from '../../components/buttons/AppButton';
 import { useNavigate } from 'react-router-dom';
 import { AppIcon } from '../../components/icons/AppIcon';
-import { settingsApi } from '../../api/endpoints';
+import { settingsApi, subscriptionApi } from '../../api/endpoints';
 
 export const StorefrontPage: React.FC = () => {
   const { accountInfo, updateSettings, toggleOnlineStore, fetchSettings } = useSettingsStore();
@@ -47,6 +47,15 @@ export const StorefrontPage: React.FC = () => {
   const [showOutOfStock, setShowOutOfStock] = useState(true);
 
   const [loading, setLoading] = useState(false);
+  const [onFreePlan, setOnFreePlan] = useState(false);
+
+  // A branded storefront is a paid feature — surface that up front instead of
+  // letting the save fail with a plan error.
+  useEffect(() => {
+    (subscriptionApi.get() as Promise<any>)
+      .then((res) => setOnFreePlan(!!res?.data?.plan_is_default))
+      .catch(() => { /* banner is best-effort */ });
+  }, []);
 
   // Sync state from store when accountInfo loaded
   useEffect(() => {
@@ -156,8 +165,13 @@ export const StorefrontPage: React.FC = () => {
       setLogoFile(null);
 
       addToast('Online storefront customization saved!', 'success');
-    } catch (err) {
-      addToast('Failed to save storefront options', 'danger');
+    } catch (err: any) {
+      if (err?.code === 'PLAN_UPGRADE_REQUIRED') {
+        addToast('A branded storefront is a paid feature — start a free trial or upgrade to claim your store link', 'info');
+        navigate('/billing');
+      } else {
+        addToast(err?.message ?? 'Failed to save storefront options', 'danger');
+      }
     } finally {
       setLoading(false);
     }
@@ -174,6 +188,19 @@ export const StorefrontPage: React.FC = () => {
           <AppIcon name="eye" size={16} /> Live Catalog Preview
         </AppButton>
       </div>
+
+      {onFreePlan && (
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', borderLeft: '4px solid var(--dorzak-primary)' }}>
+          <AppIcon name="sparkles" size={20} color="var(--dorzak-primary)" />
+          <div style={{ flex: 1, minWidth: '220px' }}>
+            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Your branded storefront is a paid feature</div>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              On the Free plan customers see your view-only menu link. Claim your own store link, online ordering and delivery with a free trial.
+            </span>
+          </div>
+          <AppButton variant="primary" onClick={() => navigate('/billing')}>View plans</AppButton>
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid var(--color-border)', overflowX: 'auto' }}>

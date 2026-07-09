@@ -69,6 +69,29 @@ class PlanEnforcementTest extends TestCase
             ->assertJsonPath('data.storefront.accent_color', '#112233');
     }
 
+    public function test_resubmitting_the_stored_slug_does_not_gate_unrelated_edits(): void
+    {
+        // The storefront form always sends the whole payload. A store that got a
+        // slug while paid (or trialing) and later dropped to FREE must still be
+        // able to save appearance edits when the unchanged slug rides along.
+        $this->store->storefrontSetting->update(['slug' => 'my-shop']);
+        $this->assignPlan($this->store, 'FREE');
+
+        $this->actingAsMember($this->owner)
+            ->putJson('/api/v1/settings/storefront', $this->storefrontPayload([
+                'store_slug' => 'my-shop',
+                'accent_color' => '#445566',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.storefront.accent_color', '#445566');
+
+        // Changing it to a NEW slug is still a paid action.
+        $this->actingAsMember($this->owner)
+            ->putJson('/api/v1/settings/storefront', $this->storefrontPayload(['store_slug' => 'other-shop']))
+            ->assertStatus(402)
+            ->assertJsonPath('code', 'PLAN_UPGRADE_REQUIRED');
+    }
+
     public function test_free_store_blocks_the_second_staff_seat(): void
     {
         $this->assignPlan($this->store, 'FREE'); // STAFF_SEATS = 1 (owner only)
