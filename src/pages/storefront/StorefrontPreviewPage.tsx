@@ -34,6 +34,13 @@ const labels = {
     proof: 'Payment Receipt (optional)', place: 'Place Order', confirmation: 'Order confirmed',
     location: 'Delivery Location', options: 'Choose options', continue: 'Add selected item',
     empty: 'Your bag is empty', back: 'Continue shopping', customerInfo: 'Your information', customerInfoHelp: 'Enter your phone number to auto-fill your details.',
+    subtotal: 'Subtotal', deliveryFeeLabel: 'Delivery', deliveryFree: 'FREE',
+    deliveryQuoteIdle: 'Drop your pin to see the delivery fee.',
+    deliveryQuoteLoading: 'Calculating delivery fee…',
+    deliveryPending: 'The store will confirm your delivery fee on WhatsApp after you order.',
+    deliveryUnavailable: "Sorry, we can't deliver to this location.",
+    deliveryTbd: 'To be confirmed',
+    deliveryPendingConfirm: 'The delivery fee will be added once the store confirms it — track your order below.',
   },
   ar: {
     catalog: 'الكتالوج الإلكتروني', bag: 'السلة', add: 'أضف إلى السلة', checkout: 'إتمام الطلب',
@@ -50,6 +57,13 @@ const labels = {
     proof: 'إيصال الدفع (اختياري)', place: 'تأكيد الطلب', confirmation: 'تم تأكيد الطلب',
     location: 'موقع التوصيل', options: 'اختر المواصفات', continue: 'إضافة المنتج المحدد',
     empty: 'السلة فارغة', back: 'متابعة التسوق', customerInfo: 'معلوماتك', customerInfoHelp: 'أدخل رقم هاتفك لملء بياناتك تلقائياً.',
+    subtotal: 'المجموع الفرعي', deliveryFeeLabel: 'التوصيل', deliveryFree: 'مجاني',
+    deliveryQuoteIdle: 'حدد موقعك على الخريطة لعرض رسوم التوصيل.',
+    deliveryQuoteLoading: 'جاري حساب رسوم التوصيل…',
+    deliveryPending: 'سيؤكد المتجر رسوم التوصيل عبر واتساب بعد إرسال طلبك.',
+    deliveryUnavailable: 'عذراً، لا يمكننا التوصيل إلى هذا الموقع.',
+    deliveryTbd: 'تُحدد لاحقاً',
+    deliveryPendingConfirm: 'ستضاف رسوم التوصيل بعد تأكيد المتجر — تتبع طلبك أدناه.',
   },
 };
 
@@ -105,6 +119,8 @@ export const StorefrontPreviewPage: React.FC = () => {
   const [fulfillment, setFulfillment] = useState<FulfillmentMode>('delivery');
   const [tableNumber, setTableNumber] = useState<number | undefined>(undefined);
   const [paymentMethod, setPaymentMethod] = useState<PublicPaymentMethod>('FAWRAN');
+  // Live delivery quote for the dropped pin. 'pending' = WhatsApp manual-quote flow.
+  const [quote, setQuote] = useState<{ status: 'idle' | 'loading' | 'quoted' | 'pending' | 'unavailable'; fee?: number; providerName?: string | null; waived?: boolean }>({ status: 'idle' });
   const [reference, setReference] = useState('');
   const [proof, setProof] = useState<File | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -294,6 +310,38 @@ export const StorefrontPreviewPage: React.FC = () => {
   };
 
   const total = bag.reduce((sum, line) => sum + (line.variant?.price ?? line.product.price) * line.quantity, 0);
+
+  // Price the delivery whenever the pin or the bag changes (debounced). The
+  // server re-quotes at placement — this preview is informational only.
+  useEffect(() => {
+    const effectiveSlug = slug || localSettings.storeSlug;
+    if (fulfillment !== 'delivery' || customer.latitude == null || customer.longitude == null || !effectiveSlug) {
+      setQuote({ status: 'idle' });
+      return;
+    }
+    setQuote((current) => ({ ...current, status: 'loading' }));
+    const timer = setTimeout(async () => {
+      try {
+        const res: any = await publicApi.deliveryQuote(effectiveSlug, {
+          lat: String(customer.latitude), lng: String(customer.longitude), subtotal: String(total),
+        });
+        const d = res.data;
+        if (!d.available) setQuote({ status: 'unavailable' });
+        else if (d.mode === 'whatsapp_pending') setQuote({ status: 'pending' });
+        else setQuote({ status: 'quoted', fee: Number(d.fee ?? 0), providerName: d.provider_name, waived: !!d.waived });
+      } catch {
+        setQuote({ status: 'unavailable' });
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [slug, localSettings.storeSlug, fulfillment, customer.latitude, customer.longitude, total]);
+
+  // A pending fee can't be paid by transfer — the total is unknown until quoted.
+  useEffect(() => {
+    if (fulfillment === 'delivery' && quote.status === 'pending' && paymentMethod === 'FAWRAN') {
+      setPaymentMethod('WHATSAPP');
+    }
+  }, [fulfillment, quote.status, paymentMethod]);
   const itemCount = bag.reduce((sum, line) => sum + line.quantity, 0);
   const tableCount = Math.max(0, Number(store?.dine_in_table_count ?? 0));
   const tableLockedFromQr = Number(searchParams.get('table')) > 0;
@@ -301,8 +349,11 @@ export const StorefrontPreviewPage: React.FC = () => {
   const canSubmit = !!bag.length
     && !!customer.name
     && !!customer.phone
-    && (fulfillment !== 'delivery' || (customer.latitude != null && customer.longitude != null && !!customer.address))
+    && (fulfillment !== 'delivery' || (customer.latitude != null && customer.longitude != null && !!customer.address
+      && (quote.status === 'quoted' || quote.status === 'pending')))
     && tableValid;
+
+  const displayTotal = fulfillment === 'delivery' && quote.status === 'quoted' ? total + (quote.fee ?? 0) : total;
 
   const chooseFulfillment = (mode: FulfillmentMode) => {
     setFulfillment(mode);
@@ -540,14 +591,34 @@ export const StorefrontPreviewPage: React.FC = () => {
                 {store.allow_dine_in && <button className={fulfillment === 'dine_in' ? 'selected' : ''} onClick={() => chooseFulfillment('dine_in')}><AppIcon name="dineIn" />{t.dineIn}</button>}
               </div>
             </section>
-            {fulfillment === 'delivery' && <section className="checkout-step location-first"><div className="checkout-step-title"><span>3</span><div><h3>{t.where}</h3><p>{t.pinHelp}</p></div></div><LocationPicker latitude={customer.latitude} longitude={customer.longitude} onChange={(latitude, longitude) => setCustomer((current) => ({ ...current, latitude, longitude }))} onAddressResolved={(address, city) => setCustomer((current) => ({ ...current, address, city: city ?? current.city }))} /><TextInput label={t.addressFound} value={customer.address} onChange={(event) => setCustomer({ ...customer, address: event.target.value })} /><TextInput label={t.addressDetails} value={customer.addressDetails} onChange={(event) => setCustomer({ ...customer, addressDetails: event.target.value })} /></section>}
+            {fulfillment === 'delivery' && <section className="checkout-step location-first"><div className="checkout-step-title"><span>3</span><div><h3>{t.where}</h3><p>{t.pinHelp}</p></div></div><LocationPicker latitude={customer.latitude} longitude={customer.longitude} onChange={(latitude, longitude) => setCustomer((current) => ({ ...current, latitude, longitude }))} onAddressResolved={(address, city) => setCustomer((current) => ({ ...current, address, city: city ?? current.city }))} />
+              <div className="delivery-quote-strip" style={{
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '10px', fontSize: '0.88rem', fontWeight: 600,
+                background: quote.status === 'unavailable' ? '#fee2e2' : quote.status === 'pending' ? '#fef3c7' : '#f1f5f9',
+                color: quote.status === 'unavailable' ? '#b91c1c' : quote.status === 'pending' ? '#92400e' : '#334155',
+              }}>
+                {quote.status === 'idle' && <>{t.deliveryQuoteIdle}</>}
+                {quote.status === 'loading' && <>{t.deliveryQuoteLoading}</>}
+                {quote.status === 'quoted' && (
+                  <>
+                    <AppIcon name="delivery" size={16} />
+                    <span style={{ flex: 1 }}>{t.deliveryFeeLabel}{quote.providerName ? ` · ${quote.providerName}` : ''}</span>
+                    {quote.waived || (quote.fee ?? 0) === 0
+                      ? <strong style={{ color: '#15803d' }}>{t.deliveryFree}</strong>
+                      : <strong>{money(quote.fee ?? 0)}</strong>}
+                  </>
+                )}
+                {quote.status === 'pending' && <><AppIcon name="whatsapp" size={16} />{t.deliveryPending}</>}
+                {quote.status === 'unavailable' && <><AppIcon name="alert" size={16} />{t.deliveryUnavailable}</>}
+              </div>
+            <TextInput label={t.addressFound} value={customer.address} onChange={(event) => setCustomer({ ...customer, address: event.target.value })} /><TextInput label={t.addressDetails} value={customer.addressDetails} onChange={(event) => setCustomer({ ...customer, addressDetails: event.target.value })} /></section>}
             {fulfillment === 'dine_in' && <section className="checkout-step dine-in-table-step">
               <div className="checkout-step-title"><span>3</span><div><h3>{t.table}</h3><p>{tableLockedFromQr ? t.tableLocked : t.tableHelp}</p></div></div>
               {tableLockedFromQr
                 ? <div className="locked-table-card"><AppIcon name="table" size={22} /><div><span>{t.tableNumber}</span><strong>{tableNumber}</strong></div></div>
                 : <label className="table-select-field"><span>{t.chooseTable}</span><select value={tableNumber ?? ''} onChange={(event) => setTableNumber(event.target.value ? Number(event.target.value) : undefined)}>{!tableNumber && <option value="">{t.chooseTable}</option>}{Array.from({ length: tableCount }, (_, index) => index + 1).map((number) => <option value={number} key={number}>{t.table} {number}</option>)}</select></label>}
             </section>}
-            <section className="checkout-step"><div className="checkout-step-title"><span>{fulfillment === 'delivery' || fulfillment === 'dine_in' ? '4' : '3'}</span><div><h3>{t.payment}</h3><p>{paymentMethod === 'CASH' ? t.cashAtTableHelp : t.paymentHelp}</p></div></div><div className="choice-row checkout-choice">{fulfillment === 'dine_in' && <button className={paymentMethod === 'CASH' ? 'selected' : ''} onClick={() => setPaymentMethod('CASH')}><AppIcon name="cash" />{t.cashAtTable}</button>}{store.fawran_enabled && <button className={paymentMethod === 'FAWRAN' ? 'selected' : ''} onClick={() => setPaymentMethod('FAWRAN')}><AppIcon name="transfer" />{t.fawran}</button>}</div>{paymentMethod === 'FAWRAN' && (
+            <section className="checkout-step"><div className="checkout-step-title"><span>{fulfillment === 'delivery' || fulfillment === 'dine_in' ? '4' : '3'}</span><div><h3>{t.payment}</h3><p>{paymentMethod === 'CASH' ? t.cashAtTableHelp : t.paymentHelp}</p></div></div><div className="choice-row checkout-choice">{fulfillment === 'dine_in' && <button className={paymentMethod === 'CASH' ? 'selected' : ''} onClick={() => setPaymentMethod('CASH')}><AppIcon name="cash" />{t.cashAtTable}</button>}{store.fawran_enabled && !(fulfillment === 'delivery' && quote.status === 'pending') && <button className={paymentMethod === 'FAWRAN' ? 'selected' : ''} onClick={() => setPaymentMethod('FAWRAN')}><AppIcon name="transfer" />{t.fawran}</button>}</div>{fulfillment === 'delivery' && quote.status === 'pending' && <p style={{ fontSize: '0.82rem', color: '#92400e', margin: '8px 0 0' }}>{t.deliveryPending}</p>}{paymentMethod === 'FAWRAN' && (
                       <div className="fawran-panel">
                         <div className="fawran-header">
                           <img className="fawran-logo-img" src="/fawran-logo.png" alt="Fawran" />
@@ -572,11 +643,26 @@ export const StorefrontPreviewPage: React.FC = () => {
                         <label className="file-picker">{t.proof}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setProof(event.target.files?.[0] ?? null)} /></label>
                       </div>
                     )}</section>
-            <div className="checkout-final-action"><div><span>{t.total}</span><strong>{money(total)}</strong></div><AppButton variant="primary" loading={submitting} disabled={!canSubmit} onClick={submitOrder}>{t.place}</AppButton></div>
+            <div className="checkout-final-action">
+              <div>
+                {fulfillment === 'delivery' && quote.status !== 'idle' && (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', marginBottom: '2px' }}>
+                    <div>{t.subtotal}: {money(total)}</div>
+                    <div>
+                      {t.deliveryFeeLabel}: {quote.status === 'quoted'
+                        ? ((quote.fee ?? 0) === 0 ? t.deliveryFree : money(quote.fee ?? 0))
+                        : t.deliveryTbd}
+                    </div>
+                  </div>
+                )}
+                <span>{t.total}</span><strong>{money(displayTotal)}</strong>
+              </div>
+              <AppButton variant="primary" loading={submitting} disabled={!canSubmit} onClick={submitOrder}>{t.place}</AppButton>
+            </div>
           </div>
         </section>}
 
-        {confirmation && <section className="order-confirmation"><div className="success-mark"><AppIcon name="check" size={34} /></div><h2>{t.confirmation}</h2><p>{confirmation.order_number}</p>{confirmation.table_number && <p>{t.table} {confirmation.table_number}</p>}<strong>{money(Number(confirmation.total))}</strong><StatusText value={confirmation.payment_status} /><p className="confirmation-help">{t.shareThenTrack}</p>{confirmation.whatsapp_url && <a className="whatsapp-share-button" href={confirmation.whatsapp_url} target="_blank" rel="noopener noreferrer"><AppIcon name="whatsapp" size={18} />{t.shareOrder}</a>}<AppButton variant="primary" onClick={() => {
+        {confirmation && <section className="order-confirmation"><div className="success-mark"><AppIcon name="check" size={34} /></div><h2>{t.confirmation}</h2><p>{confirmation.order_number}</p>{confirmation.table_number && <p>{t.table} {confirmation.table_number}</p>}<strong>{money(Number(confirmation.total))}</strong>{confirmation.delivery_fee_status === 'PENDING' && <p style={{ color: '#92400e', fontSize: '0.85rem' }}>{t.deliveryPendingConfirm}</p>}<StatusText value={confirmation.payment_status} /><p className="confirmation-help">{t.shareThenTrack}</p>{confirmation.whatsapp_url && <a className="whatsapp-share-button" href={confirmation.whatsapp_url} target="_blank" rel="noopener noreferrer"><AppIcon name="whatsapp" size={18} />{t.shareOrder}</a>}<AppButton variant="primary" onClick={() => {
               const effectiveSlug = slug || localSettings.storeSlug;
               if (effectiveSlug && confirmation.order_number) {
                 navigate(`/store/${effectiveSlug}/orders/${confirmation.order_number}`);

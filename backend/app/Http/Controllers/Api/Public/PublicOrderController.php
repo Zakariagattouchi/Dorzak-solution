@@ -30,6 +30,8 @@ class PublicOrderController extends Controller
                 'table_number' => $order->table_number,
                 'subtotal' => $order->subtotal,
                 'delivery_fee' => $order->delivery_fee,
+                'delivery_fee_status' => $order->delivery_fee_status,
+                'delivery_provider_name' => $order->delivery_provider_name,
                 'tax_amount' => $order->tax_amount,
                 'total' => $order->total,
                 'whatsapp_url' => $result['whatsapp_url'],

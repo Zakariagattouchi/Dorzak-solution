@@ -29,6 +29,7 @@ class PublicOrderService
         private readonly OrderService $orders,
         private readonly WhatsAppMessageBuilder $whatsapp,
         private readonly StoreContext $context,
+        private readonly DeliveryQuoteService $quotes,
     ) {}
 
     /**
@@ -63,9 +64,9 @@ class PublicOrderService
             ]);
         }
 
-        $deliveryFee = $this->deliveryFee($sf, $fulfillment, $subtotal);
+        $delivery = $this->resolveDelivery($store, $data, $fulfillment, $subtotal);
 
-        return DB::transaction(function () use ($store, $data, $fulfillment, $deliveryFee): array {
+        return DB::transaction(function () use ($store, $data, $fulfillment, $delivery): array {
             $customer = $this->upsertCustomer($store, $data['customer']);
 
             $order = $this->orders->create($store, [
@@ -79,7 +80,11 @@ class PublicOrderService
                 'source' => OrderSource::ONLINE->value,
                 'fulfillment' => $fulfillment,
                 'table_number' => $fulfillment === 'DINE_IN' ? ($data['table_number'] ?? null) : null,
-                'delivery_fee' => $deliveryFee,
+                'delivery_fee' => $delivery['fee'],
+                'delivery_provider_id' => $delivery['provider_id'],
+                'delivery_provider_name' => $delivery['provider_name'],
+                'delivery_distance_km' => $delivery['distance_km'],
+                'delivery_fee_status' => $delivery['status'],
                 'notes' => $data['notes'] ?? null,
                 'delivery_address' => $data['customer']['address'] ?? null,
                 'delivery_address_details' => $data['customer']['address_details'] ?? null,
@@ -152,18 +157,55 @@ class PublicOrderService
         return [round($subtotal, 2), $unavailable];
     }
 
-    private function deliveryFee($sf, string $fulfillment, float $subtotal): float
+    /**
+     * Server-side delivery pricing — the client's numbers are never trusted.
+     *
+     * @return array{fee:float, provider_id:?int, provider_name:?string, distance_km:?float, status:?string}
+     */
+    private function resolveDelivery(Store $store, array $data, string $fulfillment, float $subtotal): array
     {
+        $none = ['fee' => 0.0, 'provider_id' => null, 'provider_name' => null, 'distance_km' => null, 'status' => null];
+
         if ($fulfillment !== 'DELIVERY') {
-            return 0.0;
+            return $none;
         }
 
-        $threshold = $sf->free_delivery_threshold;
-        if ($threshold !== null && $subtotal >= (float) $threshold) {
-            return 0.0;
+        $lat = $data['customer']['latitude'] ?? null;
+        $lng = $data['customer']['longitude'] ?? null;
+
+        if ($lat === null || $lng === null) {
+            throw ValidationException::withMessages([
+                'customer.latitude' => ['Drop a pin so we can price your delivery.'],
+            ]);
         }
 
-        return (float) $sf->delivery_fee;
+        $quote = $this->quotes->quote($store, (float) $lat, (float) $lng, $subtotal);
+
+        if ($quote['mode'] === 'unavailable') {
+            throw new DomainConflictException('DELIVERY_UNAVAILABLE', 'Delivery is not available to this location.', [
+                'reason' => $quote['reason'],
+            ]);
+        }
+
+        if ($quote['mode'] === 'whatsapp_pending') {
+            // Total is unknown until the merchant quotes the trip — can't pay by transfer yet.
+            if (($data['payment_method'] ?? null) === PaymentMethod::FAWRAN->value) {
+                throw ValidationException::withMessages([
+                    'payment_method' => ['The delivery fee must be confirmed before paying by transfer.'],
+                ]);
+            }
+
+            return ['fee' => 0.0, 'provider_id' => null, 'provider_name' => null, 'distance_km' => null, 'status' => 'PENDING'];
+        }
+
+        return [
+            'fee' => (float) $quote['fee'],
+            'provider_id' => $quote['provider_id'],
+            'provider_name' => $quote['provider_name'],
+            'distance_km' => $quote['distance_km'],
+            // 'flat' keeps the legacy null shape; provider quotes are marked QUOTED.
+            'status' => $quote['mode'] === 'quoted' ? 'QUOTED' : null,
+        ];
     }
 
     private function upsertCustomer(Store $store, array $data)

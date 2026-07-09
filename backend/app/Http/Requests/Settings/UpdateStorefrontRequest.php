@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Models\DeliveryProvider;
 use App\Support\StoreContext;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateStorefrontRequest extends SettingsRequest
 {
@@ -58,6 +60,19 @@ class UpdateStorefrontRequest extends SettingsRequest
             'show_store_gradient' => ['sometimes', 'boolean'],
             'navbar_color' => ['sometimes', 'regex:/^#[0-9a-fA-F]{6}$/'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            // Courier quotes need a store origin. Only enforced once distance
+            // providers exist — pure legacy flat-fee stores are unaffected.
+            if ($this->boolean('allow_delivery')
+                && ! app(StoreContext::class)->store()?->hasLocation()
+                && DeliveryProvider::query()->where('is_active', true)->exists()) {
+                $validator->errors()->add('allow_delivery', 'Set your store location in Business settings before enabling delivery.');
+            }
+        });
     }
 
     /** @return array<string, string> */

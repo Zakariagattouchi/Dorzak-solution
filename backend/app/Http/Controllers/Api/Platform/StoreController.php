@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PlatformAuditLog;
 use App\Models\Store;
 use App\Services\PlanGate;
+use App\Support\CatalogCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -89,6 +90,8 @@ class StoreController extends Controller
         $store->subscription()->firstOrCreate([], [])->update(['plan_id' => $data['plan_id']]);
         $store->load('subscription.plan.featureLimits');
         $plans->forget($store);
+        // The public store card caches plan-dependent capability (delivery_mode).
+        CatalogCache::bump($store->storefrontSetting?->slug);
         $this->audit($request, 'store.assign_plan', $store, ['plan_id' => (int) $data['plan_id']]);
 
         return response()->json(['data' => $this->storeShape($store->load('subscription.plan'))]);

@@ -60,6 +60,10 @@ class StorePublicOrderRequest extends FormRequest
             $tableNumber = $this->integer('table_number');
             $tableCount = (int) ($sf?->dine_in_table_count ?? 0);
 
+            if ($fulfillment === 'delivery' && ($this->input('customer.latitude') === null || $this->input('customer.longitude') === null)) {
+                $validator->errors()->add('customer.latitude', 'Drop a pin so we can price your delivery.');
+            }
+
             if ($fulfillment === 'dine_in') {
                 if (! $sf?->allow_dine_in) {
                     $validator->errors()->add('fulfillment', 'Dine-in ordering is not available for this store.');

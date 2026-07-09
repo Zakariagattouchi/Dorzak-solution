@@ -181,9 +181,12 @@ class PublicStorefrontTest extends TestCase
         $cheap = $this->product(['price' => 20, 'taxable' => false]);
         $pricey = $this->product(['price' => 60, 'taxable' => false]);
 
+        // Delivery orders now always carry the customer's pin.
+        $pin = ['latitude' => 25.3, 'longitude' => 51.5];
+
         // Below threshold (50) -> 5 delivery fee.
         $this->postJson('/api/public/stores/dorzak-merchant/orders', [
-            'customer' => ['name' => 'A', 'phone' => '+1 555-1'],
+            'customer' => ['name' => 'A', 'phone' => '+1 555-1', ...$pin],
             'fulfillment' => 'delivery',
             'items' => [['product_id' => $cheap->id, 'quantity' => 1]],
         ])->assertCreated()
@@ -192,7 +195,7 @@ class PublicStorefrontTest extends TestCase
 
         // At/above threshold -> free delivery.
         $this->postJson('/api/public/stores/dorzak-merchant/orders', [
-            'customer' => ['name' => 'B', 'phone' => '+1 555-2'],
+            'customer' => ['name' => 'B', 'phone' => '+1 555-2', ...$pin],
             'fulfillment' => 'delivery',
             'items' => [['product_id' => $pricey->id, 'quantity' => 1]],
         ])->assertCreated()

@@ -23,6 +23,7 @@ class Order extends Model
         'status', 'payment_method', 'payment_status', 'currency_code', 'source', 'fulfillment', 'table_number',
         'delivery_address', 'delivery_address_details', 'delivery_city', 'delivery_latitude', 'delivery_longitude', 'subtotal', 'discount',
         'tax_rate', 'tax_amount', 'delivery_fee', 'total', 'notes',
+        'delivery_provider_id', 'delivery_provider_name', 'delivery_distance_km', 'delivery_fee_status',
         'payment_reference', 'payment_proof_path', 'placed_at', 'completed_at', 'cancelled_at', 'created_by',
     ];
 
@@ -45,6 +46,7 @@ class Order extends Model
             'cancelled_at' => 'datetime',
             'delivery_latitude' => 'decimal:7',
             'delivery_longitude' => 'decimal:7',
+            'delivery_distance_km' => 'decimal:2',
         ];
     }
 

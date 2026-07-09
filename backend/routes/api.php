@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\ProductImageController;
 use App\Http\Controllers\Api\ProductTranslationController;
 use App\Http\Controllers\Api\Public\MenuController;
 use App\Http\Controllers\Api\Public\PublicCustomerLookupController;
+use App\Http\Controllers\Api\Public\PublicDeliveryQuoteController;
 use App\Http\Controllers\Api\Public\PublicOrderController;
 use App\Http\Controllers\Api\Public\PublicOrderShowController;
 use App\Http\Controllers\Api\Public\StorefrontController as PublicStorefrontController;
@@ -199,6 +200,7 @@ Route::prefix('public')->group(function () {
     // Branded slug routes — paid stores with online_store_enabled.
     Route::get('stores/{slug}', [PublicStorefrontController::class, 'show'])->middleware('throttle:60,1');
     Route::get('stores/{slug}/catalog', [PublicStorefrontController::class, 'catalog'])->middleware('throttle:60,1');
+    Route::get('stores/{slug}/delivery-quote', PublicDeliveryQuoteController::class)->middleware('throttle:30,1');
     Route::post('stores/{slug}/orders', PublicOrderController::class)->middleware('throttle:5,1');
     Route::get('stores/{slug}/orders/{orderNumber}', PublicOrderShowController::class)->middleware('throttle:60,1');
     Route::get('stores/{slug}/customers/lookup', PublicCustomerLookupController::class)->middleware('throttle:60,1');

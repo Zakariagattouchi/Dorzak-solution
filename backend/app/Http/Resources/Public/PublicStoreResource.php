@@ -4,6 +4,7 @@ namespace App\Http\Resources\Public;
 
 use App\Enums\Currency;
 use App\Models\Store;
+use App\Services\DeliveryQuoteService;
 use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -22,6 +23,12 @@ class PublicStoreResource extends JsonResource
         $sf = $this->storefrontSetting;
         $currency = Currency::tryFrom((string) $this->currency);
 
+        // How this store can actually deliver: 'quoted' (priced at checkout),
+        // 'whatsapp_pending' (merchant quotes over WhatsApp) or 'none'. NOTE:
+        // this response is cached (CatalogCache, ~60s TTL) — plan/provider
+        // changes may take up to the TTL to reflect here.
+        $deliveryMode = app(DeliveryQuoteService::class)->storeMode($this->resource);
+
         return [
             'business_name' => $this->name,
             'phone' => $this->phone,
@@ -34,7 +41,8 @@ class PublicStoreResource extends JsonResource
             'logo_url' => $this->mediaUrl($sf?->logo_path),
             'accent_color' => $sf?->accent_color,
             'secondary_color' => $sf?->secondary_color,
-            'allow_delivery' => (bool) $sf?->allow_delivery,
+            'allow_delivery' => (bool) $sf?->allow_delivery && $deliveryMode !== 'none',
+            'delivery_mode' => $deliveryMode,
             'allow_pickup' => (bool) $sf?->allow_pickup,
             'allow_dine_in' => (bool) $sf?->allow_dine_in,
             'dine_in_table_count' => (int) ($sf?->dine_in_table_count ?? 0),

@@ -29,8 +29,12 @@ class WhatsAppMessageBuilder
         }
         $lines[] = '';
         $lines[] = "Subtotal: {$symbol}{$order->subtotal}";
-        if ((float) $order->delivery_fee > 0) {
-            $lines[] = "Delivery: {$symbol}{$order->delivery_fee}";
+        if ($order->delivery_fee_status === 'PENDING') {
+            $lines[] = 'Delivery: TO BE QUOTED — please reply with the delivery fee.';
+        } elseif ((float) $order->delivery_fee > 0) {
+            $lines[] = $order->delivery_provider_name
+                ? "Delivery ({$order->delivery_provider_name}, {$order->delivery_distance_km} km): {$symbol}{$order->delivery_fee}"
+                : "Delivery: {$symbol}{$order->delivery_fee}";
         }
         if ((float) $order->tax_amount > 0) {
             $lines[] = "Tax: {$symbol}{$order->tax_amount}";
@@ -39,6 +43,11 @@ class WhatsAppMessageBuilder
         $lines[] = '';
         $lines[] = 'Customer: '.$order->customer_name.' ('.$order->customer_phone.')';
         $lines[] = 'Fulfillment: '.strtolower((string) $order->fulfillment);
+
+        // Delivery pin — lets the merchant open the drop-off in Google Maps.
+        if ((string) $order->fulfillment === 'DELIVERY' && $order->delivery_latitude !== null && $order->delivery_longitude !== null) {
+            $lines[] = "Location: https://maps.google.com/?q={$order->delivery_latitude},{$order->delivery_longitude}";
+        }
 
         return implode("\n", $lines);
     }
