@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\PlanCatalogController;
 use App\Http\Controllers\Api\Platform\AnalyticsController as PlatformAnalyticsController;
 use App\Http\Controllers\Api\Platform\AuditLogController as PlatformAuditLogController;
 use App\Http\Controllers\Api\Platform\DataController as PlatformDataController;
+use App\Http\Controllers\Api\Platform\DeliveryProviderController as PlatformDeliveryProviderController;
 use App\Http\Controllers\Api\Platform\ImpersonationController as PlatformImpersonationController;
 use App\Http\Controllers\Api\Platform\OverviewController as PlatformOverviewController;
 use App\Http\Controllers\Api\Platform\PlanController as PlatformPlanController;
@@ -156,6 +157,12 @@ Route::prefix('v1/platform')->middleware(['auth:sanctum', 'platform.admin'])->gr
     Route::get('products/export', [PlatformDataController::class, 'exportProducts']);
     Route::get('stores/export', [PlatformDataController::class, 'exportStores']);
     Route::get('orders/export', [PlatformDataController::class, 'exportOrders']);
+
+    // Delivery providers: distance-pricing formulas shared by every store.
+    Route::get('delivery-providers', [PlatformDeliveryProviderController::class, 'index']);
+    Route::post('delivery-providers', [PlatformDeliveryProviderController::class, 'store']);
+    Route::put('delivery-providers/{provider}', [PlatformDeliveryProviderController::class, 'update']);
+    Route::delete('delivery-providers/{provider}', [PlatformDeliveryProviderController::class, 'destroy']);
 
     // Plans: CRUD + feature composition.
     Route::get('plan-features', [PlatformPlanController::class, 'catalog']);

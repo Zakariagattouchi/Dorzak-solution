@@ -65,7 +65,7 @@ enum PlanFeature: string
         return match ($this) {
             self::POS_ACCESS => ['label' => 'POS register', 'description' => 'Ring up in-person sales on the Sell screen.', 'group' => 'Selling channels', 'enforced' => true, 'unit' => null],
             self::ONLINE_ORDERING => ['label' => 'Online ordering', 'description' => 'Accept orders from the public storefront.', 'group' => 'Selling channels', 'enforced' => true, 'unit' => null],
-            self::DELIVERY_SERVICES => ['label' => 'Delivery', 'description' => 'Offer delivery as a fulfilment option.', 'group' => 'Selling channels', 'enforced' => false, 'unit' => null],
+            self::DELIVERY_SERVICES => ['label' => 'Delivery', 'description' => 'Access to plan-gated delivery providers (e.g. Dorzak Delivery) at checkout.', 'group' => 'Selling channels', 'enforced' => true, 'unit' => null],
             self::DINE_IN => ['label' => 'Dine-in QR ordering', 'description' => 'Table QR codes for dine-in orders.', 'group' => 'Selling channels', 'enforced' => false, 'unit' => null],
             self::WHATSAPP_ORDERING => ['label' => 'WhatsApp ordering', 'description' => 'Let customers send their cart over WhatsApp.', 'group' => 'Selling channels', 'enforced' => false, 'unit' => null],
             self::BRANDED_STOREFRONT => ['label' => 'Branded storefront', 'description' => 'Your own storefront slug/subdomain instead of the anonymous menu.', 'group' => 'Storefront', 'enforced' => true, 'unit' => null],

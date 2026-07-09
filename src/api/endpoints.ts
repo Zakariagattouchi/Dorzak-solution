@@ -111,6 +111,12 @@ export const platformApi = {
   analytics: () => request('/platform/analytics', { base: PLATFORM_BASE }),
   auditLogs: (params?: Record<string, string>) => request('/platform/audit-logs', { base: PLATFORM_BASE, params }),
   planFeatures: () => request('/platform/plan-features', { base: PLATFORM_BASE }),
+  deliveryProviders: {
+    list: () => request('/platform/delivery-providers', { base: PLATFORM_BASE }),
+    create: (payload: Record<string, unknown>) => request('/platform/delivery-providers', { base: PLATFORM_BASE, method: 'POST', body: payload }),
+    update: (id: number, payload: Record<string, unknown>) => request(`/platform/delivery-providers/${id}`, { base: PLATFORM_BASE, method: 'PUT', body: payload }),
+    destroy: (id: number) => request(`/platform/delivery-providers/${id}`, { base: PLATFORM_BASE, method: 'DELETE' }),
+  },
   plans: {
     list: () => request('/platform/plans', { base: PLATFORM_BASE }),
     create: (payload: Record<string, unknown>) => request('/platform/plans', { base: PLATFORM_BASE, method: 'POST', body: payload }),

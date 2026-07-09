@@ -619,9 +619,143 @@ const ProductsTab: React.FC = () => {
   );
 };
 
+// ─── Delivery providers tab ───────────────────────────────────────────────────
+
+interface Provider {
+  id: number;
+  name: string;
+  base_fee: number;
+  per_km_fee: number;
+  min_fee: number;
+  max_radius_km: number;
+  is_plan_gated: boolean;
+  is_active: boolean;
+  sort_order: number;
+}
+
+const blankProvider: Provider = { id: 0, name: '', base_fee: 0, per_km_fee: 0, min_fee: 0, max_radius_km: 15, is_plan_gated: false, is_active: true, sort_order: 0 };
+
+const ProviderEditor: React.FC<{ provider: Provider; onSaved: () => void; onCancel: () => void }> = ({ provider, onSaved, onCancel }) => {
+  const { addToast } = useToastStore();
+  const isNew = provider.id === 0;
+  const [form, setForm] = useState({ ...provider });
+  const [saving, setSaving] = useState(false);
+
+  const numField = (label: string, key: 'base_fee' | 'per_km_fee' | 'min_fee' | 'max_radius_km') => (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
+      {label}
+      <input type="number" step="0.01" min="0" value={form[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: Number(e.target.value) }))} style={inputStyle} />
+    </label>
+  );
+
+  const save = async () => {
+    setSaving(true);
+    const payload = {
+      name: form.name, base_fee: form.base_fee, per_km_fee: form.per_km_fee, min_fee: form.min_fee,
+      max_radius_km: form.max_radius_km, is_plan_gated: form.is_plan_gated, is_active: form.is_active, sort_order: form.sort_order,
+    };
+    try {
+      if (isNew) await platformApi.deliveryProviders.create(payload);
+      else await platformApi.deliveryProviders.update(provider.id, payload);
+      addToast(isNew ? 'Provider created' : `${form.name} updated`, 'success');
+      onSaved();
+    } catch (e: any) {
+      const errs = e?.errors ? Object.values(e.errors).flat().join(' ') : null;
+      addToast(errs ?? e?.message ?? 'Save failed', 'danger');
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <h3 style={{ margin: 0 }}>{isNew ? 'New delivery provider' : `Edit ${provider.name}`}</h3>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
+        Name
+        <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Dorzak Delivery" style={inputStyle} />
+      </label>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+        {numField('Base fee', 'base_fee')}
+        {numField('Price per km', 'per_km_fee')}
+        {numField('Minimum fee', 'min_fee')}
+        {numField('Max radius (km)', 'max_radius_km')}
+      </div>
+      <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', fontSize: '0.85rem' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <input type="checkbox" checked={form.is_plan_gated} onChange={(e) => setForm((f) => ({ ...f, is_plan_gated: e.target.checked }))} />
+          Plan-gated (requires the Delivery feature — e.g. Dorzak Delivery)
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <input type="checkbox" checked={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} />
+          Active
+        </label>
+      </div>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <AppButton variant="primary" loading={saving} onClick={save}>{isNew ? 'Create provider' : 'Save changes'}</AppButton>
+        <AppButton variant="tertiary" onClick={onCancel}>Cancel</AppButton>
+      </div>
+    </div>
+  );
+};
+
+const ProvidersTab: React.FC = () => {
+  const { addToast } = useToastStore();
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<Provider | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { const res = (await platformApi.deliveryProviders.list()) as any; setProviders(res.data ?? []); }
+    catch { addToast('Failed to load providers', 'danger'); }
+    finally { setLoading(false); }
+  }, [addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const remove = async (p: Provider) => {
+    if (!confirm(`Delete ${p.name}? Existing orders keep the name on record.`)) return;
+    try { await platformApi.deliveryProviders.destroy(p.id); addToast('Provider deleted', 'success'); load(); }
+    catch (e: any) { addToast(e?.message ?? 'Delete failed', 'danger'); }
+  };
+
+  if (loading) return <Loading />;
+  if (editing) return <ProviderEditor provider={editing} onSaved={() => { setEditing(null); load(); }} onCancel={() => setEditing(null)} />;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div className="card" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+        Delivery fee = max(minimum, base + per-km × distance), within the radius. Fees are in the store's currency (QAR).
+        Creating the first provider switches all stores from their flat delivery fee to calculated quotes.
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <AppButton variant="primary" onClick={() => setEditing({ ...blankProvider })}>
+          <AppIcon name="plus" size={14} /> New provider
+        </AppButton>
+      </div>
+      {providers.length === 0 ? (
+        <div style={{ color: 'var(--text-muted)', padding: '24px', textAlign: 'center' }}>No providers yet — stores use their own flat delivery fee.</div>
+      ) : providers.map((p) => (
+        <div key={p.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: '160px' }}>
+            <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {p.name}
+              {p.is_plan_gated && <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#fff', background: 'var(--dorzak-primary)', padding: '1px 6px', borderRadius: '10px' }}>PLAN PERK</span>}
+              {!p.is_active && <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--dorzak-warning)' }}>INACTIVE</span>}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              base {p.base_fee} + {p.per_km_fee}/km · min {p.min_fee} · up to {p.max_radius_km} km
+            </div>
+          </div>
+          <AppButton variant="tertiary" onClick={() => setEditing(p)}><AppIcon name="settings" size={14} /> Edit</AppButton>
+          <AppButton variant="tertiary" onClick={() => remove(p)} style={{ color: 'var(--dorzak-error)' }}>Delete</AppButton>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 // ─── Page shell ──────────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'stores' | 'customers' | 'products' | 'users' | 'plans' | 'audit';
+type Tab = 'overview' | 'stores' | 'customers' | 'products' | 'users' | 'plans' | 'delivery' | 'audit';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'stores', label: 'Stores' },
@@ -629,6 +763,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'products', label: 'Products' },
   { key: 'users', label: 'Users' },
   { key: 'plans', label: 'Plans' },
+  { key: 'delivery', label: 'Delivery' },
   { key: 'audit', label: 'Audit log' },
 ];
 
@@ -877,6 +1012,7 @@ export const PlatformPage: React.FC = () => {
       {tab === 'stores' && <StoresTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'plans' && <PlansTab />}
+      {tab === 'delivery' && <ProvidersTab />}
       {tab === 'audit' && <AuditTab />}
     </div>
   );
