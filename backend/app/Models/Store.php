@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 
 /**
  * Tenant root. See docs 03 (domain model) and 04 (schema). Domain hasMany
@@ -19,12 +20,21 @@ class Store extends Model
     /** @use HasFactory<StoreFactory> */
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::creating(function (Store $store): void {
+            if (! $store->menu_token) {
+                $store->menu_token = Str::random(32);
+            }
+        });
+    }
+
     protected $fillable = [
         'name', 'tagline', 'owner_name', 'email', 'phone', 'whatsapp',
         'address', 'city', 'state', 'zip_code', 'country', 'timezone',
         'language', 'currency', 'symbol_placement', 'charge_sales_tax',
         'tax_rate', 'tax_id', 'tax_included_in_price', 'accepted_payment_methods',
-        'payment_details',
+        'payment_details', 'menu_token',
     ];
 
     protected function casts(): array

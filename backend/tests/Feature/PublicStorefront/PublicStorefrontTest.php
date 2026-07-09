@@ -27,6 +27,8 @@ class PublicStorefrontTest extends TestCase
             'delivery_fee' => 5, 'free_delivery_threshold' => 50, 'min_order_amount' => 10,
             'show_out_of_stock_online' => true,
         ]);
+        // Online ordering is a paid capability.
+        $this->assignPlan($this->store, 'PRO');
     }
 
     private function product(array $attrs = []): Product

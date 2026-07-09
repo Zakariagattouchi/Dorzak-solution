@@ -83,6 +83,7 @@ class CommerceImprovementsTest extends TestCase
         $store->storefrontSetting->update([
             'online_store_enabled' => true, 'slug' => 'test-shop', 'fawran_enabled' => true,
         ]);
+        $this->assignPlan($store, 'PRO'); // online ordering is a paid capability
         $product = Product::factory()->for($store)->create(['price' => 25, 'stock' => 10]);
 
         $response = $this->post('/api/public/stores/test-shop/orders', [

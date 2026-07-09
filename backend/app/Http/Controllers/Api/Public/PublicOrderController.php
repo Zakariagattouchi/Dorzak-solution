@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api\Public;
 
+use App\Enums\PlanFeature;
 use App\Http\Concerns\ResolvesPublicStore;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Public\StorePublicOrderRequest;
+use App\Services\PlanGate;
 use App\Services\PublicOrderService;
 use Illuminate\Http\JsonResponse;
 
@@ -12,9 +14,10 @@ class PublicOrderController extends Controller
 {
     use ResolvesPublicStore;
 
-    public function __invoke(StorePublicOrderRequest $request, string $slug, PublicOrderService $service): JsonResponse
+    public function __invoke(StorePublicOrderRequest $request, string $slug, PublicOrderService $service, PlanGate $plans): JsonResponse
     {
         $store = $this->resolvePublicStore($slug);
+        $plans->ensure($store, PlanFeature::ONLINE_ORDERING);
         $result = $service->place($store, $request->validated());
         $order = $result['order'];
 

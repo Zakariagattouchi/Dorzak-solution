@@ -9,6 +9,7 @@ use App\Http\Resources\Public\PublicProductResource;
 use App\Http\Resources\Public\PublicStoreResource;
 use App\Support\CatalogCache;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -73,6 +74,34 @@ class StorefrontController extends Controller
                 'products' => PublicProductResource::collection($products),
             ],
         ])->getContent();
+    }
+
+    /**
+     * Resolve a store from a hostname. The React SPA calls this on mount whenever it
+     * detects it's running on `{slug}.{APP_DOMAIN}` and passes `window.location.hostname`
+     * as the `host` query parameter. Returns the store card so the SPA can then use the
+     * normal `/public/stores/{slug}/*` endpoints with the extracted slug.
+     *
+     * GET /api/v1/public/resolve?host=myshop.dorzak.com
+     */
+    public function resolveHost(Request $request): JsonResponse
+    {
+        $host = strtolower((string) $request->query('host', $request->server('HTTP_HOST', $request->getHost())));
+        $domain = strtolower(env('APP_DOMAIN', 'dorzak.com'));
+
+        if (! str_ends_with($host, '.'.$domain)) {
+            abort(404, 'Not a recognized subdomain.');
+        }
+
+        $slug = substr($host, 0, -strlen('.'.$domain));
+
+        if ($slug === '' || str_contains($slug, '.')) {
+            abort(404);
+        }
+
+        $store = $this->resolvePublicStore($slug);
+
+        return response()->json(['data' => (new PublicStoreResource($store))->toArray($request)]);
     }
 
     private function jsonResponse(string $json, bool $cache = true): Response

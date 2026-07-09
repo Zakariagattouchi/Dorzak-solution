@@ -46,3 +46,20 @@ live reports. Make a sale in **Sell**, watch stock deduct in **Products**, see t
   `/api/public/*` endpoints is a small follow-up (`publicApi` in `endpoints.ts` is ready).
 - Production should switch CORS back to explicit origins + consider Sanctum cookie mode
   (see `docs/backend-planning/12-security-plan.md`).
+
+## Subdomain storefront (production infra prerequisites)
+
+Every paid store gets `{slug}.dorzak.com` from day one. Before go-live:
+
+1. **Wildcard DNS** — add `*.dorzak.com → <app-server-IP>` in your DNS provider.
+2. **Wildcard TLS cert** — obtain `*.dorzak.com` via Let's Encrypt (`certbot --dns-…`) or your
+   cloud provider's cert manager. Attach to the Nginx/Caddy vhost.
+3. **`APP_DOMAIN` env var** — set `APP_DOMAIN=dorzak.com` in `backend/.env` (production).
+   The subdomain resolution endpoint (`GET /api/v1/public/resolve`) reads this.
+4. **Nginx catch-all** — a single server block `server_name *.dorzak.com dorzak.com;` routes
+   all subdomains to the same Laravel app; the API resolves the store from the Host header.
+5. **CORS** — `config/cors.php` allowed origins must include `*.dorzak.com` (or use a regex
+   pattern via `fruitcake/laravel-cors` `allowed_origins_patterns`).
+
+Free stores have no subdomain — their public surface is the anonymous menu at
+`GET /api/v1/public/menu/{menu_token}`.
