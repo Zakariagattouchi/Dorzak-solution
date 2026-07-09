@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\PlanFeature;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\UpdateBusinessRequest;
 use App\Http\Requests\Settings\UpdateCurrencyRequest;
@@ -13,6 +14,7 @@ use App\Http\Requests\Settings\UpdateStorefrontRequest;
 use App\Http\Requests\Settings\UpdateTaxesRequest;
 use App\Http\Resources\SettingsResource;
 use App\Models\Store;
+use App\Services\PlanGate;
 use App\Services\SettingsService;
 use App\Support\StoreContext;
 use Illuminate\Foundation\Http\FormRequest;
@@ -22,6 +24,7 @@ class SettingsController extends Controller
     public function __construct(
         private readonly SettingsService $settings,
         private readonly StoreContext $context,
+        private readonly PlanGate $plans,
     ) {}
 
     /** GET /settings — grouped envelope; readable by any active member. */
@@ -69,6 +72,12 @@ class SettingsController extends Controller
 
     public function updateStorefront(UpdateStorefrontRequest $request): SettingsResource
     {
+        // A branded slug (the basis of the subdomain storefront) is a paid feature.
+        // Free stores may still edit menu appearance — only claiming a slug is gated.
+        if ($request->filled('store_slug')) {
+            $this->plans->ensure($this->store(), PlanFeature::BRANDED_STOREFRONT);
+        }
+
         return $this->apply('storefront', $request);
     }
 

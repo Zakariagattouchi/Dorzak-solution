@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\StaffRole;
 use App\Models\Category;
 use App\Models\Customer;
+use App\Models\Plan;
 use App\Models\Store;
 use App\Models\StoreUser;
 use App\Models\User;
@@ -44,7 +45,10 @@ class DemoSeeder extends Seeder
         );
 
         $store->initializeSettings();
-        $store->subscription->update(['plan' => 'PRO', 'status' => 'ACTIVE', 'price' => 99, 'renews_at' => '2027-07-05']);
+        $store->subscription->update([
+            'plan_id' => Plan::where('code', 'PRO')->value('id'),
+            'status' => 'ACTIVE', 'price' => 99, 'renews_at' => '2027-07-05',
+        ]);
         $store->storefrontSetting->update([
             'online_store_enabled' => true, 'slug' => 'dorzak-merchant',
             'bio' => 'Welcome to our official online shop!',

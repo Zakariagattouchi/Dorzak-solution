@@ -19,6 +19,8 @@ class StorefrontSettingsTest extends TestCase
     {
         parent::setUp();
         ['user' => $this->owner, 'store' => $this->store] = $this->createStoreWithOwner();
+        // Branded storefront (slug) is a paid capability; these tests exercise it.
+        $this->assignPlan($this->store, 'PRO');
     }
 
     private function payload(array $overrides = []): array

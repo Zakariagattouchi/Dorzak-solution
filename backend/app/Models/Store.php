@@ -102,6 +102,15 @@ class Store extends Model
     }
 
     /**
+     * The plan currently in force: the store's subscription plan, falling back to
+     * the default (forever-free) plan when there is none. Used by PlanGate.
+     */
+    public function currentPlan(): ?Plan
+    {
+        return $this->subscription?->plan ?? Plan::default();
+    }
+
+    /**
      * Ensure the three 1:1 settings rows + a default (FREE) subscription exist.
      * Called on store creation (RegisterStoreAction / factory) and idempotent so
      * it can backfill legacy stores. Returns $this with the relations loaded.
@@ -111,7 +120,7 @@ class Store extends Model
         $this->storefrontSetting()->firstOrCreate([]);
         $this->receiptSetting()->firstOrCreate([]);
         $this->integrationSetting()->firstOrCreate([]);
-        $this->subscription()->firstOrCreate([]);
+        $this->subscription()->firstOrCreate([], ['plan_id' => Plan::default()?->id]);
 
         return $this->load(['storefrontSetting', 'receiptSetting', 'integrationSetting', 'subscription']);
     }

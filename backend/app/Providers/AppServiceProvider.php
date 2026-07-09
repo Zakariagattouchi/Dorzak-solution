@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\StorefrontSetting;
 use App\Observers\CatalogCacheObserver;
 use App\Services\GoogleCloudTranslationProvider;
+use App\Services\PlanGate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -18,6 +19,9 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(TranslationProvider::class, GoogleCloudTranslationProvider::class);
+
+        // Request-scoped so its per-store capability map is memoized within a request.
+        $this->app->singleton(PlanGate::class);
     }
 
     /**

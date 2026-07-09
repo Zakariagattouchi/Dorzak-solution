@@ -2,19 +2,26 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\PlanFeature;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Catalog\StoreProductRequest;
 use App\Http\Requests\Catalog\UpdateProductRequest;
 use App\Http\Resources\ProductResource;
 use App\Models\Product;
+use App\Services\PlanGate;
 use App\Services\ProductService;
+use App\Support\StoreContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ProductController extends Controller
 {
-    public function __construct(private readonly ProductService $products) {}
+    public function __construct(
+        private readonly ProductService $products,
+        private readonly PlanGate $plans,
+        private readonly StoreContext $context,
+    ) {}
 
     /** GET /products — searchable, filterable, paginated. */
     public function index(Request $request): AnonymousResourceCollection
@@ -50,6 +57,13 @@ class ProductController extends Controller
 
     public function store(StoreProductRequest $request): JsonResponse
     {
+        // Block the create that would take the store past its plan's product cap.
+        $this->plans->ensureWithinLimit(
+            $this->context->store(),
+            PlanFeature::PRODUCTS_LIMIT,
+            Product::query()->count(),
+        );
+
         $product = $this->products->create($request->validated(), $request->user());
 
         return (new ProductResource($product->load(['category', 'variants'])))->response()->setStatusCode(201);

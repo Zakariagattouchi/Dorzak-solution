@@ -3,9 +3,11 @@
 namespace Tests;
 
 use App\Enums\StaffRole;
+use App\Models\Plan;
 use App\Models\Store;
 use App\Models\StoreUser;
 use App\Models\User;
+use App\Services\PlanGate;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\Sanctum;
@@ -61,5 +63,15 @@ abstract class TestCase extends BaseTestCase
         Sanctum::actingAs($user);
 
         return $this;
+    }
+
+    /** Put a store on a plan by code (FREE|PRO|ENTERPRISE seeded by migration). */
+    protected function assignPlan(Store $store, string $code): void
+    {
+        $store->subscription()->firstOrCreate([])->update([
+            'plan_id' => Plan::where('code', $code)->value('id'),
+        ]);
+        $store->load('subscription.plan.featureLimits');
+        app(PlanGate::class)->forget($store);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SubscriptionResource;
+use App\Models\Plan;
 use App\Support\StoreContext;
 use Illuminate\Http\JsonResponse;
 
@@ -16,7 +17,11 @@ class SubscriptionController extends Controller
     {
         $store = $this->context->store();
 
-        return new SubscriptionResource($store->subscription()->firstOrCreate([])->load('store'));
+        $subscription = $store->subscription()
+            ->firstOrCreate([], ['plan_id' => Plan::default()?->id])
+            ->load(['store', 'plan.featureLimits']);
+
+        return new SubscriptionResource($subscription);
     }
 
     /** POST /subscription/portal — owner only; provider portal link (stub until TP-09/Stripe). */

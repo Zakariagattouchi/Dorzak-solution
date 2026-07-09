@@ -24,6 +24,8 @@ class StaffInvitationTest extends TestCase
         parent::setUp();
         Mail::fake();
         ['user' => $this->owner, 'store' => $this->store] = $this->createStoreWithOwner();
+        // Extra staff seats are a paid capability; FREE allows the owner alone.
+        $this->assignPlan($this->store, 'PRO');
     }
 
     public function test_owner_can_invite_staff_and_mail_is_queued(): void

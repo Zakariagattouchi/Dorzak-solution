@@ -3,6 +3,7 @@
 namespace Tests\Feature\Subscription;
 
 use App\Enums\StaffRole;
+use App\Models\Plan;
 use App\Models\Store;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -14,7 +15,10 @@ class SubscriptionTest extends TestCase
     public function test_member_can_read_subscription_summary(): void
     {
         ['user' => $owner, 'store' => $store] = $this->createStoreWithOwner();
-        $store->subscription->update(['plan' => 'PRO', 'price' => 19.99, 'renews_at' => now()->addYear()]);
+        $store->subscription->update([
+            'plan_id' => Plan::where('code', 'PRO')->value('id'),
+            'price' => 19.99, 'renews_at' => now()->addYear(),
+        ]);
 
         $this->actingAsMember($owner)
             ->getJson('/api/v1/subscription')
