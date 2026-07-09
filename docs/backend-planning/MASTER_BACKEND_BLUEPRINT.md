@@ -34,6 +34,7 @@ Bilingual EN/AR, multi-currency (QAR-aware), single store per account (tenant-re
 | [10-seeding-plan.md](10-seeding-plan.md) | DemoSeeder = mockData parity harness; volume seeder |
 | [11-test-plan.md](11-test-plan.md) | full test catalog (unit money/stock kernels + feature per module + blanket tenant/role rules) |
 | [12-security-plan.md](12-security-plan.md) | authz/tenancy/uploads/rate-limits/PII + launch checklist |
+| [13-saas-platform-layer.md](13-saas-platform-layer.md) | **approved 2026-07-09**: configurable plans (capability catalog + PlanGate), free-tier anonymous menu, subdomain storefronts, platform admin, PaymentGateway port — supersedes TP-03's display-only subscriptions and TP-09's Stripe assumption |
 
 ## Build order (from 07/08)
 TP-01 Foundation+Auth → TP-02 Settings → TP-03 Staff+Subscription → TP-04 Catalog ∥ TP-05 Customers
@@ -53,7 +54,7 @@ TP-01 Foundation+Auth → TP-02 Settings → TP-03 Staff+Subscription → TP-04 
 - Duplicate customer phone blocks creation (422 + duplicate_customer_id) rather than warns.
 - Online orders deduct stock at completion, not placement.
 - Discount reduces the tax base proportionally (tax-excluded mode).
-- Stripe as billing provider (portal/invoice endpoints stubbed until then).
+- ~~Stripe as billing provider~~ **Resolved 2026-07-09**: regional Qatar-capable gateway (Dibsy/MyFatoorah/Tap), chosen later behind a `PaymentGateway` contract — see doc 13.
 - Branch/multi-store ("All branches" topbar text) deferred; schema is ready.
 - AI endpoints (description suggest, photo auto-registration) optional/flagged.
 

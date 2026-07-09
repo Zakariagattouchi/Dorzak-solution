@@ -29,6 +29,8 @@ Each packet is self-contained: a sub-agent reads MASTER_BACKEND_BLUEPRINT.md + t
 **Acceptance**: GET /settings mirrors `initialAccountInfo` shape after DemoSeeder; every UI tab saves.
 
 ## TP-03 — Staff & subscription display (M2)
+> **Amended 2026-07-09**: subscription "display" is now DB-backed configurable plans — see doc 13 (plans/plan_feature tables replace the SubscriptionPlan enum as source of truth).
+
 **Objective**: staff CRUD + invitation lifecycle + subscription read.
 **Migrations**: staff_invitations, subscriptions.
 **Models**: StaffInvitation, Subscription. **Enums**: SubscriptionPlan.
@@ -94,12 +96,13 @@ Each packet is self-contained: a sub-agent reads MASTER_BACKEND_BLUEPRINT.md + t
 **Dependencies**: TP-06.
 **Acceptance**: StorefrontPreviewPage runs against `/api/public/*`; full online order→complete→stock flow.
 
-## TP-09 — Billing (M8)
-**Objective**: real (or cleanly stubbed) billing portal.
-**Files**: SubscriptionController@portal/invoice; optional laravel/cashier install + webhook route; config/services.billing.
-**Tests**: owner-only 403 matrix; stub returns configured URL; webhook signature check (if Cashier).
-**Dependencies**: TP-03.
-**Acceptance**: Billing page buttons functional or gracefully stubbed with clear messaging.
+## TP-09 — Billing (M8) — **SUPERSEDED by doc 13 (2026-07-09)**
+No Stripe/Cashier. Build `PaymentGateway` contract + `FakeGateway`; regional gateway (Dibsy/MyFatoorah/Tap)
+selected later. Interim: manual plan assignment via platform admin (doc 13 §5–6). Plans/enforcement live in
+the new TP-12/TP-13 scope defined by doc 13.
+**Tests**: owner-only 403 matrix; FakeGateway lifecycle.
+**Dependencies**: TP-03 + doc 13 plan engine.
+**Acceptance**: Billing page reads DB-backed plan; upgrade CTA present; no gateway-specific code outside the contract.
 
 ## TP-10 — React integration (M9, frontend agent)
 **Objective**: delete mockApi; live API client.
