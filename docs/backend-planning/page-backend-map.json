@@ -1,0 +1,207 @@
+{
+  "$schema": "internal:page-backend-map",
+  "generated_from": "src/ of recovered React app + docs/06-api-contract-map.md",
+  "api_prefix": "/api/v1",
+  "pages": [
+    {
+      "id": "pos",
+      "route": "/checkout",
+      "component": "src/pages/pos/POSPage.tsx",
+      "roles": ["owner", "manager", "cashier"],
+      "endpoints": [
+        {"method": "GET", "path": "/products", "params": ["per_page", "active"]},
+        {"method": "GET", "path": "/categories"},
+        {"method": "GET", "path": "/customers", "params": ["search"]},
+        {"method": "POST", "path": "/orders", "permission": "orders.create"}
+      ],
+      "modals": ["PAYMENT", "CUSTOMER_CREATE", "PRODUCT_CREATE", "RECEIPT"],
+      "side_effects": ["stock deduction", "stock_movements", "customer counters", "OrderCreated event", "LowStockDetected"],
+      "priority_milestone": 5
+    },
+    {
+      "id": "orders",
+      "route": "/orders",
+      "component": "src/pages/orders/OrdersPage.tsx",
+      "roles": ["owner", "manager", "cashier", "viewer"],
+      "endpoints": [
+        {"method": "GET", "path": "/orders", "params": ["search", "status", "date_from", "date_to", "payment_method", "page", "per_page", "sort"], "meta_summary": ["revenue", "completed_count", "pending_count", "cancelled_count", "tax_total", "discount_total"]},
+        {"method": "GET", "path": "/orders/{order}"},
+        {"method": "PATCH", "path": "/orders/{order}/status", "permission": "orders.update_status"},
+        {"method": "GET", "path": "/orders/export", "permission": "reports.export", "format": "csv"}
+      ],
+      "modals": ["RECEIPT"],
+      "priority_milestone": 5
+    },
+    {
+      "id": "products",
+      "route": "/products",
+      "component": "src/pages/products/ProductsPage.tsx",
+      "roles": ["owner", "manager", "cashier", "viewer:read"],
+      "endpoints": [
+        {"method": "GET", "path": "/products", "params": ["search", "category_id", "status", "stock", "page", "per_page", "sort"]},
+        {"method": "POST", "path": "/products", "permission": "products.manage"},
+        {"method": "GET", "path": "/products/{product}"},
+        {"method": "PUT", "path": "/products/{product}", "permission": "products.manage"},
+        {"method": "DELETE", "path": "/products/{product}", "permission": "products.manage", "soft_delete": true},
+        {"method": "POST", "path": "/products/{product}/image", "permission": "products.manage", "multipart": true},
+        {"method": "POST", "path": "/ai/product-description", "optional": true}
+      ],
+      "priority_milestone": 3
+    },
+    {
+      "id": "product-create",
+      "route": "/products/create",
+      "component": "src/pages/products/ProductCreatePage.tsx",
+      "roles": ["owner", "manager", "cashier"],
+      "endpoints": ["reuses products endpoints"],
+      "gaps": ["edit mode not wired in frontend (G-1)"],
+      "priority_milestone": 3
+    },
+    {
+      "id": "categories",
+      "route": "/categories",
+      "component": "src/pages/categories/CategoriesPage.tsx",
+      "roles": ["owner", "manager", "cashier", "viewer:read"],
+      "endpoints": [
+        {"method": "GET", "path": "/categories"},
+        {"method": "POST", "path": "/categories", "permission": "products.manage"},
+        {"method": "PUT", "path": "/categories/{category}", "permission": "products.manage"},
+        {"method": "DELETE", "path": "/categories/{category}", "permission": "products.manage", "behavior": "null product category_id"},
+        {"method": "PATCH", "path": "/categories/reorder", "assumption": true}
+      ],
+      "priority_milestone": 3
+    },
+    {
+      "id": "customers",
+      "route": "/customers",
+      "component": "src/pages/customers/CustomersPage.tsx",
+      "roles": ["owner", "manager", "cashier", "viewer:read"],
+      "endpoints": [
+        {"method": "GET", "path": "/customers", "params": ["search", "sort", "page", "per_page"], "meta_summary": ["count", "total_spent", "avg_ltv"]},
+        {"method": "POST", "path": "/customers"},
+        {"method": "GET", "path": "/customers/{customer}", "includes": ["recent_orders(3)"]},
+        {"method": "PUT", "path": "/customers/{customer}"},
+        {"method": "DELETE", "path": "/customers/{customer}", "soft_delete": true, "confirm_in_ui": true},
+        {"method": "GET", "path": "/customers/export", "format": "csv"},
+        {"method": "POST", "path": "/customers/import", "multipart": true, "queued_over": 500}
+      ],
+      "priority_milestone": 4
+    },
+    {
+      "id": "sales",
+      "route": "/sales",
+      "component": "src/pages/sales/SalesPage.tsx",
+      "roles": ["owner", "manager", "cashier", "viewer"],
+      "endpoints": ["reuses GET /orders with payment_method filter + summary"],
+      "priority_milestone": 5
+    },
+    {
+      "id": "finances",
+      "route": "/finances",
+      "component": "src/pages/finances/FinancesPage.tsx",
+      "roles": ["owner", "manager", "viewer"],
+      "endpoints": [
+        {"method": "GET", "path": "/reports/finance", "params": ["period", "date_from", "date_to"]},
+        {"method": "GET", "path": "/reports/finance/export", "format": "csv"}
+      ],
+      "priority_milestone": 6
+    },
+    {
+      "id": "analytics",
+      "route": "/analytics",
+      "aliases": ["/reports"],
+      "component": "src/pages/reports/ReportsPage.tsx",
+      "roles": ["owner", "manager", "viewer"],
+      "endpoints": [
+        {"method": "GET", "path": "/reports/analytics", "params": ["period"], "sections": ["kpis", "by_method", "inventory", "top_products", "by_category"]}
+      ],
+      "priority_milestone": 6
+    },
+    {
+      "id": "storefront-settings",
+      "route": "/catalog",
+      "component": "src/pages/storefront/StorefrontPage.tsx",
+      "roles": ["owner", "manager"],
+      "endpoints": [
+        {"method": "GET", "path": "/settings"},
+        {"method": "PUT", "path": "/settings/storefront"},
+        {"method": "POST", "path": "/settings/storefront/banner", "multipart": true},
+        {"method": "POST", "path": "/settings/storefront/logo", "multipart": true}
+      ],
+      "priority_milestone": 7
+    },
+    {
+      "id": "public-storefront",
+      "route": "/catalog/preview",
+      "component": "src/pages/storefront/StorefrontPreviewPage.tsx",
+      "roles": ["public"],
+      "endpoints": [
+        {"method": "GET", "path": "/api/public/stores/{slug}", "auth": false},
+        {"method": "GET", "path": "/api/public/stores/{slug}/catalog", "auth": false, "params": ["category_id", "search"]},
+        {"method": "POST", "path": "/api/public/stores/{slug}/orders", "auth": false, "rate_limited": true, "creates": "order status=PENDING method=WHATSAPP source=online", "returns": "whatsapp_url"}
+      ],
+      "priority_milestone": 7
+    },
+    {
+      "id": "settings",
+      "route": "/config",
+      "aliases": ["/settings"],
+      "component": "src/pages/settings/SettingsPage.tsx",
+      "roles": ["owner", "manager"],
+      "endpoints": [
+        {"method": "GET", "path": "/settings"},
+        {"method": "PUT", "path": "/settings/general"},
+        {"method": "PUT", "path": "/settings/business"},
+        {"method": "PUT", "path": "/settings/currency"},
+        {"method": "PUT", "path": "/settings/taxes"},
+        {"method": "PUT", "path": "/settings/receipts"},
+        {"method": "PUT", "path": "/settings/payments", "rule": "at least one POS method enabled"},
+        {"method": "PUT", "path": "/settings/integrations"}
+      ],
+      "priority_milestone": 2
+    },
+    {
+      "id": "users",
+      "route": "/users",
+      "component": "src/pages/users/UsersPage.tsx",
+      "roles": ["owner", "manager"],
+      "endpoints": [
+        {"method": "GET", "path": "/staff"},
+        {"method": "POST", "path": "/staff/invitations", "sends_mail": true},
+        {"method": "POST", "path": "/staff/invitations/{token}/accept", "auth": false},
+        {"method": "POST", "path": "/staff/invitations/{id}/resend"},
+        {"method": "DELETE", "path": "/staff/invitations/{id}"},
+        {"method": "PATCH", "path": "/staff/{user}"},
+        {"method": "DELETE", "path": "/staff/{user}"}
+      ],
+      "priority_milestone": 2
+    },
+    {
+      "id": "billing",
+      "route": "/billing",
+      "component": "src/pages/billing/BillingPage.tsx",
+      "roles": ["owner"],
+      "endpoints": [
+        {"method": "GET", "path": "/subscription"},
+        {"method": "POST", "path": "/subscription/portal", "assumption": "Stripe customer portal"},
+        {"method": "GET", "path": "/subscription/invoice/latest", "stub": true}
+      ],
+      "priority_milestone": 8
+    },
+    {
+      "id": "auth",
+      "route": "/login",
+      "component": "not reconstructed (route map doc only)",
+      "roles": ["public"],
+      "endpoints": [
+        {"method": "POST", "path": "/auth/login", "auth": false},
+        {"method": "POST", "path": "/auth/logout"},
+        {"method": "GET", "path": "/auth/me", "returns": ["user", "store", "role", "abilities"]},
+        {"method": "POST", "path": "/auth/register", "auth": false, "assumption": "SaaS signup"},
+        {"method": "POST", "path": "/auth/forgot-password", "auth": false},
+        {"method": "POST", "path": "/auth/reset-password", "auth": false}
+      ],
+      "priority_milestone": 1
+    }
+  ]
+}

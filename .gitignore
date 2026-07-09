@@ -1,0 +1,8 @@
+node_modules/
+dist/
+recovered/
+.DS_Store
+npm-debug.log*
+.env
+playwright-report/
+test-results/

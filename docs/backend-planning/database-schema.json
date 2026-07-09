@@ -1,0 +1,297 @@
+{
+  "$schema": "internal:database-schema",
+  "engine": "postgresql-16",
+  "conventions": {
+    "primary_key": "bigint identity",
+    "money": "decimal(12,2)",
+    "tenant_column": "store_id",
+    "soft_deletes": ["products", "customers"],
+    "timestamps": "all tables unless noted"
+  },
+  "tables": [
+    {
+      "name": "users",
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "name", "type": "varchar(120)"},
+        {"name": "email", "type": "citext", "unique": true},
+        {"name": "password", "type": "varchar(255)"},
+        {"name": "remember_token", "type": "varchar(100)", "nullable": true},
+        {"name": "email_verified_at", "type": "timestamptz", "nullable": true}
+      ]
+    },
+    {
+      "name": "stores",
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "name", "type": "varchar(120)"},
+        {"name": "tagline", "type": "varchar(160)", "nullable": true},
+        {"name": "owner_name", "type": "varchar(120)", "nullable": true},
+        {"name": "email", "type": "citext", "nullable": true},
+        {"name": "phone", "type": "varchar(32)", "nullable": true},
+        {"name": "whatsapp", "type": "varchar(32)", "nullable": true},
+        {"name": "address", "type": "varchar(190)", "nullable": true},
+        {"name": "city", "type": "varchar(80)", "nullable": true},
+        {"name": "state", "type": "varchar(80)", "nullable": true},
+        {"name": "zip_code", "type": "varchar(20)", "nullable": true},
+        {"name": "country", "type": "varchar(80)", "default": "United States"},
+        {"name": "timezone", "type": "varchar(64)", "default": "UTC", "assumption": true},
+        {"name": "language", "type": "varchar(2)", "default": "en"},
+        {"name": "currency", "type": "char(3)", "default": "USD"},
+        {"name": "symbol_placement", "type": "varchar(6)", "default": "BEFORE"},
+        {"name": "charge_sales_tax", "type": "boolean", "default": true},
+        {"name": "tax_rate", "type": "decimal(5,2)", "default": 0, "check": "0..100"},
+        {"name": "tax_id", "type": "varchar(64)", "nullable": true},
+        {"name": "tax_included_in_price", "type": "boolean", "default": false},
+        {"name": "accepted_payment_methods", "type": "jsonb", "default": "[\"CASH\",\"CARD\",\"TRANSFER\",\"WHATSAPP\"]"}
+      ]
+    },
+    {
+      "name": "store_user",
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "store_id", "fk": "stores", "on_delete": "cascade"},
+        {"name": "user_id", "fk": "users", "on_delete": "cascade"},
+        {"name": "role", "type": "varchar(10)", "enum": ["OWNER", "MANAGER", "CASHIER", "VIEWER"]},
+        {"name": "is_active", "type": "boolean", "default": true},
+        {"name": "joined_at", "type": "timestamptz", "nullable": true}
+      ],
+      "indexes": [{"columns": ["store_id", "user_id"], "unique": true}]
+    },
+    {
+      "name": "staff_invitations",
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "store_id", "fk": "stores", "on_delete": "cascade"},
+        {"name": "invited_by", "fk": "users", "on_delete": "restrict"},
+        {"name": "name", "type": "varchar(120)"},
+        {"name": "email", "type": "citext"},
+        {"name": "role", "type": "varchar(10)", "enum": ["MANAGER", "CASHIER", "VIEWER"]},
+        {"name": "token", "type": "varchar(64)", "unique": true},
+        {"name": "expires_at", "type": "timestamptz"},
+        {"name": "accepted_at", "type": "timestamptz", "nullable": true}
+      ],
+      "indexes": [{"columns": ["store_id", "email"], "unique": true, "where": "accepted_at IS NULL"}]
+    },
+    {
+      "name": "storefront_settings",
+      "one_to_one": "stores",
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "store_id", "fk": "stores", "unique": true, "on_delete": "cascade"},
+        {"name": "online_store_enabled", "type": "boolean", "default": false},
+        {"name": "slug", "type": "citext", "nullable": true, "unique": "global partial WHERE slug IS NOT NULL"},
+        {"name": "bio", "type": "varchar(300)", "nullable": true},
+        {"name": "banner_path", "type": "varchar(255)", "nullable": true},
+        {"name": "logo_path", "type": "varchar(255)", "nullable": true},
+        {"name": "accent_color", "type": "char(7)", "default": "#1890ff"},
+        {"name": "secondary_color", "type": "char(7)", "default": "#373f4e"},
+        {"name": "allow_delivery", "type": "boolean", "default": true},
+        {"name": "allow_pickup", "type": "boolean", "default": true},
+        {"name": "delivery_fee", "type": "decimal(8,2)", "default": 0},
+        {"name": "free_delivery_threshold", "type": "decimal(10,2)", "nullable": true},
+        {"name": "min_order_amount", "type": "decimal(10,2)", "default": 0},
+        {"name": "whatsapp_ordering_enabled", "type": "boolean", "default": true},
+        {"name": "show_out_of_stock_online", "type": "boolean", "default": true}
+      ]
+    },
+    {
+      "name": "receipt_settings",
+      "one_to_one": "stores",
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "store_id", "fk": "stores", "unique": true, "on_delete": "cascade"},
+        {"name": "header", "type": "varchar(160)", "nullable": true},
+        {"name": "footer", "type": "varchar(160)", "nullable": true},
+        {"name": "show_logo", "type": "boolean", "default": true},
+        {"name": "show_address", "type": "boolean", "default": true},
+        {"name": "show_tax", "type": "boolean", "default": true},
+        {"name": "auto_print", "type": "boolean", "default": false}
+      ]
+    },
+    {
+      "name": "integration_settings",
+      "one_to_one": "stores",
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "store_id", "fk": "stores", "unique": true, "on_delete": "cascade"},
+        {"name": "facebook_pixel_id", "type": "varchar(32)", "nullable": true},
+        {"name": "google_analytics_id", "type": "varchar(32)", "nullable": true},
+        {"name": "facebook_connected", "type": "boolean", "default": false},
+        {"name": "facebook_page_name", "type": "varchar(120)", "nullable": true}
+      ]
+    },
+    {
+      "name": "categories",
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "store_id", "fk": "stores", "on_delete": "cascade"},
+        {"name": "name", "type": "varchar(80)"},
+        {"name": "color", "type": "char(7)", "default": "#3b82f6"},
+        {"name": "sort_order", "type": "int", "default": 0}
+      ],
+      "indexes": [{"columns": ["store_id", "name"], "unique": true}, {"columns": ["store_id", "sort_order"]}]
+    },
+    {
+      "name": "products",
+      "soft_deletes": true,
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "store_id", "fk": "stores", "on_delete": "cascade"},
+        {"name": "category_id", "fk": "categories", "nullable": true, "on_delete": "set null"},
+        {"name": "name", "type": "varchar(160)"},
+        {"name": "description", "type": "text", "nullable": true},
+        {"name": "price", "type": "decimal(12,2)", "check": ">=0"},
+        {"name": "reduced_price", "type": "decimal(12,2)", "nullable": true, "check": "< price"},
+        {"name": "cost", "type": "decimal(12,2)", "default": 0},
+        {"name": "sku", "type": "varchar(64)", "nullable": true, "unique": "partial (store_id, sku) WHERE deleted_at IS NULL"},
+        {"name": "unit", "type": "varchar(12)", "default": "pcs"},
+        {"name": "image_path", "type": "varchar(255)", "nullable": true},
+        {"name": "label_name", "type": "varchar(40)", "nullable": true},
+        {"name": "label_color", "type": "char(7)", "nullable": true},
+        {"name": "taxable", "type": "boolean", "default": true},
+        {"name": "track_stock", "type": "boolean", "default": true},
+        {"name": "stock", "type": "int", "default": 0, "check": ">=0"},
+        {"name": "min_stock", "type": "int", "default": 0},
+        {"name": "show_in_online_store", "type": "boolean", "default": true},
+        {"name": "is_featured", "type": "boolean", "default": false},
+        {"name": "is_active", "type": "boolean", "default": true}
+      ],
+      "indexes": [
+        {"columns": ["store_id", "category_id"]},
+        {"columns": ["store_id", "is_active"]},
+        {"columns": ["store_id", "show_in_online_store"]},
+        {"columns": ["store_id", "name"]}
+      ]
+    },
+    {
+      "name": "product_variants",
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "product_id", "fk": "products", "on_delete": "cascade"},
+        {"name": "name", "type": "varchar(120)"},
+        {"name": "price", "type": "decimal(12,2)"},
+        {"name": "stock", "type": "int", "default": 0},
+        {"name": "sku", "type": "varchar(64)", "nullable": true},
+        {"name": "sort_order", "type": "int", "default": 0}
+      ],
+      "indexes": [{"columns": ["product_id", "sort_order"]}]
+    },
+    {
+      "name": "customers",
+      "soft_deletes": true,
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "store_id", "fk": "stores", "on_delete": "cascade"},
+        {"name": "name", "type": "varchar(120)"},
+        {"name": "email", "type": "citext", "nullable": true},
+        {"name": "phone", "type": "varchar(32)"},
+        {"name": "phone_normalized", "type": "varchar(32)", "unique": "partial (store_id, phone_normalized) WHERE deleted_at IS NULL"},
+        {"name": "address", "type": "varchar(190)", "nullable": true},
+        {"name": "city", "type": "varchar(80)", "nullable": true},
+        {"name": "tax_id", "type": "varchar(64)", "nullable": true},
+        {"name": "notes", "type": "text", "nullable": true},
+        {"name": "total_orders", "type": "int", "default": 0, "cached_counter": true},
+        {"name": "total_spent", "type": "decimal(14,2)", "default": 0, "cached_counter": true}
+      ],
+      "indexes": [{"columns": ["store_id", "name"]}, {"columns": ["store_id", "total_spent"]}]
+    },
+    {
+      "name": "orders",
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "store_id", "fk": "stores", "on_delete": "cascade"},
+        {"name": "order_number", "type": "varchar(20)", "unique": "(store_id, order_number)"},
+        {"name": "customer_id", "fk": "customers", "nullable": true, "on_delete": "set null"},
+        {"name": "customer_name", "type": "varchar(120)", "snapshot": true},
+        {"name": "customer_phone", "type": "varchar(32)", "nullable": true, "snapshot": true},
+        {"name": "status", "type": "varchar(10)", "enum": ["PENDING", "COMPLETED", "CANCELLED"]},
+        {"name": "payment_method", "type": "varchar(10)", "enum": ["CASH", "CARD", "TRANSFER", "WHATSAPP"]},
+        {"name": "source", "type": "varchar(6)", "enum": ["POS", "ONLINE"]},
+        {"name": "fulfillment", "type": "varchar(8)", "nullable": true, "enum": ["DELIVERY", "PICKUP"]},
+        {"name": "subtotal", "type": "decimal(12,2)"},
+        {"name": "discount", "type": "decimal(12,2)", "default": 0},
+        {"name": "tax_rate", "type": "decimal(5,2)", "snapshot": true},
+        {"name": "tax_amount", "type": "decimal(12,2)", "default": 0},
+        {"name": "delivery_fee", "type": "decimal(8,2)", "default": 0},
+        {"name": "total", "type": "decimal(12,2)"},
+        {"name": "notes", "type": "varchar(500)", "nullable": true},
+        {"name": "placed_at", "type": "timestamptz"},
+        {"name": "completed_at", "type": "timestamptz", "nullable": true},
+        {"name": "cancelled_at", "type": "timestamptz", "nullable": true},
+        {"name": "created_by", "fk": "users", "nullable": true, "on_delete": "set null"}
+      ],
+      "indexes": [
+        {"columns": ["store_id", "order_number"], "unique": true},
+        {"columns": ["store_id", "placed_at"]},
+        {"columns": ["store_id", "status"]},
+        {"columns": ["store_id", "payment_method"]},
+        {"columns": ["customer_id"]}
+      ]
+    },
+    {
+      "name": "order_items",
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "order_id", "fk": "orders", "on_delete": "cascade"},
+        {"name": "product_id", "fk": "products", "nullable": true, "on_delete": "set null"},
+        {"name": "variant_id", "fk": "product_variants", "nullable": true, "on_delete": "set null"},
+        {"name": "product_name", "type": "varchar(160)", "snapshot": true},
+        {"name": "variant_name", "type": "varchar(120)", "nullable": true, "snapshot": true},
+        {"name": "unit_price", "type": "decimal(12,2)", "snapshot": true},
+        {"name": "unit_cost", "type": "decimal(12,2)", "default": 0, "snapshot": true},
+        {"name": "quantity", "type": "int", "check": ">=1"},
+        {"name": "line_total", "type": "decimal(12,2)"},
+        {"name": "taxable", "type": "boolean", "default": true, "snapshot": true}
+      ],
+      "indexes": [{"columns": ["order_id"]}, {"columns": ["product_id"]}]
+    },
+    {
+      "name": "stock_movements",
+      "append_only": true,
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "store_id", "fk": "stores", "on_delete": "cascade"},
+        {"name": "product_id", "fk": "products", "on_delete": "cascade"},
+        {"name": "variant_id", "fk": "product_variants", "nullable": true, "on_delete": "cascade"},
+        {"name": "type", "type": "varchar(14)", "enum": ["INITIAL", "SALE", "CANCEL_RETURN", "ADJUSTMENT", "RESTOCK"]},
+        {"name": "quantity_change", "type": "int", "signed": true},
+        {"name": "stock_after", "type": "int"},
+        {"name": "order_id", "fk": "orders", "nullable": true, "on_delete": "set null"},
+        {"name": "user_id", "fk": "users", "nullable": true, "on_delete": "set null"},
+        {"name": "note", "type": "varchar(255)", "nullable": true},
+        {"name": "created_at", "type": "timestamptz"}
+      ],
+      "indexes": [{"columns": ["store_id", "product_id", "created_at"]}, {"columns": ["order_id"]}]
+    },
+    {
+      "name": "subscriptions",
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "store_id", "fk": "stores", "on_delete": "cascade"},
+        {"name": "plan", "type": "varchar(12)", "enum": ["FREE", "PRO", "ENTERPRISE"]},
+        {"name": "status", "type": "varchar(12)", "enum": ["ACTIVE", "PAST_DUE", "CANCELLED"]},
+        {"name": "price", "type": "decimal(8,2)", "default": 0},
+        {"name": "billing_cycle", "type": "varchar(8)", "enum": ["monthly", "yearly"]},
+        {"name": "renews_at", "type": "timestamptz", "nullable": true},
+        {"name": "provider", "type": "varchar(20)", "nullable": true},
+        {"name": "provider_id", "type": "varchar(64)", "nullable": true}
+      ],
+      "indexes": [{"columns": ["store_id", "status"]}]
+    },
+    {
+      "name": "settings_audit_logs",
+      "assumption": true,
+      "columns": [
+        {"name": "id", "type": "bigint", "pk": true},
+        {"name": "store_id", "fk": "stores", "on_delete": "cascade"},
+        {"name": "user_id", "fk": "users", "nullable": true, "on_delete": "set null"},
+        {"name": "group", "type": "varchar(20)"},
+        {"name": "old_values", "type": "jsonb"},
+        {"name": "new_values", "type": "jsonb"},
+        {"name": "created_at", "type": "timestamptz"}
+      ]
+    }
+  ],
+  "framework_tables": ["personal_access_tokens", "password_reset_tokens", "sessions", "jobs", "failed_jobs", "notifications"]
+}

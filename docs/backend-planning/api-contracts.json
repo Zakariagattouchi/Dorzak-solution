@@ -1,0 +1,81 @@
+{
+  "$schema": "internal:api-contracts",
+  "base_authed": "/api/v1",
+  "base_public": "/api/public",
+  "auth": "laravel sanctum (SPA cookie primary, bearer token supported)",
+  "conventions": {
+    "envelope": "data/meta/links",
+    "errors": {"422": "message+errors map", "409": "message+code+details", "403": "message", "404": "cross-tenant ids too"},
+    "pagination": {"params": ["page", "per_page"], "per_page_default": 25, "per_page_max": 200},
+    "money": "string 2dp in responses",
+    "enums": "SCREAMING_CASE matching frontend"
+  },
+  "endpoints": [
+    {"method": "POST", "path": "/api/v1/auth/login", "auth": false, "throttle": "5/min", "body": ["email", "password"], "returns": ["token?", "user", "store", "role", "abilities"]},
+    {"method": "POST", "path": "/api/v1/auth/logout", "returns": "204"},
+    {"method": "GET", "path": "/api/v1/auth/me", "returns": ["user", "store", "role", "abilities"]},
+    {"method": "POST", "path": "/api/v1/auth/register", "auth": false, "body": ["name", "email", "password", "business_name"], "side_effects": ["create store", "owner pivot", "default settings", "FREE subscription"]},
+    {"method": "POST", "path": "/api/v1/auth/forgot-password", "auth": false},
+    {"method": "POST", "path": "/api/v1/auth/reset-password", "auth": false},
+
+    {"method": "GET", "path": "/api/v1/settings", "permission": "member", "returns": "groups: general,business,currency,taxes,receipts,payments,integrations,storefront"},
+    {"method": "PUT", "path": "/api/v1/settings/general", "permission": "settings.manage", "body": ["business_name*", "tagline", "phone", "whatsapp", "language:en|ar"]},
+    {"method": "PUT", "path": "/api/v1/settings/business", "permission": "settings.manage", "body": ["owner_name", "email", "address", "city", "state", "zip_code", "country:whitelist"]},
+    {"method": "PUT", "path": "/api/v1/settings/currency", "permission": "settings.manage", "body": ["currency:enum", "symbol_placement:BEFORE|AFTER"], "rule": "QAR forces BEFORE"},
+    {"method": "PUT", "path": "/api/v1/settings/taxes", "permission": "settings.manage", "body": ["charge_sales_tax", "tax_rate:0..100", "tax_id", "tax_included_in_price"]},
+    {"method": "PUT", "path": "/api/v1/settings/receipts", "permission": "settings.manage", "body": ["header", "footer", "show_logo", "show_address", "show_tax", "auto_print"]},
+    {"method": "PUT", "path": "/api/v1/settings/payments", "permission": "settings.manage", "body": ["cash", "card", "transfer", "whatsapp"], "rule": "at least one of cash|card|transfer true"},
+    {"method": "PUT", "path": "/api/v1/settings/integrations", "permission": "settings.manage", "body": ["facebook_pixel_id", "google_analytics_id", "facebook_connected"]},
+    {"method": "PUT", "path": "/api/v1/settings/storefront", "permission": "settings.manage", "body": ["online_store_enabled", "store_slug:unique-global", "store_bio", "banner_url", "logo_url", "accent_color", "allow_delivery", "allow_pickup", "delivery_fee", "free_delivery_threshold", "min_order_amount", "whatsapp_ordering_enabled", "show_out_of_stock_online"]},
+    {"method": "POST", "path": "/api/v1/settings/storefront/banner", "multipart": true},
+    {"method": "POST", "path": "/api/v1/settings/storefront/logo", "multipart": true},
+
+    {"method": "GET", "path": "/api/v1/staff", "permission": "staff.view"},
+    {"method": "POST", "path": "/api/v1/staff/invitations", "permission": "staff.manage", "body": ["name*", "email*", "role:MANAGER|CASHIER|VIEWER"], "side_effects": ["queued invitation mail"]},
+    {"method": "POST", "path": "/api/v1/staff/invitations/{token}/accept", "auth": false, "body": ["password*confirmed", "name?"], "errors": {"410": "expired", "409": "already accepted"}},
+    {"method": "POST", "path": "/api/v1/staff/invitations/{id}/resend", "permission": "staff.manage"},
+    {"method": "DELETE", "path": "/api/v1/staff/invitations/{id}", "permission": "staff.manage"},
+    {"method": "PATCH", "path": "/api/v1/staff/{user}", "permission": "staff.manage", "body": ["role?", "is_active?"], "rules": ["owner-protected", "LAST_OWNER 409", "deactivate revokes tokens"]},
+    {"method": "DELETE", "path": "/api/v1/staff/{user}", "permission": "staff.manage"},
+
+    {"method": "GET", "path": "/api/v1/categories", "permission": "member"},
+    {"method": "POST", "path": "/api/v1/categories", "permission": "products.manage", "body": ["name*unique-in-store", "color:hex"]},
+    {"method": "PUT", "path": "/api/v1/categories/{id}", "permission": "products.manage"},
+    {"method": "DELETE", "path": "/api/v1/categories/{id}", "permission": "products.manage", "behavior": "products.category_id -> null"},
+    {"method": "PATCH", "path": "/api/v1/categories/reorder", "permission": "products.manage", "assumption": true},
+
+    {"method": "GET", "path": "/api/v1/products", "permission": "member", "params": ["search", "category_id", "status", "stock:low|out", "sort", "page", "per_page"]},
+    {"method": "POST", "path": "/api/v1/products", "permission": "products.manage", "request": "StoreProductRequest", "side_effects": ["INITIAL stock movement", "variant create", "parent stock = sum variants"]},
+    {"method": "GET", "path": "/api/v1/products/{id}", "permission": "member"},
+    {"method": "PUT", "path": "/api/v1/products/{id}", "permission": "products.manage", "behavior": "variant sync by id; stock diff -> ADJUSTMENT movement"},
+    {"method": "DELETE", "path": "/api/v1/products/{id}", "permission": "products.manage", "soft_delete": true},
+    {"method": "POST", "path": "/api/v1/products/{id}/image", "permission": "products.manage", "multipart": true},
+    {"method": "POST", "path": "/api/v1/ai/product-description", "permission": "products.manage", "optional": true, "throttle": "20/day/store"},
+
+    {"method": "GET", "path": "/api/v1/customers", "permission": "member", "params": ["search", "sort:name|-name|total_spent|-total_spent", "page", "per_page"], "meta_summary": ["count", "total_spent", "avg_ltv"]},
+    {"method": "POST", "path": "/api/v1/customers", "permission": "customers.manage", "body": ["name*", "phone*", "email", "address", "city", "tax_id", "notes"], "errors": {"422+duplicate_customer_id": "duplicate phone"}},
+    {"method": "GET", "path": "/api/v1/customers/{id}", "includes": ["recent_orders(3)"]},
+    {"method": "PUT", "path": "/api/v1/customers/{id}", "permission": "customers.manage"},
+    {"method": "DELETE", "path": "/api/v1/customers/{id}", "permission": "customers.delete", "soft_delete": true},
+    {"method": "GET", "path": "/api/v1/customers/export", "permission": "customers.export", "format": "csv"},
+    {"method": "POST", "path": "/api/v1/customers/import", "permission": "customers.export", "multipart": true, "async_over": 500},
+
+    {"method": "GET", "path": "/api/v1/orders", "permission": "orders.view", "params": ["search", "status", "payment_method", "date_from", "date_to", "source", "sort", "page", "per_page"], "meta_summary": ["revenue", "completed_count", "pending_count", "cancelled_count", "tax_total", "discount_total"]},
+    {"method": "POST", "path": "/api/v1/orders", "permission": "orders.create", "body": ["customer_id?", "items[{product_id,variant_id?,quantity}]*", "discount?", "payment_method:in-store-enabled", "status:COMPLETED|PENDING", "notes?", "source:pos"], "server_computes": ["subtotal", "tax_amount", "total", "order_number"], "errors": {"409": "INSUFFICIENT_STOCK"}, "side_effects": ["stock SALE movements", "customer counters", "OrderCreated", "LowStockDetected"]},
+    {"method": "GET", "path": "/api/v1/orders/{id}", "includes": ["items", "receipt block (store header/footer settings)"]},
+    {"method": "PATCH", "path": "/api/v1/orders/{id}/status", "permission": "orders.update_status", "body": ["status:COMPLETED|CANCELLED"], "matrix": ["PENDING->COMPLETED", "PENDING->CANCELLED", "COMPLETED->CANCELLED(owner/manager)"], "side_effects": ["CANCELLED restores stock + reverses counters", "ONLINE completion deducts stock"]},
+    {"method": "GET", "path": "/api/v1/orders/export", "permission": "reports.export", "format": "csv"},
+
+    {"method": "GET", "path": "/api/v1/reports/finance", "permission": "reports.view", "params": ["period:daily|weekly|monthly|all", "date_from", "date_to"]},
+    {"method": "GET", "path": "/api/v1/reports/finance/export", "permission": "reports.export", "format": "csv"},
+    {"method": "GET", "path": "/api/v1/reports/analytics", "permission": "reports.view", "params": ["period:today|week|month|all"], "sections": ["kpis", "by_method", "inventory", "top_products", "by_category"]},
+
+    {"method": "GET", "path": "/api/public/stores/{slug}", "auth": false, "throttle": "60/min", "404_when": "online_store_enabled=false"},
+    {"method": "GET", "path": "/api/public/stores/{slug}/catalog", "auth": false, "params": ["category_id", "search"], "filters": ["show_in_online_store", "is_active", "out-of-stock per setting"]},
+    {"method": "POST", "path": "/api/public/stores/{slug}/orders", "auth": false, "throttle": "5/min", "body": ["customer{name*,phone*}", "fulfillment:delivery|pickup", "items*", "notes?"], "server_computes": ["delivery_fee w/ free threshold", "min_order_amount check", "tax", "total"], "creates": "order PENDING/WHATSAPP/ONLINE + customer upsert by phone", "returns": ["order_number", "totals", "whatsapp_url"]},
+
+    {"method": "GET", "path": "/api/v1/subscription", "permission": "member"},
+    {"method": "POST", "path": "/api/v1/subscription/portal", "permission": "billing.manage", "stub": true},
+    {"method": "GET", "path": "/api/v1/subscription/invoice/latest", "permission": "billing.manage", "stub": true}
+  ]
+}

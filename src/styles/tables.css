@@ -1,0 +1,74 @@
+/* ============================================================
+   TABLES — Data Tables, Headers, Sticky Columns, RTL
+   ============================================================ */
+
+.data-table-container {
+  width: 100%;
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); /* Sharp borders matching design system */
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  text-align: start;
+}
+
+.data-table th {
+  height: 40px;
+  background-color: var(--color-surface-subtle);
+  padding: var(--space-2) var(--space-4);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+.data-table td {
+  height: 56px;
+  padding: var(--space-2) var(--space-4);
+  font-size: 13px;
+  color: var(--color-ink);
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color var(--transition-fast);
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tr:hover td {
+  background-color: var(--color-surface-container);
+}
+
+/* Sticky First Column support */
+.data-table th:first-child,
+.data-table td:first-child {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 10;
+}
+
+.data-table th:first-child {
+  background-color: var(--color-surface-subtle);
+}
+
+.data-table td:first-child {
+  background-color: var(--color-surface-raised);
+}
+
+.data-table tr:hover td:first-child {
+  background-color: var(--color-surface-container);
+}
+
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}

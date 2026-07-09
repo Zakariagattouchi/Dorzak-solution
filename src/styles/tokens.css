@@ -1,0 +1,173 @@
+/* ============================================================
+   DESIGN SYSTEM TOKENS — High-Performance F&B SaaS v3.0
+   Source: food_solution_saas_design_system_v3_full.md
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap');
+
+@font-face {
+  font-family: 'Araboto';
+  src: url('/fonts/araboto/Araboto-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Araboto';
+  src: url('/fonts/araboto/Araboto-Medium.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 500 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Araboto';
+  src: url('/fonts/araboto/Araboto-Bold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Araboto';
+  src: url('/fonts/araboto/Araboto-Black.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 800 900;
+  font-display: swap;
+}
+
+:root {
+  /* ── Brand / Primary ── */
+  --color-primary: #BE000C;
+  --color-primary-strong: #E81C1C;
+  --color-primary-soft: #FFEFED;
+  --color-primary-border: #FFB4AA;
+
+  /* ── Ink / Text ── */
+  --color-black: #000000;
+  --color-ink: #1A1C1C;
+  --color-ink-muted: #666666;
+  --color-white: #FFFFFF;
+
+  /* ── Surfaces ── */
+  --color-surface: #F9F9F9;
+  --color-surface-subtle: #F5F5F5;
+  --color-surface-container: #EEEEEE;
+  --color-surface-raised: #FFFFFF;
+  --color-bg: #F9F9F9;
+  --color-surface-hover: #F5F5F5;
+
+  /* ── Borders ── */
+  --color-border: #E5E5E5;
+  --color-border-strong: #D0D0D0;
+  --color-border-hover: #D0D0D0;
+
+  /* ── Semantic Colors ── */
+  --color-success: #0F8A4B;
+  --color-success-soft: #EAF7EF;
+  --color-warning: #B7791F;
+  --color-warning-soft: #FFF6E5;
+  --color-error: #BA1A1A;
+  --color-error-soft: #FFDAD6;
+  --color-info: #0060A2;
+  --color-info-soft: #E8F3FF;
+
+  /* ── F&B Specific ── */
+  --color-kitchen-hot: #E8590C;
+  --color-kitchen-cold: #0079CB;
+  --color-loyalty-gold: #B88900;
+  --color-loyalty-soft: #FFF8E1;
+
+  /* ── Sidebar ── */
+  --dorzak-sidebar-bg: #000000;
+  --dorzak-sidebar-text: #A0A0A0;
+  --dorzak-sidebar-active: #FFFFFF;
+  --dorzak-sidebar-hover-bg: #1A1A1A;
+  --dorzak-sidebar-active-indicator: #E81C1C;
+
+  --kyte-sidebar-bg: #000000;
+  --kyte-sidebar-text: #A0A0A0;
+  --kyte-sidebar-active: #FFFFFF;
+  --kyte-sidebar-hover-bg: #1A1A1A;
+  --kyte-sidebar-active-indicator: #E81C1C;
+
+  /* ── Legacy aliases (for backwards compat) ── */
+  --dorzak-primary: #BE000C;
+  --dorzak-primary-hover: #E81C1C;
+  --dorzak-primary-active: #9B0009;
+  --dorzak-primary-light: #FFEFED;
+  --dorzak-success: #0F8A4B;
+  --dorzak-success-light: #EAF7EF;
+  --dorzak-warning: #B7791F;
+  --dorzak-warning-light: #FFF6E5;
+  --dorzak-danger: #BA1A1A;
+  --dorzak-danger-light: #FFDAD6;
+  --dorzak-info: #0060A2;
+  --dorzak-dark: #000000;
+  --dorzak-secondary: #1A1C1C;
+
+  --kyte-primary: #BE000C;
+  --kyte-primary-hover: #E81C1C;
+  --kyte-primary-active: #9B0009;
+  --kyte-primary-light: #FFEFED;
+  --kyte-success: #0F8A4B;
+  --kyte-success-light: #EAF7EF;
+  --kyte-warning: #B7791F;
+  --kyte-warning-light: #FFF6E5;
+  --kyte-danger: #BA1A1A;
+  --kyte-danger-light: #FFDAD6;
+  --kyte-info: #0060A2;
+  --kyte-dark: #000000;
+  --kyte-secondary: #1A1C1C;
+
+  /* ── Text (legacy aliases) ── */
+  --text-main: #1A1C1C;
+  --text-muted: #666666;
+  --text-light: #999999;
+
+
+  /* ── Typography ── */
+  --font-sans: 'Hanken Grotesk', Inter, system-ui, sans-serif;
+  --font-arabic: 'Araboto', 'Noto Sans Arabic', Tahoma, sans-serif;
+
+  /* ── Spacing (8px base grid) ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-32: 128px;
+
+  /* ── Radius ── */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* ── Shadows — borders first, shadows only when floating ── */
+  --shadow-floating: 0 8px 24px rgba(0,0,0,0.08);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
+  --border-default: 1px solid var(--color-border);
+
+  /* ── Transitions ── */
+  --transition-fast: 120ms ease-out;
+  --transition-normal: 180ms cubic-bezier(.2,.8,.2,1);
+
+  /* ── Layout ── */
+  --sidebar-width: 280px;
+  --sidebar-collapsed: 72px;
+  --topbar-height: 64px;
+  --topbar-height-mobile: 56px;
+  --content-padding: 24px;
+}
