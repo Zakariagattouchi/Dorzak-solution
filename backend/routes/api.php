@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\OrderStatusController;
 use App\Http\Controllers\Api\PlanCatalogController;
 use App\Http\Controllers\Api\Platform\AnalyticsController as PlatformAnalyticsController;
 use App\Http\Controllers\Api\Platform\AuditLogController as PlatformAuditLogController;
+use App\Http\Controllers\Api\Platform\DataController as PlatformDataController;
 use App\Http\Controllers\Api\Platform\ImpersonationController as PlatformImpersonationController;
 use App\Http\Controllers\Api\Platform\OverviewController as PlatformOverviewController;
 use App\Http\Controllers\Api\Platform\PlanController as PlatformPlanController;
@@ -146,6 +147,15 @@ Route::prefix('v1/platform')->middleware(['auth:sanctum', 'platform.admin'])->gr
     Route::get('overview', [PlatformOverviewController::class, 'index']);
     Route::get('analytics', [PlatformAnalyticsController::class, 'platform']);
     Route::get('audit-logs', [PlatformAuditLogController::class, 'index']);
+
+    // Cross-tenant data browsing, export (CSV/Excel) and import.
+    Route::get('customers', [PlatformDataController::class, 'customers']);
+    Route::get('customers/export', [PlatformDataController::class, 'exportCustomers']);
+    Route::post('customers/import', [PlatformDataController::class, 'importCustomers']);
+    Route::get('products', [PlatformDataController::class, 'products']);
+    Route::get('products/export', [PlatformDataController::class, 'exportProducts']);
+    Route::get('stores/export', [PlatformDataController::class, 'exportStores']);
+    Route::get('orders/export', [PlatformDataController::class, 'exportOrders']);
 
     // Plans: CRUD + feature composition.
     Route::get('plan-features', [PlatformPlanController::class, 'catalog']);

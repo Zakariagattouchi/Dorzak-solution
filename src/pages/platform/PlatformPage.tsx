@@ -282,6 +282,7 @@ const StoresTab: React.FC = () => {
           <option value="active">Active</option>
           <option value="suspended">Suspended</option>
         </select>
+        <AppButton variant="secondary" onClick={() => platformApi.exportCsv('stores').catch(() => addToast('Export failed', 'danger'))}>Export</AppButton>
       </div>
 
       {loading ? <Loading /> : stores.length === 0 ? (
@@ -501,12 +502,131 @@ const AuditTab: React.FC = () => {
   );
 };
 
+// ─── Customers tab (cross-tenant) ──────────────────────────────────────────────
+
+const CustomersTab: React.FC = () => {
+  const { addToast } = useToastStore();
+  const [rows, setRows] = useState<any[]>([]);
+  const [stores, setStores] = useState<StoreRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [importStore, setImportStore] = useState<number | ''>('');
+  const fileRef = React.useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, string> = {};
+      if (search) params.search = search;
+      const [c, s] = await Promise.all([platformApi.customers(params) as any, platformApi.stores.list() as any]);
+      setRows(c.data ?? []);
+      setStores(s.data ?? []);
+    } catch { addToast('Failed to load customers', 'danger'); }
+    finally { setLoading(false); }
+  }, [search, addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const doImport = async (file: File) => {
+    if (!importStore) { addToast('Pick a store to import into first', 'warning'); return; }
+    try {
+      const res = (await platformApi.importCustomers(Number(importStore), file)) as any;
+      const n = res.data?.created ?? res.data?.imported ?? '';
+      addToast(`Imported customers ${n}`.trim(), 'success');
+      load();
+    } catch (e: any) { addToast(e?.message ?? 'Import failed', 'danger'); }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <input type="search" placeholder="Search customers…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '180px' }} />
+        <AppButton variant="secondary" onClick={() => platformApi.exportCsv('customers').catch(() => addToast('Export failed', 'danger'))}>Export Excel/CSV</AppButton>
+      </div>
+
+      <div className="card" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>Bulk import into</span>
+        <select value={importStore} onChange={(e) => setImportStore(e.target.value ? Number(e.target.value) : '')} style={inputStyle}>
+          <option value="">Select store…</option>
+          {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = ''; }} />
+        <AppButton variant="tertiary" onClick={() => fileRef.current?.click()}>Upload CSV</AppButton>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Columns: name, phone, email, address, city, notes</span>
+      </div>
+
+      {loading ? <Loading /> : rows.length === 0 ? (
+        <div style={{ color: 'var(--text-muted)', padding: '24px', textAlign: 'center' }}>No customers found.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {rows.map((c) => (
+            <div key={c.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.85rem', padding: '10px 14px' }}>
+              <div style={{ flex: 1, minWidth: '140px' }}><strong>{c.name}</strong><div style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{c.phone} · {c.email}</div></div>
+              <span style={codePill(c.store ?? '—')}>{c.store ?? '—'}</span>
+              <span style={{ color: 'var(--text-muted)' }}>{c.orders} orders</span>
+              <strong style={{ minWidth: '70px', textAlign: 'right' }}>{c.spent.toLocaleString()}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Products tab (cross-tenant) ───────────────────────────────────────────────
+
+const ProductsTab: React.FC = () => {
+  const { addToast } = useToastStore();
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, string> = {};
+      if (search) params.search = search;
+      const res = (await platformApi.products(params)) as any;
+      setRows(res.data ?? []);
+    } catch { addToast('Failed to load products', 'danger'); }
+    finally { setLoading(false); }
+  }, [search, addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <input type="search" placeholder="Search products…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '180px' }} />
+        <AppButton variant="secondary" onClick={() => platformApi.exportCsv('products').catch(() => addToast('Export failed', 'danger'))}>Export Excel/CSV</AppButton>
+      </div>
+
+      {loading ? <Loading /> : rows.length === 0 ? (
+        <div style={{ color: 'var(--text-muted)', padding: '24px', textAlign: 'center' }}>No products found.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {rows.map((p) => (
+            <div key={p.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.85rem', padding: '10px 14px' }}>
+              <div style={{ flex: 1, minWidth: '140px' }}><strong>{p.name}</strong>{!p.active && <span style={{ marginLeft: 6, fontSize: '0.68rem', color: 'var(--dorzak-warning)' }}>INACTIVE</span>}<div style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{p.category ?? 'Uncategorised'}{p.sku ? ` · ${p.sku}` : ''}</div></div>
+              <span style={codePill(p.store ?? '—')}>{p.store ?? '—'}</span>
+              <span style={{ color: 'var(--text-muted)' }}>{p.stock == null ? 'untracked' : `${p.stock} in stock`}</span>
+              <strong style={{ minWidth: '70px', textAlign: 'right' }}>{p.price.toLocaleString()}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Page shell ──────────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'stores' | 'users' | 'plans' | 'audit';
+type Tab = 'overview' | 'stores' | 'customers' | 'products' | 'users' | 'plans' | 'audit';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'stores', label: 'Stores' },
+  { key: 'customers', label: 'Customers' },
+  { key: 'products', label: 'Products' },
   { key: 'users', label: 'Users' },
   { key: 'plans', label: 'Plans' },
   { key: 'audit', label: 'Audit log' },
@@ -752,6 +872,8 @@ export const PlatformPage: React.FC = () => {
       </div>
 
       {tab === 'overview' && <OverviewTab />}
+      {tab === 'customers' && <CustomersTab />}
+      {tab === 'products' && <ProductsTab />}
       {tab === 'stores' && <StoresTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'plans' && <PlansTab />}

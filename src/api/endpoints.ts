@@ -2,7 +2,7 @@
 // `mockApi.*` calls for the matching function here. Contracts:
 // docs/backend-planning/05-api-contracts.md.
 
-import { request, requestBlob } from './apiClient';
+import { downloadFile, request, requestBlob } from './apiClient';
 
 const PUBLIC_BASE = ((import.meta as any).env?.VITE_API_URL || '/api/v1')
   .replace(/\/api\/v1$/, '/api/public');
@@ -126,6 +126,16 @@ export const platformApi = {
     assignPlan: (id: number, planId: number) => request(`/platform/stores/${id}/plan`, { base: PLATFORM_BASE, method: 'PUT', body: { plan_id: planId } }),
     impersonate: (id: number) => request(`/platform/stores/${id}/impersonate`, { base: PLATFORM_BASE, method: 'POST' }),
     destroy: (id: number, confirmName: string) => request(`/platform/stores/${id}`, { base: PLATFORM_BASE, method: 'DELETE', body: { confirm_name: confirmName } }),
+  },
+  customers: (params?: Record<string, string>) => request('/platform/customers', { base: PLATFORM_BASE, params }),
+  products: (params?: Record<string, string>) => request('/platform/products', { base: PLATFORM_BASE, params }),
+  exportCsv: (kind: 'customers' | 'products' | 'stores' | 'orders') =>
+    downloadFile(`/platform/${kind}/export`, `${kind}-${new Date().toISOString().slice(0, 10)}.csv`, PLATFORM_BASE),
+  importCustomers: (storeId: number, file: File) => {
+    const fd = new FormData();
+    fd.append('store_id', String(storeId));
+    fd.append('file', file);
+    return request('/platform/customers/import', { base: PLATFORM_BASE, method: 'POST', body: fd });
   },
   users: {
     list: (params?: Record<string, string>) => request('/platform/users', { base: PLATFORM_BASE, params }),

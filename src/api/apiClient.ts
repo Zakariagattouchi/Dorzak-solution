@@ -81,6 +81,24 @@ export async function request<T = unknown>(path: string, opts: Options = {}): Pr
   return (await res.json()) as T;
 }
 
+/** Fetch an authenticated file (e.g. a CSV export) and trigger a browser download. */
+export async function downloadFile(path: string, filename: string, base?: string): Promise<void> {
+  const token = getToken();
+  const b = base ?? API_BASE;
+  const url = b.startsWith('http') ? `${b}${path}` : `${window.location.origin}${b}${path}`;
+  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) throw normalize(res, await res.json().catch(() => ({})));
+  const blob = await res.blob();
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(href);
+}
+
 export async function requestBlob(path: string): Promise<Blob> {
   const token = getToken();
   const base = (import.meta as any).env?.VITE_API_URL ?? '/api/v1';
