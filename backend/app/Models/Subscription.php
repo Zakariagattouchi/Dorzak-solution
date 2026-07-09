@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Subscription extends Model
 {
     protected $fillable = [
-        'store_id', 'plan_id', 'status', 'price', 'billing_cycle', 'renews_at', 'provider', 'provider_id',
+        'store_id', 'plan_id', 'status', 'price', 'billing_cycle', 'renews_at',
+        'trial_ends_at', 'trial_used_at', 'provider', 'provider_id',
     ];
 
     protected function casts(): array
@@ -18,6 +19,8 @@ class Subscription extends Model
             'status' => SubscriptionStatus::class,
             'price' => 'decimal:2',
             'renews_at' => 'datetime',
+            'trial_ends_at' => 'datetime',
+            'trial_used_at' => 'datetime',
         ];
     }
 

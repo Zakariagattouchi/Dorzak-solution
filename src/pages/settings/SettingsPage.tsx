@@ -705,21 +705,25 @@ export const SettingsPage: React.FC = () => {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                    {(subData.features ?? []).map((f: string, i: number) => (
-                      <div key={i} style={{
-                        padding: '12px',
-                        backgroundColor: 'var(--color-bg)',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        fontSize: '0.85rem',
-                        fontWeight: 500,
-                      }}>
-                        <AppIcon name="check" size={16} color="var(--color-success)" />
-                        {f}
-                      </div>
-                    ))}
+                    {(subData.features ?? []).map((f: { feature: string; limit: number | null } | string, i: number) => {
+                      const label = typeof f === 'string' ? f : f.feature.replace(/_/g, ' ');
+                      const limit = typeof f === 'object' && f.limit != null ? ` (${f.limit})` : '';
+                      return (
+                        <div key={i} style={{
+                          padding: '12px',
+                          backgroundColor: 'var(--color-bg)',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          fontSize: '0.85rem',
+                          fontWeight: 500,
+                        }}>
+                          <AppIcon name="check" size={16} color="var(--color-success)" />
+                          {label}{limit}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   <div style={{ display: 'flex', gap: '12px' }}>

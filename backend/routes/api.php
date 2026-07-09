@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderPaymentProofController;
 use App\Http\Controllers\Api\OrderPaymentStatusController;
 use App\Http\Controllers\Api\OrderStatusController;
+use App\Http\Controllers\Api\PlanCatalogController;
 use App\Http\Controllers\Api\Platform\PlanController as PlatformPlanController;
 use App\Http\Controllers\Api\Platform\StoreController as PlatformStoreController;
 use App\Http\Controllers\Api\ProductController;
@@ -117,8 +118,10 @@ Route::prefix('v1')->group(function () {
         Route::get('reports/finance/export', [FinanceController::class, 'export']);
         Route::get('reports/analytics', [AnalyticsController::class, 'index']);
 
-        // Subscription (read: member; portal/invoice: owner).
+        // Subscription (read: member; trial/portal/invoice: owner).
+        Route::get('plans', [PlanCatalogController::class, 'index']);
         Route::get('subscription', [SubscriptionController::class, 'show']);
+        Route::post('subscription/trial', [SubscriptionController::class, 'startTrial']);
         Route::post('subscription/portal', [SubscriptionController::class, 'portal']);
         Route::get('subscription/invoice/latest', [SubscriptionController::class, 'invoiceLatest']);
     });

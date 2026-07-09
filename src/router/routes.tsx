@@ -17,6 +17,7 @@ import { SettingsPage } from '../pages/settings/SettingsPage';
 import { UsersPage } from '../pages/users/UsersPage';
 import { BillingPage } from '../pages/billing/BillingPage';
 import { LoginPage } from '../pages/auth/LoginPage';
+import { SignupPage } from '../pages/auth/SignupPage';
 import { PlatformPage } from '../pages/platform/PlatformPage';
 
 export const router = createBrowserRouter([
@@ -60,5 +61,9 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />
+  },
+  {
+    path: '/signup',
+    element: <SignupPage />
   }
 ]);

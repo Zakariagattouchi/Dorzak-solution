@@ -26,6 +26,7 @@ class PlanSeeder extends Seeder
                     'description_ar' => $def['description_ar'],
                     'price' => $def['price'],
                     'billing_cycle' => $def['billing_cycle'],
+                    'trial_days' => $def['trial_days'] ?? 0,
                     'is_default' => $def['is_default'],
                     'is_active' => $def['is_active'],
                     'sort_order' => $def['sort_order'],

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { TextInput } from '../../components/forms/TextInput';
 import { AppButton } from '../../components/buttons/AppButton';
@@ -45,6 +45,10 @@ export const LoginPage: React.FC = () => {
         <AppButton variant="primary" type="submit" loading={loading} style={{ width: '100%', padding: '12px' }}>
           Sign In
         </AppButton>
+
+        <span style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          New here? <Link to="/signup" style={{ color: 'var(--dorzak-primary)', fontWeight: 600 }}>Create your store — free</Link>
+        </span>
 
         <span style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
           Demo: merchant@dorzak.com / password

@@ -14,6 +14,7 @@ interface AuthState {
   error: string | null;
   bootstrap: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
+  register: (payload: { name: string; email: string; password: string; password_confirmation: string; business_name: string }) => Promise<void>;
   logout: () => Promise<void>;
   can: (ability: string) => boolean;
 }
@@ -50,6 +51,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (e) {
       const err = e as ApiError;
       set({ error: err.errors?.email?.[0] ?? err.message ?? 'Login failed' });
+      throw e;
+    }
+  },
+
+  register: async (payload) => {
+    set({ error: null });
+    try {
+      const { data } = (await authApi.register(payload)) as any;
+      setToken(data.token);
+      set({ user: data.user, store: data.store, role: data.role, abilities: data.abilities, status: 'authenticated' });
+    } catch (e) {
+      const err = e as ApiError;
+      const firstError = err.errors ? Object.values(err.errors)[0]?.[0] : undefined;
+      set({ error: firstError ?? err.message ?? 'Signup failed' });
       throw e;
     }
   },

@@ -12,7 +12,7 @@ export const authApi = {
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/auth/me'),
   register: (payload: { name: string; email: string; password: string; password_confirmation: string; business_name: string }) =>
-    request('/auth/register', { method: 'POST', body: payload }),
+    request('/auth/register', { method: 'POST', body: { ...payload, device_name: 'web' } }),
   forgotPassword: (email: string) => request('/auth/forgot-password', { method: 'POST', body: { email } }),
 };
 
@@ -99,6 +99,8 @@ export const reportApi = {
 
 export const subscriptionApi = {
   get: () => request('/subscription'),
+  plans: () => request('/plans'),
+  startTrial: (planId: number) => request('/subscription/trial', { method: 'POST', body: { plan_id: planId } }),
   portal: () => request('/subscription/portal', { method: 'POST' }),
 };
 

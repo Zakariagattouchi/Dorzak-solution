@@ -13,13 +13,14 @@ class Plan extends Model
 {
     protected $fillable = [
         'code', 'name_en', 'name_ar', 'description_en', 'description_ar',
-        'price', 'billing_cycle', 'is_default', 'is_active', 'sort_order',
+        'price', 'billing_cycle', 'trial_days', 'is_default', 'is_active', 'sort_order',
     ];
 
     protected function casts(): array
     {
         return [
             'price' => 'decimal:2',
+            'trial_days' => 'integer',
             'is_default' => 'boolean',
             'is_active' => 'boolean',
             'sort_order' => 'integer',

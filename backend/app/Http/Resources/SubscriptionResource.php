@@ -23,6 +23,9 @@ class SubscriptionResource extends JsonResource
             'price' => $this->price,
             'billing_cycle' => $this->billing_cycle,
             'renews_at' => $this->renews_at?->toIso8601String(),
+            'trial_ends_at' => $this->trial_ends_at?->toIso8601String(),
+            'trial_used' => $this->trial_used_at !== null,
+            'plan_is_default' => (bool) ($plan?->is_default),
             'features' => $plan
                 ? $plan->featureLimits->map(fn ($row) => [
                     'feature' => $row->feature->value,
