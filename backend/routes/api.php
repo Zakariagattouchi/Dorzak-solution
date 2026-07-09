@@ -12,8 +12,12 @@ use App\Http\Controllers\Api\OrderPaymentProofController;
 use App\Http\Controllers\Api\OrderPaymentStatusController;
 use App\Http\Controllers\Api\OrderStatusController;
 use App\Http\Controllers\Api\PlanCatalogController;
+use App\Http\Controllers\Api\Platform\AuditLogController as PlatformAuditLogController;
+use App\Http\Controllers\Api\Platform\ImpersonationController as PlatformImpersonationController;
+use App\Http\Controllers\Api\Platform\OverviewController as PlatformOverviewController;
 use App\Http\Controllers\Api\Platform\PlanController as PlatformPlanController;
 use App\Http\Controllers\Api\Platform\StoreController as PlatformStoreController;
+use App\Http\Controllers\Api\Platform\UserController as PlatformUserController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductImageController;
 use App\Http\Controllers\Api\ProductTranslationController;
@@ -133,6 +137,10 @@ Route::prefix('v1')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::prefix('v1/platform')->middleware(['auth:sanctum', 'platform.admin'])->group(function () {
+    // Fleet dashboard + accountability trail.
+    Route::get('overview', [PlatformOverviewController::class, 'index']);
+    Route::get('audit-logs', [PlatformAuditLogController::class, 'index']);
+
     // Plans: CRUD + feature composition.
     Route::get('plans', [PlatformPlanController::class, 'index']);
     Route::post('plans', [PlatformPlanController::class, 'store']);
@@ -140,11 +148,21 @@ Route::prefix('v1/platform')->middleware(['auth:sanctum', 'platform.admin'])->gr
     Route::put('plans/{plan}', [PlatformPlanController::class, 'update']);
     Route::delete('plans/{plan}', [PlatformPlanController::class, 'destroy']);
 
-    // Stores: list, suspend, reactivate, manual plan assignment.
+    // Stores: list, detail, lifecycle, plan override, impersonation, delete.
     Route::get('stores', [PlatformStoreController::class, 'index']);
+    Route::get('stores/{store}', [PlatformStoreController::class, 'show']);
     Route::put('stores/{store}/suspend', [PlatformStoreController::class, 'suspend']);
     Route::put('stores/{store}/reactivate', [PlatformStoreController::class, 'reactivate']);
     Route::put('stores/{store}/plan', [PlatformStoreController::class, 'assignPlan']);
+    Route::post('stores/{store}/impersonate', [PlatformImpersonationController::class, 'store']);
+    Route::delete('stores/{store}', [PlatformStoreController::class, 'destroy']);
+
+    // Users: cross-tenant administration.
+    Route::get('users', [PlatformUserController::class, 'index']);
+    Route::put('users/{user}/grant-admin', [PlatformUserController::class, 'grantAdmin']);
+    Route::put('users/{user}/revoke-admin', [PlatformUserController::class, 'revokeAdmin']);
+    Route::put('users/{user}/active', [PlatformUserController::class, 'setActive']);
+    Route::post('users/{user}/reset-password', [PlatformUserController::class, 'resetPassword']);
 });
 
 /*
