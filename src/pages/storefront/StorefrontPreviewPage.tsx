@@ -31,7 +31,7 @@ const labels = {
     city: 'City / Area', delivery: 'Delivery', pickup: 'Pickup', dineIn: 'Dine-in', payment: 'Payment Method',
     table: 'Table', tableNumber: 'Table number', tableHelp: 'This order will be sent to the staff with your table number.', chooseTable: 'Choose your table', tableLocked: 'You scanned this table QR code.',
     whatsapp: 'WhatsApp', fawran: 'Fawran Transfer', cashAtTable: 'Pay at table', cashAtTableHelp: 'A staff member will collect payment at your table.', fawranDescription: 'Transfer the total to the Fawran account below. Your name is the transfer reference. Upload your receipt to complete the order.', fawranAlias: 'Alias', fawranIban: 'IBAN', fawranReferenceNote: 'Reference: your name (automatically inserted)', reference: 'Reference', shareOrder: 'Share order on WhatsApp', shareOrderHelp: 'Send your order details to the restaurant via WhatsApp.', trackOrder: 'Track your order', trackOrderHelp: 'You will be redirected automatically in {{seconds}} seconds.', shareThenTrack: 'Share on WhatsApp, then track your order below.',
-    proof: 'Payment Receipt (optional)', place: 'Place Order', confirmation: 'Order confirmed',
+    proof: 'Payment Receipt', proofRequired: 'Upload your transfer receipt to place the order.', place: 'Place Order', confirmation: 'Order confirmed',
     location: 'Delivery Location', options: 'Choose options', continue: 'Add selected item',
     empty: 'Your bag is empty', back: 'Continue shopping', customerInfo: 'Your information', customerInfoHelp: 'Enter your phone number to auto-fill your details.',
     subtotal: 'Subtotal', deliveryFeeLabel: 'Delivery', deliveryFree: 'FREE',
@@ -56,7 +56,7 @@ const labels = {
     city: 'المدينة / المنطقة', delivery: 'توصيل', pickup: 'استلام', dineIn: 'داخل المطعم', payment: 'طريقة الدفع',
     table: 'الطاولة', tableNumber: 'رقم الطاولة', tableHelp: 'سيصل الطلب للموظفين مع رقم طاولتك.', chooseTable: 'اختر طاولتك', tableLocked: 'تم فتح الطلب من رمز هذه الطاولة.',
     whatsapp: 'واتساب', fawran: 'تحويل فوراً', cashAtTable: 'الدفع على الطاولة', cashAtTableHelp: 'سيقوم الموظف بتحصيل الدفع على طاولتك.', fawranDescription: 'يرجى تحويل المبلغ الإجمالي إلى حساب فوران أدناه. اسمك هو مرجع التحويل. ارفع إيصال الدفع لإتمام الطلب.', fawranAlias: 'الاسم المستعار', fawranIban: 'رقم الآيبان', fawranReferenceNote: 'المرجع: اسمك (يُدرج تلقائياً)', reference: 'المرجع', shareOrder: 'مشاركة الطلب على واتساب', shareOrderHelp: 'أرسل تفاصيل طلبك إلى المطعم عبر واتساب.', trackOrder: 'تتبع طلبك', trackOrderHelp: 'سيتم تحويلك تلقائياً خلال {{seconds}} ثانية.', shareThenTrack: 'شارك عبر واتساب، ثم تتبع طلبك أدناه.',
-    proof: 'إيصال الدفع (اختياري)', place: 'تأكيد الطلب', confirmation: 'تم تأكيد الطلب',
+    proof: 'إيصال الدفع', proofRequired: 'يرجى رفع إيصال التحويل لإتمام الطلب.', place: 'تأكيد الطلب', confirmation: 'تم تأكيد الطلب',
     location: 'موقع التوصيل', options: 'اختر المواصفات', continue: 'إضافة المنتج المحدد',
     empty: 'السلة فارغة', back: 'متابعة التسوق', customerInfo: 'معلوماتك', customerInfoHelp: 'أدخل رقم هاتفك لملء بياناتك تلقائياً.',
     subtotal: 'المجموع الفرعي', deliveryFeeLabel: 'التوصيل', deliveryFree: 'مجاني',
@@ -367,6 +367,8 @@ export const StorefrontPreviewPage: React.FC = () => {
     && !!customer.phone
     && (fulfillment !== 'delivery' || (customer.latitude != null && customer.longitude != null && !!customer.address
       && (quote.status === 'quoted' || quote.status === 'pending')))
+    // Paying by transfer requires the receipt before the order can be placed.
+    && (paymentMethod !== 'FAWRAN' || !!proof)
     && tableValid;
 
   const displayTotal = fulfillment === 'delivery' && quote.status === 'quoted' ? total + (quote.fee ?? 0) : total;
@@ -693,7 +695,8 @@ export const StorefrontPreviewPage: React.FC = () => {
                             </button>
                           )}
                         </div>
-                        <label className="file-picker">{t.proof}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setProof(event.target.files?.[0] ?? null)} /></label>
+                        <label className="file-picker">{t.proof} *<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setProof(event.target.files?.[0] ?? null)} /></label>
+                        {!proof && <p style={{ fontSize: '0.8rem', color: '#b45309', margin: '6px 0 0' }}>{t.proofRequired}</p>}
                       </div>
                     )}</section>
             <div className="checkout-final-action">

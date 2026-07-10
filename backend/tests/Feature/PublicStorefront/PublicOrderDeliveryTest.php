@@ -8,7 +8,9 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Services\PlanGate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PublicOrderDeliveryTest extends TestCase
@@ -279,11 +281,17 @@ class PublicOrderDeliveryTest extends TestCase
 
     public function test_fallback_orders_cannot_pay_by_fawran_upfront(): void
     {
+        Storage::fake('local');
         DeliveryProvider::create(['name' => 'Tiny', 'base_fee' => 5, 'per_km_fee' => 2, 'min_fee' => 0, 'max_radius_km' => 1]);
         $this->store->storefrontSetting->update(['whatsapp_delivery_fallback' => true, 'fawran_enabled' => true]);
         $p = $this->product();
 
-        $this->postJson('/api/public/stores/delivery-shop/orders', $this->payload($p, ['payment_method' => 'FAWRAN']))
+        // A receipt is attached, so this clears the "no proof" gate and lands on
+        // the stronger guard: a transfer can't happen before the fee is known.
+        $this->post('/api/public/stores/delivery-shop/orders', $this->payload($p, [
+            'payment_method' => 'FAWRAN',
+            'payment_proof' => UploadedFile::fake()->image('receipt.jpg'),
+        ]), ['Accept' => 'application/json'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['payment_method']);
     }

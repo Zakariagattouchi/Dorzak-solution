@@ -8,7 +8,6 @@ import { TextInput } from '../../components/forms/TextInput';
 import { AppButton } from '../../components/buttons/AppButton';
 import { AppIcon, IconName } from '../../components/icons/AppIcon';
 import { useMoney } from '../../hooks/useMoney';
-import { orderApi } from '../../api/endpoints';
 
 type Tab = 'ACTIVE' | 'HISTORY';
 type ActiveStatus = 'ALL' | 'CONFIRMING' | 'ACCEPTED' | 'PREPARING' | 'OUT_FOR_DELIVERY';
@@ -154,10 +153,9 @@ export const OrdersPage: React.FC = () => {
             </AppButton>
           )}
           {row.hasPaymentProof && row.apiId && (
-            <AppButton variant="secondary" onClick={async e => {
+            <AppButton variant="secondary" onClick={e => {
               e.stopPropagation();
-              const blob = await orderApi.paymentProof(Number(row.apiId));
-              window.open(URL.createObjectURL(blob), '_blank', 'noopener,noreferrer');
+              openModal('PAYMENT_PROOF', { orderId: Number(row.apiId), orderLabel: row.id });
             }}>View Proof</AppButton>
           )}
           {canAdvance && (

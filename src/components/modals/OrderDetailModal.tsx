@@ -51,10 +51,9 @@ export const OrderDetailModal: React.FC = () => {
     await updatePaymentStatus(order, 'PAID');
   };
 
-  const handleViewProof = async () => {
+  const handleViewProof = () => {
     if (!order.apiId) return;
-    const blob = await orderApi.paymentProof(Number(order.apiId));
-    window.open(URL.createObjectURL(blob), '_blank', 'noopener,noreferrer');
+    openModal('PAYMENT_PROOF', { orderId: Number(order.apiId), orderLabel: order.id });
   };
 
   const handlePrintReceipt = () => {

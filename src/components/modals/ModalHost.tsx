@@ -7,6 +7,7 @@ import { ReceiptModal } from './ReceiptModal';
 import { VariantSelectModal } from './VariantSelectModal';
 import { PaymentSuccessModal } from './PaymentSuccessModal';
 import { OrderDetailModal } from './OrderDetailModal';
+import { PaymentProofModal } from './PaymentProofModal';
 
 export const ModalHost: React.FC = () => {
   return (
@@ -19,6 +20,7 @@ export const ModalHost: React.FC = () => {
       <PaymentSuccessModal />
       <ReceiptModal />
       <OrderDetailModal />
+      <PaymentProofModal />
     </>
   );
 };

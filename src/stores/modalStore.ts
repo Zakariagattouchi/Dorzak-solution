@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type ModalType = 'PRODUCT_CREATE' | 'PRODUCT_EDIT' | 'CUSTOMER_CREATE' | 'CATEGORY_CREATE' | 'CATEGORY_EDIT' | 'PAYMENT' | 'PAYMENT_SUCCESS' | 'VARIANT_SELECT' | 'RECEIPT' | 'ORDER_DETAIL' | null;
+export type ModalType = 'PRODUCT_CREATE' | 'PRODUCT_EDIT' | 'CUSTOMER_CREATE' | 'CATEGORY_CREATE' | 'CATEGORY_EDIT' | 'PAYMENT' | 'PAYMENT_SUCCESS' | 'VARIANT_SELECT' | 'RECEIPT' | 'ORDER_DETAIL' | 'PAYMENT_PROOF' | null;
 
 interface ModalState {
   activeModal: ModalType;

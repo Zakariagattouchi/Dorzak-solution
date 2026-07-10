@@ -6,7 +6,9 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Notifications\OnlineOrderNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PublicStorefrontTest extends TestCase
@@ -261,6 +263,27 @@ class PublicStorefrontTest extends TestCase
     public function test_fawran_order_uses_customer_name_as_reference_when_not_provided(): void
     {
         Notification::fake();
+        Storage::fake('local');
+        $this->store->storefrontSetting->update(['fawran_enabled' => true]);
+        $p = $this->product(['taxable' => false]);
+
+        $this->post('/api/public/stores/dorzak-merchant/orders', [
+            'customer' => ['name' => 'Jane Customer', 'phone' => '+1 555-7777'],
+            'fulfillment' => 'pickup',
+            'payment_method' => 'FAWRAN',
+            'payment_proof' => UploadedFile::fake()->image('receipt.jpg'),
+            'items' => [['product_id' => $p->id, 'quantity' => 1]],
+        ], ['Accept' => 'application/json'])->assertCreated();
+
+        $this->assertDatabaseHas('orders', [
+            'payment_reference' => 'Jane Customer',
+            'payment_method' => 'FAWRAN',
+        ]);
+    }
+
+    public function test_a_fawran_order_is_rejected_without_a_payment_receipt(): void
+    {
+        Notification::fake();
         $this->store->storefrontSetting->update(['fawran_enabled' => true]);
         $p = $this->product(['taxable' => false]);
 
@@ -269,12 +292,9 @@ class PublicStorefrontTest extends TestCase
             'fulfillment' => 'pickup',
             'payment_method' => 'FAWRAN',
             'items' => [['product_id' => $p->id, 'quantity' => 1]],
-        ])->assertCreated();
+        ])->assertStatus(422)->assertJsonValidationErrors(['payment_proof']);
 
-        $this->assertDatabaseHas('orders', [
-            'payment_reference' => 'Jane Customer',
-            'payment_method' => 'FAWRAN',
-        ]);
+        $this->assertDatabaseMissing('orders', ['payment_method' => 'FAWRAN']);
     }
 
     public function test_public_can_fetch_order_status_by_order_number(): void

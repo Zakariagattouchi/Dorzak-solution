@@ -86,6 +86,13 @@ class StorePublicOrderRequest extends FormRequest
             } elseif ($paymentMethod === 'CASH') {
                 $validator->errors()->add('payment_method', 'Cash collection is only available for dine-in orders.');
             }
+
+            // Paying by transfer means the money has already moved — the order
+            // must carry the receipt so the merchant can verify it. No proof,
+            // no order.
+            if ($paymentMethod === 'FAWRAN' && ! $this->hasFile('payment_proof')) {
+                $validator->errors()->add('payment_proof', 'Upload your transfer receipt to place the order.');
+            }
         });
     }
 }
