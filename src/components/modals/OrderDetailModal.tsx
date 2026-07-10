@@ -196,8 +196,17 @@ export const OrderDetailModal: React.FC = () => {
               <div style={{ fontSize: '0.85rem', color: 'var(--dorzak-primary)', fontWeight: 700, marginTop: '4px' }}>Table {order.tableNumber}</div>
             )}
             {order.fulfillment === 'DELIVERY' && (
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                {order.deliveryAddress}{order.deliveryCity ? `, ${order.deliveryCity}` : ''}
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {order.pickupAddress && (
+                  <span><strong>Collect from:</strong> {order.pickupAddress}</span>
+                )}
+                <span><strong>Deliver to:</strong> {order.deliveryAddress}{order.deliveryCity ? `, ${order.deliveryCity}` : ''}</span>
+                {order.deliveryLatitude != null && order.deliveryLongitude != null && (
+                  <a href={`https://maps.google.com/?q=${order.deliveryLatitude},${order.deliveryLongitude}`} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--dorzak-primary)', fontWeight: 600 }}>
+                    <AppIcon name="mapPin" size={14} /> Open drop-off in Maps
+                  </a>
+                )}
               </div>
             )}
           </div>

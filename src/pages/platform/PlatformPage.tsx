@@ -29,6 +29,7 @@ interface StoreRow {
   id: number;
   name: string;
   suspended_at: string | null;
+  has_location?: boolean;
   plan?: { id: number; code: string; name_en: string } | null;
 }
 
@@ -302,6 +303,11 @@ const StoresTab: React.FC = () => {
                     </div>
                   </button>
 
+                  {s.has_location === false && (
+                    <span title="No pickup point — this store cannot offer delivery" style={{ fontSize: '0.68rem', fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '2px 8px', borderRadius: '10px' }}>
+                      NO LOCATION
+                    </span>
+                  )}
                   <span style={codePill(s.plan?.code ?? '—')}>{s.plan?.code ?? '—'}</span>
 
                   {assigningId === s.id ? (

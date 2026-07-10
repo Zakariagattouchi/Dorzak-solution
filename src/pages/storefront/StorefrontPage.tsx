@@ -50,6 +50,9 @@ export const StorefrontPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [onFreePlan, setOnFreePlan] = useState(false);
 
+  // Couriers collect from the store pin; without it delivery can't be offered.
+  const storeHasLocation = (accountInfo as any)?.latitude != null && (accountInfo as any)?.longitude != null;
+
   // A branded storefront is a paid feature — surface that up front instead of
   // letting the save fail with a plan error.
   useEffect(() => {
@@ -202,6 +205,20 @@ export const StorefrontPage: React.FC = () => {
             </span>
           </div>
           <AppButton variant="primary" onClick={() => navigate('/billing')}>View plans</AppButton>
+        </div>
+      )}
+
+      {/* Delivery needs a pickup point — couriers collect from your store pin. */}
+      {allowDelivery && !storeHasLocation && (
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', borderLeft: '4px solid var(--dorzak-warning, #f59e0b)', backgroundColor: '#fef3c7' }}>
+          <AppIcon name="mapPin" size={20} color="#92400e" />
+          <div style={{ flex: 1, minWidth: '220px' }}>
+            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#92400e' }}>Delivery is off until you set your store location</div>
+            <span style={{ fontSize: '0.82rem', color: '#92400e' }}>
+              Couriers collect from your store pin — without it we can't price a delivery or tell a driver where to go.
+            </span>
+          </div>
+          <AppButton variant="primary" onClick={() => navigate('/config')}>Set location</AppButton>
         </div>
       )}
 

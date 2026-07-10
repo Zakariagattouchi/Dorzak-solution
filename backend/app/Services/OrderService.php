@@ -58,6 +58,8 @@ class OrderService
                 (float) ($data['delivery_fee'] ?? 0),
             );
 
+            $pickup = $this->pickupPoint($store, $data['fulfillment'] ?? null);
+
             $order = $store->orders()->create([
                 'order_number' => 'ORD-'.(1000 + $store->orders()->count()),
                 'customer_id' => $customer?->id,
@@ -75,6 +77,11 @@ class OrderService
                 'delivery_city' => $data['delivery_city'] ?? null,
                 'delivery_latitude' => $data['delivery_latitude'] ?? null,
                 'delivery_longitude' => $data['delivery_longitude'] ?? null,
+                // Where the courier collects. Snapshotted from the store so a later
+                // move can't orphan an in-flight delivery. Only for DELIVERY orders.
+                'pickup_latitude' => $pickup['latitude'],
+                'pickup_longitude' => $pickup['longitude'],
+                'pickup_address' => $pickup['address'],
                 'subtotal' => $totals['subtotal'],
                 'discount' => round((float) ($data['discount'] ?? 0), 2),
                 'tax_rate' => $totals['tax_rate'],
@@ -109,6 +116,29 @@ class OrderService
 
             return $order->load(['items', 'customer', 'creator']);
         });
+    }
+
+    /**
+     * The collection point for a delivery order: the store's pinned coordinates
+     * plus a human address for the courier. Non-delivery orders have none.
+     *
+     * @return array{latitude:?string, longitude:?string, address:?string}
+     */
+    private function pickupPoint(Store $store, ?string $fulfillment): array
+    {
+        if ($fulfillment === null || strtoupper($fulfillment) !== 'DELIVERY' || ! $store->hasLocation()) {
+            return ['latitude' => null, 'longitude' => null, 'address' => null];
+        }
+
+        $address = collect([$store->address, $store->city, $store->country])
+            ->filter()
+            ->implode(', ');
+
+        return [
+            'latitude' => $store->latitude,
+            'longitude' => $store->longitude,
+            'address' => $address !== '' ? $address : $store->name,
+        ];
     }
 
     /**

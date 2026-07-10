@@ -57,6 +57,10 @@ class OrderResource extends JsonResource
             'delivery_fee_status' => $this->delivery_fee_status,
             'delivery_provider_name' => $this->delivery_provider_name,
             'delivery_distance_km' => $this->delivery_distance_km,
+            // Where the courier collects (snapshotted at placement).
+            'pickup_latitude' => $this->pickup_latitude,
+            'pickup_longitude' => $this->pickup_longitude,
+            'pickup_address' => $this->pickup_address,
             'total' => $this->total,
             'notes' => $this->notes,
             'placed_at' => $this->placed_at?->toIso8601String(),

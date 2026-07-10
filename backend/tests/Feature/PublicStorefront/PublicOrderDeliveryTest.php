@@ -3,6 +3,7 @@
 namespace Tests\Feature\PublicStorefront;
 
 use App\Models\DeliveryProvider;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\Store;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -122,6 +123,78 @@ class PublicOrderDeliveryTest extends TestCase
             ->assertJsonPath('data.delivery_fee', '7.00');
 
         $this->assertDatabaseHas('orders', ['delivery_fee_status' => null, 'delivery_provider_id' => null]);
+    }
+
+    public function test_delivery_order_snapshots_the_pickup_point_for_the_courier(): void
+    {
+        DeliveryProvider::create(['name' => 'Courier', 'base_fee' => 5, 'per_km_fee' => 2, 'min_fee' => 0, 'max_radius_km' => 20]);
+        $this->store->update(['address' => '742 Evergreen Terrace', 'city' => 'Doha', 'country' => 'Qatar']);
+        $p = $this->product();
+
+        $this->postJson('/api/public/stores/delivery-shop/orders', $this->payload($p))->assertCreated();
+
+        $order = Order::withoutGlobalScopes()->latest('id')->first();
+        $this->assertEquals(25.2854, (float) $order->pickup_latitude);
+        $this->assertEquals(51.531, (float) $order->pickup_longitude);
+        $this->assertSame('742 Evergreen Terrace, Doha, Qatar', $order->pickup_address);
+    }
+
+    public function test_pickup_point_survives_the_store_moving_afterwards(): void
+    {
+        DeliveryProvider::create(['name' => 'Courier', 'base_fee' => 5, 'per_km_fee' => 2, 'min_fee' => 0, 'max_radius_km' => 20]);
+        $p = $this->product();
+
+        $this->postJson('/api/public/stores/delivery-shop/orders', $this->payload($p))->assertCreated();
+
+        // The store relocates (or clears its pin) — the in-flight order keeps its
+        // original collection point.
+        $this->store->update(['latitude' => null, 'longitude' => null]);
+
+        $order = Order::withoutGlobalScopes()->latest('id')->first();
+        $this->assertEquals(25.2854, (float) $order->pickup_latitude);
+    }
+
+    public function test_pickup_orders_carry_no_pickup_point(): void
+    {
+        $this->store->storefrontSetting->update(['allow_pickup' => true]);
+        $p = $this->product();
+
+        $this->postJson('/api/public/stores/delivery-shop/orders', [
+            'customer' => ['name' => 'Jane', 'phone' => '+974 5555 9999'],
+            'fulfillment' => 'pickup',
+            'items' => [['product_id' => $p->id, 'quantity' => 1]],
+        ])->assertCreated();
+
+        $order = Order::withoutGlobalScopes()->latest('id')->first();
+        $this->assertNull($order->pickup_latitude);
+    }
+
+    public function test_whatsapp_message_carries_both_legs_of_the_trip(): void
+    {
+        DeliveryProvider::create(['name' => 'Courier', 'base_fee' => 5, 'per_km_fee' => 2, 'min_fee' => 0, 'max_radius_km' => 20]);
+        $this->store->update(['address' => '742 Evergreen Terrace', 'city' => 'Doha']);
+        $p = $this->product();
+
+        $url = $this->postJson('/api/public/stores/delivery-shop/orders', $this->payload($p))
+            ->assertCreated()->json('data.whatsapp_url');
+        $text = rawurldecode(substr($url, strpos($url, 'text=') + 5));
+
+        $this->assertStringContainsString('Collect from: 742 Evergreen Terrace, Doha', $text);
+        $this->assertStringContainsString('maps.google.com/?q=25.2854', $text);  // pickup
+        $this->assertStringContainsString('Deliver to: https://maps.google.com/?q=25.325', $text);
+    }
+
+    public function test_a_store_without_a_pickup_point_cannot_take_delivery_even_with_fallback_on(): void
+    {
+        DeliveryProvider::create(['name' => 'Courier', 'base_fee' => 5, 'per_km_fee' => 2, 'min_fee' => 0, 'max_radius_km' => 20]);
+        $this->store->update(['latitude' => null, 'longitude' => null]);
+        $this->store->storefrontSetting->update(['whatsapp_delivery_fallback' => true]);
+        $p = $this->product();
+
+        $this->postJson('/api/public/stores/delivery-shop/orders', $this->payload($p))
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'DELIVERY_UNAVAILABLE')
+            ->assertJsonPath('details.reason', 'STORE_LOCATION_MISSING');
     }
 
     public function test_fallback_accepts_out_of_range_orders_as_fee_pending(): void

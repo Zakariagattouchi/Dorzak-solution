@@ -134,6 +134,25 @@ class DeliveryQuoteServiceTest extends TestCase
         $this->assertSame('STORE_LOCATION_MISSING', $q['reason']);
     }
 
+    /**
+     * A pickup-less store must never take a delivery order — not even through the
+     * manual WhatsApp quote, because no courier could be told where to collect.
+     */
+    public function test_missing_store_location_is_never_rescued_by_the_whatsapp_fallback(): void
+    {
+        ['store' => $store] = $this->createStoreWithOwner();
+        $store->initializeSettings();
+        $store->storefrontSetting->update(['allow_delivery' => true, 'whatsapp_delivery_fallback' => true]);
+        DeliveryProvider::create(['name' => 'Courier', 'base_fee' => 5, 'per_km_fee' => 2, 'min_fee' => 0, 'max_radius_km' => 20]);
+        $store = $store->fresh('storefrontSetting');
+
+        $q = $this->service()->quote($store, self::PIN_LAT, self::PIN_LNG, 20);
+
+        $this->assertSame('unavailable', $q['mode']);
+        $this->assertSame('STORE_LOCATION_MISSING', $q['reason']);
+        $this->assertSame('none', $this->service()->storeMode($store));
+    }
+
     public function test_sort_order_breaks_fee_ties(): void
     {
         $store = $this->locatedStore();

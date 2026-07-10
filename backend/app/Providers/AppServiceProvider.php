@@ -6,6 +6,7 @@ use App\Contracts\PaymentGateway;
 use App\Contracts\TranslationProvider;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Store;
 use App\Models\StorefrontSetting;
 use App\Observers\CatalogCacheObserver;
 use App\Payment\FakeGateway;
@@ -38,5 +39,6 @@ class AppServiceProvider extends ServiceProvider
         Product::observe(CatalogCacheObserver::class);
         Category::observe(CatalogCacheObserver::class);
         StorefrontSetting::observe(CatalogCacheObserver::class);
+        Store::observe(CatalogCacheObserver::class);
     }
 }

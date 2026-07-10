@@ -45,6 +45,7 @@ class PublicOrderShowController extends Controller
                 'delivery_fee_status' => $order->delivery_fee_status,
                 'delivery_provider_name' => $order->delivery_provider_name,
                 'delivery_distance_km' => $order->delivery_distance_km,
+                'pickup_address' => $order->pickup_address,
                 'tax_amount' => $order->tax_amount,
                 'discount' => $order->discount,
                 'total' => $order->total,

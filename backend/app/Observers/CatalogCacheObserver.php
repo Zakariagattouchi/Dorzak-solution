@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Store;
 use App\Models\StorefrontSetting;
 use App\Support\CatalogCache;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,14 @@ class CatalogCacheObserver
 {
     public function saved(Model $model): void
     {
+        // The store row feeds the public card too (name, currency, and — critically —
+        // the pickup coordinates that decide delivery_mode).
+        if ($model instanceof Store) {
+            CatalogCache::bump($model->storefrontSetting?->slug);
+
+            return;
+        }
+
         if ($model instanceof StorefrontSetting) {
             CatalogCache::bump($model->slug);
             // A slug change must also invalidate the previous slug's cache.
@@ -40,6 +49,8 @@ class CatalogCacheObserver
 
     private function slugFor(Model $model): ?string
     {
-        return $model->store?->storefrontSetting?->slug;
+        return $model instanceof Store
+            ? $model->storefrontSetting?->slug
+            : $model->store?->storefrontSetting?->slug;
     }
 }

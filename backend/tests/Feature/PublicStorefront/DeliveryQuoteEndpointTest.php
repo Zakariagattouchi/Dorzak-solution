@@ -64,4 +64,26 @@ class DeliveryQuoteEndpointTest extends TestCase
             ->assertJsonPath('data.available', false)
             ->assertJsonPath('data.mode', 'unavailable');
     }
+
+    /**
+     * The public store card is cached; setting the pickup pin must invalidate it
+     * immediately, or a merchant would set their location and delivery would stay
+     * dark for the whole cache TTL.
+     */
+    public function test_setting_the_store_pin_immediately_reopens_delivery_on_the_public_card(): void
+    {
+        DeliveryProvider::create(['name' => 'Courier', 'base_fee' => 5, 'per_km_fee' => 2, 'min_fee' => 0, 'max_radius_km' => 20]);
+
+        $this->store->update(['latitude' => null, 'longitude' => null]);
+        $this->getJson('/api/public/stores/quote-shop')
+            ->assertOk()
+            ->assertJsonPath('data.delivery_mode', 'none')
+            ->assertJsonPath('data.allow_delivery', false);
+
+        $this->store->update(['latitude' => 25.2854, 'longitude' => 51.531]);
+        $this->getJson('/api/public/stores/quote-shop')
+            ->assertOk()
+            ->assertJsonPath('data.delivery_mode', 'quoted')
+            ->assertJsonPath('data.allow_delivery', true);
+    }
 }

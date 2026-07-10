@@ -133,6 +133,8 @@ class StoreController extends Controller
             'country' => $store->country,
             'suspended_at' => $store->suspended_at?->toISOString(),
             'created_at' => $store->created_at?->toISOString(),
+            // Delivery data quality: no pickup point => cannot offer delivery.
+            'has_location' => $store->hasLocation(),
             'plan' => $plan ? ['id' => $plan->id, 'code' => $plan->code, 'name_en' => $plan->name_en] : null,
         ];
     }

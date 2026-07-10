@@ -113,6 +113,9 @@ export interface Order {
   deliveryFeeStatus?: 'QUOTED' | 'PENDING' | 'SET';
   deliveryProviderName?: string;
   deliveryDistanceKm?: number;
+  pickupLatitude?: number;
+  pickupLongitude?: number;
+  pickupAddress?: string;
   paymentReference?: string;
   hasPaymentProof?: boolean;
   notes?: string;

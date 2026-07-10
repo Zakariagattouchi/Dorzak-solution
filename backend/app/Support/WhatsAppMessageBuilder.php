@@ -44,9 +44,15 @@ class WhatsAppMessageBuilder
         $lines[] = 'Customer: '.$order->customer_name.' ('.$order->customer_phone.')';
         $lines[] = 'Fulfillment: '.strtolower((string) $order->fulfillment);
 
-        // Delivery pin — lets the merchant open the drop-off in Google Maps.
-        if ((string) $order->fulfillment === 'DELIVERY' && $order->delivery_latitude !== null && $order->delivery_longitude !== null) {
-            $lines[] = "Location: https://maps.google.com/?q={$order->delivery_latitude},{$order->delivery_longitude}";
+        // Both legs of the trip, so a courier knows where to collect and drop off.
+        if ((string) $order->fulfillment === 'DELIVERY') {
+            if ($order->pickup_latitude !== null && $order->pickup_longitude !== null) {
+                $lines[] = 'Collect from: '.$order->pickup_address
+                    ." — https://maps.google.com/?q={$order->pickup_latitude},{$order->pickup_longitude}";
+            }
+            if ($order->delivery_latitude !== null && $order->delivery_longitude !== null) {
+                $lines[] = "Deliver to: https://maps.google.com/?q={$order->delivery_latitude},{$order->delivery_longitude}";
+            }
         }
 
         return implode("\n", $lines);

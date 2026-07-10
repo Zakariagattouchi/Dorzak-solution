@@ -44,8 +44,12 @@ class DeliveryQuoteService
             return $this->result('flat', $waived ? 0.0 : $fee, null, null, null, $waived);
         }
 
+        // No pickup point => nothing can collect the order. This is NOT eligible
+        // for the WhatsApp fallback: a manually-quoted order still has to be
+        // collected from somewhere, and we refuse to record an order we cannot
+        // hand to a courier.
         if (! $store->hasLocation()) {
-            return $this->fallbackOr($sf, 'STORE_LOCATION_MISSING');
+            return $this->result('unavailable', null, null, null, null, false, 'STORE_LOCATION_MISSING');
         }
 
         $distance = Geo::distanceKm((float) $store->latitude, (float) $store->longitude, $lat, $lng);
@@ -87,8 +91,14 @@ class DeliveryQuoteService
             return 'quoted';
         }
 
+        // Once a delivery system exists, a store without a pickup point cannot
+        // offer delivery at all — not even via the manual WhatsApp quote.
+        if (! $store->hasLocation()) {
+            return 'none';
+        }
+
         $planEligible = $this->plans->allows($store, PlanFeature::DELIVERY_SERVICES);
-        $hasProvider = $store->hasLocation() && DeliveryProvider::query()->active()->get()
+        $hasProvider = DeliveryProvider::query()->active()->get()
             ->contains(fn (DeliveryProvider $p) => ! $p->is_plan_gated || $planEligible);
 
         if ($hasProvider) {
