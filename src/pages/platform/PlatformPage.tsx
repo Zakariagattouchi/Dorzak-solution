@@ -630,6 +630,8 @@ const ProductsTab: React.FC = () => {
 interface Provider {
   id: number;
   name: string;
+  code: string | null;
+  kind: 'network' | 'comparator';
   base_fee: number;
   per_km_fee: number;
   min_fee: number;
@@ -639,7 +641,7 @@ interface Provider {
   sort_order: number;
 }
 
-const blankProvider: Provider = { id: 0, name: '', base_fee: 0, per_km_fee: 0, min_fee: 0, max_radius_km: 15, is_plan_gated: false, is_active: true, sort_order: 0 };
+const blankProvider: Provider = { id: 0, name: '', code: '', kind: 'comparator', base_fee: 0, per_km_fee: 0, min_fee: 0, max_radius_km: 15, is_plan_gated: false, is_active: true, sort_order: 0 };
 
 const ProviderEditor: React.FC<{ provider: Provider; onSaved: () => void; onCancel: () => void }> = ({ provider, onSaved, onCancel }) => {
   const { addToast } = useToastStore();
@@ -654,10 +656,13 @@ const ProviderEditor: React.FC<{ provider: Provider; onSaved: () => void; onCanc
     </label>
   );
 
+  const isNetwork = form.kind === 'network';
+
   const save = async () => {
     setSaving(true);
     const payload = {
-      name: form.name, base_fee: form.base_fee, per_km_fee: form.per_km_fee, min_fee: form.min_fee,
+      name: form.name, code: form.code?.trim() || null, kind: form.kind,
+      base_fee: form.base_fee, per_km_fee: form.per_km_fee, min_fee: form.min_fee,
       max_radius_km: form.max_radius_km, is_plan_gated: form.is_plan_gated, is_active: form.is_active, sort_order: form.sort_order,
     };
     try {
@@ -678,7 +683,25 @@ const ProviderEditor: React.FC<{ provider: Provider; onSaved: () => void; onCanc
         Name
         <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Dorzak Delivery" style={inputStyle} />
       </label>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
+          Carrier type
+          <select value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as Provider['kind'] }))} style={inputStyle}>
+            <option value="comparator">Comparator (Uber, Snoonu…)</option>
+            <option value="network">Dorzak network (live pricing)</option>
+          </select>
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
+          Code
+          <input value={form.code ?? ''} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} placeholder="uber" style={inputStyle} />
+        </label>
+      </div>
+      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+        {isNetwork
+          ? 'Priced live by the Dorzak delivery network — always 20% under the cheapest comparator. The fees below are ignored; only the radius decides where it is offered.'
+          : 'Priced by the formula below. Codes uber and snoonu are sent to the delivery network as the prices it must undercut.'}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', opacity: isNetwork ? 0.5 : 1 }}>
         {numField('Base fee', 'base_fee')}
         {numField('Price per km', 'per_km_fee')}
         {numField('Minimum fee', 'min_fee')}
@@ -729,7 +752,8 @@ const ProvidersTab: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div className="card" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-        Delivery fee = max(minimum, base + per-km × distance), within the radius. Fees are in the store's currency (QAR).
+        Comparator carriers are priced max(minimum, base + per-km × distance) within their radius. The Dorzak network carrier is
+        quoted live and always lands 20% under the cheapest comparator. Fees are in the store's currency (QAR).
         Creating the first provider switches all stores from their flat delivery fee to calculated quotes.
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -744,11 +768,15 @@ const ProvidersTab: React.FC = () => {
           <div style={{ flex: 1, minWidth: '160px' }}>
             <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
               {p.name}
+              {p.kind === 'network' && <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#fff', background: 'var(--dorzak-success, #1f9d55)', padding: '1px 6px', borderRadius: '10px' }}>NETWORK</span>}
               {p.is_plan_gated && <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#fff', background: 'var(--dorzak-primary)', padding: '1px 6px', borderRadius: '10px' }}>PLAN PERK</span>}
               {!p.is_active && <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--dorzak-warning)' }}>INACTIVE</span>}
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              base {p.base_fee} + {p.per_km_fee}/km · min {p.min_fee} · up to {p.max_radius_km} km
+              {p.code ? `${p.code} · ` : ''}
+              {p.kind === 'network'
+                ? `live quote, 20% under the cheapest comparator · up to ${p.max_radius_km} km`
+                : `base ${p.base_fee} + ${p.per_km_fee}/km · min ${p.min_fee} · up to ${p.max_radius_km} km`}
             </div>
           </div>
           <AppButton variant="tertiary" onClick={() => setEditing(p)}><AppIcon name="settings" size={14} /> Edit</AppButton>

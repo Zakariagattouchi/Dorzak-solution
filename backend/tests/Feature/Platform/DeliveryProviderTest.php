@@ -71,6 +71,57 @@ class DeliveryProviderTest extends TestCase
             ->assertJsonValidationErrors(['name', 'base_fee', 'max_radius_km']);
     }
 
+    public function test_carrier_kind_and_code_round_trip(): void
+    {
+        $this->actingAsMember($this->admin)
+            ->postJson('/api/v1/platform/delivery-providers', [
+                'name' => 'Uber', 'code' => 'uber', 'kind' => 'comparator',
+                'base_fee' => 10, 'per_km_fee' => 3, 'min_fee' => 12, 'max_radius_km' => 20,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.code', 'uber')
+            ->assertJsonPath('data.kind', 'comparator');
+
+        // Codes are the delivery network's vocabulary — they must not collide.
+        $this->actingAsMember($this->admin)
+            ->postJson('/api/v1/platform/delivery-providers', [
+                'name' => 'Uber Clone', 'code' => 'uber',
+                'base_fee' => 1, 'per_km_fee' => 1, 'min_fee' => 1, 'max_radius_km' => 5,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['code']);
+    }
+
+    public function test_only_one_network_carrier_may_exist(): void
+    {
+        $payload = ['kind' => 'network', 'base_fee' => 0, 'per_km_fee' => 0, 'min_fee' => 0, 'max_radius_km' => 15];
+
+        $this->actingAsMember($this->admin)
+            ->postJson('/api/v1/platform/delivery-providers', [...$payload, 'name' => 'Dorzak Delivery', 'code' => 'dorzak'])
+            ->assertCreated();
+
+        // A second one would have no quote source: the network prices a trip once.
+        $this->actingAsMember($this->admin)
+            ->postJson('/api/v1/platform/delivery-providers', [...$payload, 'name' => 'Dorzak Two', 'code' => 'dorzak2'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['kind']);
+    }
+
+    public function test_a_comparator_can_be_promoted_to_the_network_carrier(): void
+    {
+        $provider = DeliveryProvider::create(['name' => 'Dorzak', 'code' => 'dorzak', 'base_fee' => 1, 'per_km_fee' => 1, 'min_fee' => 0, 'max_radius_km' => 5]);
+
+        $this->actingAsMember($this->admin)
+            ->putJson("/api/v1/platform/delivery-providers/{$provider->id}", ['kind' => 'network'])
+            ->assertOk()
+            ->assertJsonPath('data.kind', 'network');
+
+        // Re-saving it stays valid — the guard must ignore the row it is editing.
+        $this->actingAsMember($this->admin)
+            ->putJson("/api/v1/platform/delivery-providers/{$provider->id}", ['code' => 'dorzak', 'max_radius_km' => 25])
+            ->assertOk();
+    }
+
     public function test_regular_user_cannot_manage_providers(): void
     {
         ['user' => $owner] = $this->createStoreWithOwner();
