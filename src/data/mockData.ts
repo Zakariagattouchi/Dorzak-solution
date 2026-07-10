@@ -121,18 +121,24 @@ export interface Order {
   notes?: string;
 }
 
+/**
+ * Empty shell for a signed-in merchant's settings before the API responds.
+ * These are placeholders ONLY — never a real store's identity. Seeding this
+ * with a real owner/email/address leaked one merchant's details into every
+ * other merchant's Settings page (and could be saved over their own data).
+ */
 export const initialAccountInfo = {
-  id: '6mxHACXrknbFUl',
-  businessName: 'Dorzak Merchant',
-  tagline: 'Commerce made simple',
-  ownerName: 'Barsha Admin',
-  email: 'merchant@dorzak.com',
-  phone: '+1 (555) 234-5678',
-  whatsapp: '+1 (555) 234-5678',
-  address: '742 Evergreen Terrace',
-  city: 'San Francisco',
-  state: 'CA',
-  zipCode: '94107',
+  id: '',
+  businessName: '',
+  tagline: '',
+  ownerName: '',
+  email: '',
+  phone: '',
+  whatsapp: '',
+  address: '',
+  city: '',
+  state: '',
+  zipCode: '',
   country: 'United States',
   latitude: null as number | null,
   longitude: null as number | null,
@@ -140,27 +146,27 @@ export const initialAccountInfo = {
   currency: 'USD',
   currencySymbol: '$',
   symbolPlacement: 'BEFORE' as 'BEFORE' | 'AFTER',
-  taxRate: 8.5,
-  taxId: 'US-991827364',
+  taxRate: 0,
+  taxId: '',
   taxIncludedInPrice: false,
   chargeSalesTax: true,
-  
+
   // Online Storefront
-  onlineStoreEnabled: true,
-  storeSlug: 'dorzak-merchant',
-  publicUrl: 'http://127.0.0.1:3000/store/dorzak-merchant',
-  bannerUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200',
-  logoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+  onlineStoreEnabled: false,
+  storeSlug: '',
+  publicUrl: '',
+  bannerUrl: '',
+  logoUrl: '',
   storeAccentColor: '#1890ff',
   storeSecondaryColor: '#373f4e',
-  storeBio: 'Welcome to our official online shop! High quality clothing and lifestyle accessories shipped directly to your door.',
+  storeBio: '',
   allowDelivery: true,
   allowPickup: true,
-  allowDineIn: true,
-  dineInTableCount: 12,
-  deliveryFee: 5.00,
-  freeDeliveryThreshold: 50.00,
-  minOrderAmount: 10.00,
+  allowDineIn: false,
+  dineInTableCount: 0,
+  deliveryFee: 0,
+  freeDeliveryThreshold: 0,
+  minOrderAmount: 0,
   whatsappOrderingEnabled: true,
   whatsappDeliveryFallback: false,
   showOutOfStockOnline: true,
@@ -174,8 +180,8 @@ export const initialAccountInfo = {
   storeNavbarColor: '#17201e',
 
   // Receipts
-  receiptHeader: 'Thank you for supporting our local business!',
-  receiptFooter: 'Returns accepted within 30 days with receipt.',
+  receiptHeader: '',
+  receiptFooter: '',
   receiptShowLogo: true,
   receiptShowAddress: true,
   receiptShowTax: true,

@@ -101,11 +101,37 @@ export const SettingsPage: React.FC = () => {
     ? 'QAR '
     : ({ USD: '$', EUR: '€', GBP: '£', CAD: 'CA$', BRL: 'R$', MXN: '$', COP: '$', ARS: '$', AUD: 'A$' } as Record<string, string>)[currency] || currency;
 
-  // Store coordinates hydrate asynchronously with the settings envelope.
+  // The settings envelope arrives asynchronously (and again after every save).
+  // Re-seed the form from it, or a page loaded before the fetch resolves keeps
+  // showing the empty placeholder state — and could save it over real data.
   useEffect(() => {
+    if (!accountInfo) return;
+    setBusinessName(accountInfo.businessName ?? '');
+    setTagline(accountInfo.tagline ?? '');
+    setPhone(accountInfo.phone ?? '');
+    setWhatsapp(accountInfo.whatsapp ?? '');
+    setOwnerName(accountInfo.ownerName ?? '');
+    setEmail(accountInfo.email ?? '');
+    setAddress(accountInfo.address ?? '');
+    setCity(accountInfo.city ?? '');
+    setStateField(accountInfo.state ?? '');
+    setZipCode(accountInfo.zipCode ?? '');
+    setCountry(accountInfo.country || 'United States');
     setLatitude(accountInfo.latitude ?? null);
     setLongitude(accountInfo.longitude ?? null);
-  }, [accountInfo.latitude, accountInfo.longitude]);
+    setCurrency(accountInfo.currency);
+    setSymbolPlacement(accountInfo.symbolPlacement);
+    setTaxRate((accountInfo.taxRate ?? 0).toString());
+    setTaxId(accountInfo.taxId ?? '');
+    setTaxIncluded(accountInfo.taxIncludedInPrice ?? false);
+    setChargeSalesTax((accountInfo as any).chargeSalesTax ?? true);
+    setReceiptHeader(accountInfo.receiptHeader ?? '');
+    setReceiptFooter(accountInfo.receiptFooter ?? '');
+    setReceiptShowLogo(accountInfo.receiptShowLogo ?? true);
+    setReceiptShowAddress(accountInfo.receiptShowAddress ?? true);
+    setReceiptShowTax(accountInfo.receiptShowTax ?? true);
+    setAutoPrint(accountInfo.autoPrintReceipt ?? false);
+  }, [accountInfo]);
 
   // Load payment + subscription data when their tabs become active
   useEffect(() => {
