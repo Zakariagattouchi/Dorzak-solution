@@ -30,9 +30,15 @@ class DeliveryQuoteService
     /**
      * Price a specific trip.
      *
-     * @return array{mode:string, fee:?float, distance_km:?float, provider_id:?int, provider_name:?string, waived:bool, reason:?string}
+     * Returns EVERY eligible courier so the customer can choose at checkout,
+     * cheapest first. `$chosenProviderId` selects one of them; when it is null
+     * (or not eligible for this trip) the cheapest wins. The selected option is
+     * flattened onto fee/provider_id/provider_name for callers that just want
+     * the price.
+     *
+     * @return array{mode:string, fee:?float, distance_km:?float, provider_id:?int, provider_name:?string, waived:bool, reason:?string, options:list<array{id:int,name:string,fee:float,distance_km:float,is_plan_perk:bool}>}
      */
-    public function quote(Store $store, float $lat, float $lng, float $subtotal): array
+    public function quote(Store $store, float $lat, float $lng, float $subtotal, ?int $chosenProviderId = null): array
     {
         $sf = $store->storefrontSetting;
 
@@ -58,20 +64,41 @@ class DeliveryQuoteService
         $candidates = DeliveryProvider::query()->active()->get()
             ->filter(fn (DeliveryProvider $p) => ! $p->is_plan_gated || $planEligible);
 
-        $inRange = $candidates->filter(fn (DeliveryProvider $p) => $distance <= (float) $p->max_radius_km);
+        $inRange = $candidates
+            ->filter(fn (DeliveryProvider $p) => $distance <= (float) $p->max_radius_km)
+            ->sortBy(fn (DeliveryProvider $p) => [$p->feeFor($distance), $p->sort_order, $p->id])
+            ->values();
 
         if ($inRange->isEmpty()) {
             return $this->fallbackOr($sf, $candidates->isNotEmpty() ? 'OUT_OF_RANGE' : 'NO_PROVIDER');
         }
 
-        /** @var DeliveryProvider $winner */
-        $winner = $inRange
-            ->sortBy(fn (DeliveryProvider $p) => [$p->feeFor($distance), $p->sort_order, $p->id])
-            ->first();
+        // The customer's pick, when it is genuinely available for this trip.
+        $chosen = $chosenProviderId !== null
+            ? $inRange->firstWhere('id', $chosenProviderId)
+            : null;
+        $chosen ??= $inRange->first();
 
         $waived = $this->thresholdWaives($sf, $subtotal);
 
-        return $this->result('quoted', $waived ? 0.0 : $winner->feeFor($distance), $distance, $winner->id, $winner->name, $waived);
+        $options = $inRange->map(fn (DeliveryProvider $p) => [
+            'id' => $p->id,
+            'name' => $p->name,
+            'fee' => $waived ? 0.0 : $p->feeFor($distance),
+            'distance_km' => $distance,
+            'is_plan_perk' => (bool) $p->is_plan_gated,
+        ])->all();
+
+        return $this->result(
+            'quoted',
+            $waived ? 0.0 : $chosen->feeFor($distance),
+            $distance,
+            $chosen->id,
+            $chosen->name,
+            $waived,
+            null,
+            $options,
+        );
     }
 
     /**
@@ -130,7 +157,7 @@ class DeliveryQuoteService
         return $threshold !== null && $subtotal >= (float) $threshold;
     }
 
-    private function result(string $mode, ?float $fee, ?float $distance, ?int $providerId, ?string $providerName, bool $waived, ?string $reason = null): array
+    private function result(string $mode, ?float $fee, ?float $distance, ?int $providerId, ?string $providerName, bool $waived, ?string $reason = null, array $options = []): array
     {
         return [
             'mode' => $mode,
@@ -140,6 +167,7 @@ class DeliveryQuoteService
             'provider_name' => $providerName,
             'waived' => $waived,
             'reason' => $reason,
+            'options' => $options,
         ];
     }
 }

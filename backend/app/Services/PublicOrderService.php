@@ -179,11 +179,21 @@ class PublicOrderService
             ]);
         }
 
-        $quote = $this->quotes->quote($store, (float) $lat, (float) $lng, $subtotal);
+        $chosenProviderId = isset($data['delivery_provider_id']) ? (int) $data['delivery_provider_id'] : null;
+
+        $quote = $this->quotes->quote($store, (float) $lat, (float) $lng, $subtotal, $chosenProviderId);
 
         if ($quote['mode'] === 'unavailable') {
             throw new DomainConflictException('DELIVERY_UNAVAILABLE', 'Delivery is not available to this location.', [
                 'reason' => $quote['reason'],
+            ]);
+        }
+
+        // The customer picked a courier that isn't actually available for this
+        // trip — tell them rather than silently swapping in a different price.
+        if ($chosenProviderId !== null && $quote['mode'] === 'quoted' && $quote['provider_id'] !== $chosenProviderId) {
+            throw new DomainConflictException('DELIVERY_OPTION_UNAVAILABLE', 'That delivery option is no longer available.', [
+                'reason' => 'PROVIDER_NOT_AVAILABLE',
             ]);
         }
 

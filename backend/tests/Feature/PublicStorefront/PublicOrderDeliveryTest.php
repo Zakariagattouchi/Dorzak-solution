@@ -6,6 +6,7 @@ use App\Models\DeliveryProvider;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Store;
+use App\Services\PlanGate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -195,6 +196,68 @@ class PublicOrderDeliveryTest extends TestCase
             ->assertStatus(409)
             ->assertJsonPath('code', 'DELIVERY_UNAVAILABLE')
             ->assertJsonPath('details.reason', 'STORE_LOCATION_MISSING');
+    }
+
+    public function test_customer_can_choose_a_dearer_courier_and_is_charged_that_price(): void
+    {
+        $cheap = DeliveryProvider::create(['name' => 'Slow Courier', 'base_fee' => 5, 'per_km_fee' => 1, 'min_fee' => 0, 'max_radius_km' => 20]);
+        $fast = DeliveryProvider::create(['name' => 'Express', 'base_fee' => 20, 'per_km_fee' => 3, 'min_fee' => 0, 'max_radius_km' => 20]);
+        $p = $this->product();
+
+        $response = $this->postJson('/api/public/stores/delivery-shop/orders', $this->payload($p, [
+            'delivery_provider_id' => $fast->id,
+        ]))->assertCreated();
+
+        // Priced as Express, not as the cheaper default.
+        $this->assertSame('Express', $response->json('data.delivery_provider_name'));
+        $order = Order::withoutGlobalScopes()->latest('id')->first();
+        $this->assertSame($fast->id, $order->delivery_provider_id);
+        $this->assertGreaterThan(20, (float) $order->delivery_fee);
+        $this->assertNotSame($cheap->id, $order->delivery_provider_id);
+    }
+
+    public function test_cheapest_courier_is_used_when_the_customer_picks_nothing(): void
+    {
+        DeliveryProvider::create(['name' => 'Express', 'base_fee' => 20, 'per_km_fee' => 3, 'min_fee' => 0, 'max_radius_km' => 20]);
+        $cheap = DeliveryProvider::create(['name' => 'Slow Courier', 'base_fee' => 5, 'per_km_fee' => 1, 'min_fee' => 0, 'max_radius_km' => 20]);
+        $p = $this->product();
+
+        $this->postJson('/api/public/stores/delivery-shop/orders', $this->payload($p))
+            ->assertCreated()
+            ->assertJsonPath('data.delivery_provider_name', 'Slow Courier');
+
+        $this->assertSame($cheap->id, Order::withoutGlobalScopes()->latest('id')->first()->delivery_provider_id);
+    }
+
+    public function test_choosing_an_out_of_range_courier_is_rejected_not_silently_swapped(): void
+    {
+        DeliveryProvider::create(['name' => 'Wide', 'base_fee' => 5, 'per_km_fee' => 1, 'min_fee' => 0, 'max_radius_km' => 20]);
+        $tiny = DeliveryProvider::create(['name' => 'Tiny radius', 'base_fee' => 1, 'per_km_fee' => 1, 'min_fee' => 0, 'max_radius_km' => 1]);
+        $p = $this->product();
+
+        $this->postJson('/api/public/stores/delivery-shop/orders', $this->payload($p, [
+            'delivery_provider_id' => $tiny->id,
+        ]))
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'DELIVERY_OPTION_UNAVAILABLE');
+    }
+
+    public function test_a_store_without_the_delivery_perk_cannot_pick_a_plan_gated_courier(): void
+    {
+        DeliveryProvider::create(['name' => 'City Courier', 'base_fee' => 10, 'per_km_fee' => 1, 'min_fee' => 0, 'max_radius_km' => 20]);
+        $perk = DeliveryProvider::create(['name' => 'Dorzak Delivery', 'base_fee' => 1, 'per_km_fee' => 1, 'min_fee' => 0, 'max_radius_km' => 20, 'is_plan_gated' => true]);
+
+        // PRO sells online but strip DELIVERY_SERVICES so the perk rate is locked.
+        $this->store->subscription->plan->featureLimits()->where('feature', 'DELIVERY_SERVICES')->delete();
+        app(PlanGate::class)->forget($this->store);
+        $p = $this->product();
+
+        // Even naming the perk courier explicitly must not unlock its cheaper rate.
+        $this->postJson('/api/public/stores/delivery-shop/orders', $this->payload($p, [
+            'delivery_provider_id' => $perk->id,
+        ]))
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'DELIVERY_OPTION_UNAVAILABLE');
     }
 
     public function test_fallback_accepts_out_of_range_orders_as_fee_pending(): void

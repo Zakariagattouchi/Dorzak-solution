@@ -156,7 +156,7 @@ export const platformApi = {
 // Anonymous storefront (no credentials needed; different base).
 export const publicApi = {
   store: (slug: string) => request(`/stores/${slug}`, { base: PUBLIC_BASE, auth: false }),
-  deliveryQuote: (slug: string, params: { lat: string; lng: string; subtotal: string }) =>
+  deliveryQuote: (slug: string, params: { lat: string; lng: string; subtotal: string; delivery_provider_id?: string }) =>
     request(`/stores/${slug}/delivery-quote`, { base: PUBLIC_BASE, params, auth: false }),
   catalog: (slug: string, params?: Record<string, string>) => request(`/stores/${slug}/catalog`, { base: PUBLIC_BASE, params, auth: false }),
   createOrder: (slug: string, payload: Record<string, unknown> | FormData) =>

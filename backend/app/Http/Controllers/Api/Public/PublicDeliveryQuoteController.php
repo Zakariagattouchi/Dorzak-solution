@@ -26,11 +26,18 @@ class PublicDeliveryQuoteController extends Controller
             'lat' => ['required', 'numeric', 'between:-90,90'],
             'lng' => ['required', 'numeric', 'between:-180,180'],
             'subtotal' => ['required', 'numeric', 'min:0'],
+            'delivery_provider_id' => ['nullable', 'integer'],
         ]);
 
         $store = $this->resolvePublicStore($slug);
 
-        $quote = $quotes->quote($store, (float) $data['lat'], (float) $data['lng'], (float) $data['subtotal']);
+        $quote = $quotes->quote(
+            $store,
+            (float) $data['lat'],
+            (float) $data['lng'],
+            (float) $data['subtotal'],
+            isset($data['delivery_provider_id']) ? (int) $data['delivery_provider_id'] : null,
+        );
 
         return response()->json([
             'data' => [
@@ -38,9 +45,12 @@ class PublicDeliveryQuoteController extends Controller
                 'mode' => $quote['mode'],
                 'fee' => $quote['fee'],
                 'distance_km' => $quote['distance_km'],
+                'provider_id' => $quote['provider_id'],
                 'provider_name' => $quote['provider_name'],
                 'waived' => $quote['waived'],
                 'reason' => $quote['reason'],
+                // Every courier the customer may pick, cheapest first.
+                'options' => $quote['options'],
             ],
         ], 200, ['Cache-Control' => 'no-store']);
     }

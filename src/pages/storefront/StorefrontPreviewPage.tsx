@@ -41,6 +41,8 @@ const labels = {
     deliveryUnavailable: "Sorry, we can't deliver to this location.",
     deliveryTbd: 'To be confirmed',
     deliveryPendingConfirm: 'The delivery fee will be added once the store confirms it — track your order below.',
+    chooseCourier: 'Choose your delivery',
+    bestRate: 'BEST RATE',
   },
   ar: {
     catalog: 'الكتالوج الإلكتروني', bag: 'السلة', add: 'أضف إلى السلة', checkout: 'إتمام الطلب',
@@ -64,6 +66,8 @@ const labels = {
     deliveryUnavailable: 'عذراً، لا يمكننا التوصيل إلى هذا الموقع.',
     deliveryTbd: 'تُحدد لاحقاً',
     deliveryPendingConfirm: 'ستضاف رسوم التوصيل بعد تأكيد المتجر — تتبع طلبك أدناه.',
+    chooseCourier: 'اختر خدمة التوصيل',
+    bestRate: 'أفضل سعر',
   },
 };
 
@@ -120,7 +124,10 @@ export const StorefrontPreviewPage: React.FC = () => {
   const [tableNumber, setTableNumber] = useState<number | undefined>(undefined);
   const [paymentMethod, setPaymentMethod] = useState<PublicPaymentMethod>('FAWRAN');
   // Live delivery quote for the dropped pin. 'pending' = WhatsApp manual-quote flow.
-  const [quote, setQuote] = useState<{ status: 'idle' | 'loading' | 'quoted' | 'pending' | 'unavailable'; fee?: number; providerName?: string | null; waived?: boolean }>({ status: 'idle' });
+  type DeliveryOption = { id: number; name: string; fee: number; distance_km: number; is_plan_perk: boolean };
+  const [quote, setQuote] = useState<{ status: 'idle' | 'loading' | 'quoted' | 'pending' | 'unavailable'; fee?: number; providerName?: string | null; waived?: boolean; options?: DeliveryOption[] }>({ status: 'idle' });
+  // Which courier the customer picked (null = let the server take the cheapest).
+  const [deliveryProviderId, setDeliveryProviderId] = useState<number | null>(null);
   const [reference, setReference] = useState('');
   const [proof, setProof] = useState<File | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -324,17 +331,26 @@ export const StorefrontPreviewPage: React.FC = () => {
       try {
         const res: any = await publicApi.deliveryQuote(effectiveSlug, {
           lat: String(customer.latitude), lng: String(customer.longitude), subtotal: String(total),
+          ...(deliveryProviderId != null ? { delivery_provider_id: String(deliveryProviderId) } : {}),
         });
         const d = res.data;
         if (!d.available) setQuote({ status: 'unavailable' });
         else if (d.mode === 'whatsapp_pending') setQuote({ status: 'pending' });
-        else setQuote({ status: 'quoted', fee: Number(d.fee ?? 0), providerName: d.provider_name, waived: !!d.waived });
+        else {
+          const options: DeliveryOption[] = d.options ?? [];
+          setQuote({ status: 'quoted', fee: Number(d.fee ?? 0), providerName: d.provider_name, waived: !!d.waived, options });
+          // Drop a stale pick (courier no longer covers this pin) so the UI and
+          // the server agree on which option is selected.
+          if (deliveryProviderId != null && !options.some((o) => o.id === deliveryProviderId)) {
+            setDeliveryProviderId(null);
+          }
+        }
       } catch {
         setQuote({ status: 'unavailable' });
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [slug, localSettings.storeSlug, fulfillment, customer.latitude, customer.longitude, total]);
+  }, [slug, localSettings.storeSlug, fulfillment, customer.latitude, customer.longitude, total, deliveryProviderId]);
 
   // A pending fee can't be paid by transfer — the total is unknown until quoted.
   useEffect(() => {
@@ -454,6 +470,7 @@ export const StorefrontPreviewPage: React.FC = () => {
       if (customer.latitude != null) form.append('customer[latitude]', String(customer.latitude));
       if (customer.longitude != null) form.append('customer[longitude]', String(customer.longitude));
       form.append('fulfillment', fulfillment);
+      if (fulfillment === 'delivery' && deliveryProviderId != null) form.append('delivery_provider_id', String(deliveryProviderId));
       if (fulfillment === 'dine_in' && tableNumber != null) form.append('table_number', String(tableNumber));
       form.append('payment_method', paymentMethod);
 
@@ -611,6 +628,42 @@ export const StorefrontPreviewPage: React.FC = () => {
                 {quote.status === 'pending' && <><AppIcon name="whatsapp" size={16} />{t.deliveryPending}</>}
                 {quote.status === 'unavailable' && <><AppIcon name="alert" size={16} />{t.deliveryUnavailable}</>}
               </div>
+
+              {/* Pick a courier when more than one covers this address. */}
+              {quote.status === 'quoted' && (quote.options?.length ?? 0) > 1 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700 }}>{t.chooseCourier}</span>
+                  {quote.options!.map((option) => {
+                    const selected = (deliveryProviderId ?? quote.options![0].id) === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setDeliveryProviderId(option.id)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+                          padding: '10px 12px', borderRadius: '10px', cursor: 'pointer',
+                          border: selected ? '2px solid var(--store-accent)' : '1px solid #e2e8f0',
+                          background: selected ? 'rgba(15,118,110,0.05)' : '#fff',
+                        }}
+                      >
+                        <span aria-hidden="true" style={{
+                          width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
+                          border: selected ? '5px solid var(--store-accent)' : '2px solid #cbd5e1',
+                        }} />
+                        <span style={{ flex: 1 }}>
+                          <span style={{ fontWeight: 600, display: 'block' }}>
+                            {option.name}
+                            {option.is_plan_perk && <span style={{ marginInlineStart: 6, fontSize: '0.62rem', fontWeight: 700, color: '#fff', background: 'var(--store-accent)', padding: '1px 6px', borderRadius: '10px' }}>{t.bestRate}</span>}
+                          </span>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{option.distance_km} km</span>
+                        </span>
+                        <strong>{option.fee === 0 ? t.deliveryFree : money(option.fee)}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             <TextInput label={t.addressFound} value={customer.address} onChange={(event) => setCustomer({ ...customer, address: event.target.value })} /><TextInput label={t.addressDetails} value={customer.addressDetails} onChange={(event) => setCustomer({ ...customer, addressDetails: event.target.value })} /></section>}
             {fulfillment === 'dine_in' && <section className="checkout-step dine-in-table-step">
               <div className="checkout-step-title"><span>3</span><div><h3>{t.table}</h3><p>{tableLockedFromQr ? t.tableLocked : t.tableHelp}</p></div></div>

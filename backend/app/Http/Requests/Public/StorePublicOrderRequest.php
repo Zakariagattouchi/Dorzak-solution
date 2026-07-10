@@ -31,6 +31,9 @@ class StorePublicOrderRequest extends FormRequest
             'customer.latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'customer.longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'fulfillment' => ['required', Rule::in(['delivery', 'pickup', 'dine_in'])],
+            // The courier the customer picked. Re-validated against the live
+            // quote at placement — its fee is never taken from the client.
+            'delivery_provider_id' => ['nullable', 'integer'],
             'table_number' => ['nullable', 'integer', 'min:1'],
             'payment_method' => ['sometimes', Rule::in(['WHATSAPP', 'FAWRAN', 'CASH'])],
             'payment_reference' => ['nullable', 'string', 'max:120'],
