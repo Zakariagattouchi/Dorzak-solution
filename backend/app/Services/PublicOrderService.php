@@ -85,6 +85,8 @@ class PublicOrderService
                 'delivery_provider_name' => $delivery['provider_name'],
                 'delivery_distance_km' => $delivery['distance_km'],
                 'delivery_fee_status' => $delivery['status'],
+                'delivery_quote_id' => $delivery['quote_id'],
+                'delivery_provider_code' => $delivery['provider_code'],
                 'notes' => $data['notes'] ?? null,
                 'delivery_address' => $data['customer']['address'] ?? null,
                 'delivery_address_details' => $data['customer']['address_details'] ?? null,
@@ -164,7 +166,7 @@ class PublicOrderService
      */
     private function resolveDelivery(Store $store, array $data, string $fulfillment, float $subtotal): array
     {
-        $none = ['fee' => 0.0, 'provider_id' => null, 'provider_name' => null, 'distance_km' => null, 'status' => null];
+        $none = ['fee' => 0.0, 'provider_id' => null, 'provider_name' => null, 'distance_km' => null, 'status' => null, 'quote_id' => null, 'provider_code' => null];
 
         if ($fulfillment !== 'DELIVERY') {
             return $none;
@@ -205,7 +207,7 @@ class PublicOrderService
                 ]);
             }
 
-            return ['fee' => 0.0, 'provider_id' => null, 'provider_name' => null, 'distance_km' => null, 'status' => 'PENDING'];
+            return [...$none, 'status' => 'PENDING'];
         }
 
         return [
@@ -215,6 +217,9 @@ class PublicOrderService
             'distance_km' => $quote['distance_km'],
             // 'flat' keeps the legacy null shape; provider quotes are marked QUOTED.
             'status' => $quote['mode'] === 'quoted' ? 'QUOTED' : null,
+            // Present only for the Dorzak network carrier; required to dispatch.
+            'quote_id' => $quote['quote_id'] ?? null,
+            'provider_code' => $quote['provider_code'] ?? null,
         ];
     }
 

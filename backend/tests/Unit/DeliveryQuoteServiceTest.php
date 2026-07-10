@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\DeliveryProvider;
 use App\Models\Store;
 use App\Services\DeliveryQuoteService;
+use App\Services\DorzakBusinessClient;
 use App\Services\PlanGate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -24,7 +25,9 @@ class DeliveryQuoteServiceTest extends TestCase
 
     private function service(): DeliveryQuoteService
     {
-        return new DeliveryQuoteService(app(PlanGate::class));
+        // The network client stays disabled here: these cases cover comparator
+        // (local-formula) carriers. Network pricing is covered separately.
+        return new DeliveryQuoteService(app(PlanGate::class), app(DorzakBusinessClient::class));
     }
 
     private function locatedStore(string $plan = 'PRO'): Store

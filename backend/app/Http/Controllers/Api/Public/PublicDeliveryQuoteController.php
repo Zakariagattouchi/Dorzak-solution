@@ -49,8 +49,15 @@ class PublicDeliveryQuoteController extends Controller
                 'provider_name' => $quote['provider_name'],
                 'waived' => $quote['waived'],
                 'reason' => $quote['reason'],
-                // Every courier the customer may pick, cheapest first.
-                'options' => $quote['options'],
+                // Every courier the customer may pick, cheapest first. The live
+                // network quote_id stays server-side — placement re-quotes.
+                'options' => array_map(fn (array $o) => [
+                    'id' => $o['id'],
+                    'name' => $o['name'],
+                    'fee' => $o['fee'],
+                    'distance_km' => $o['distance_km'],
+                    'is_plan_perk' => $o['is_plan_perk'],
+                ], $quote['options']),
             ],
         ], 200, ['Cache-Control' => 'no-store']);
     }

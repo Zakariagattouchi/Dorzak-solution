@@ -6,6 +6,7 @@ use App\Enums\PlanFeature;
 use App\Models\DeliveryProvider;
 use App\Models\Store;
 use App\Support\Geo;
+use Illuminate\Support\Facades\Log;
 
 /**
  * The single place that prices a delivery (doc 13 addendum). Resolves one of
@@ -25,7 +26,56 @@ use App\Support\Geo;
  */
 class DeliveryQuoteService
 {
-    public function __construct(private readonly PlanGate $plans) {}
+    public function __construct(
+        private readonly PlanGate $plans,
+        private readonly DorzakBusinessClient $business,
+    ) {}
+
+    /**
+     * Ask the delivery network to price the trip, undercutting the comparators.
+     * Returns null when the network is off, unreachable, or refuses — the Dorzak
+     * option is then simply absent from checkout. We never invent a price for it:
+     * a delivery request is only accepted against a live quote_id.
+     *
+     * @param  list<array{provider:string, tier:string, amount_minor:int, provenance:string}>  $comparatorQuotes
+     * @return array{quote_id:int, fee:float, expires_at:?string}|null
+     */
+    private function networkQuote(Store $store, float $lat, float $lng, array $comparatorQuotes): ?array
+    {
+        if (! $this->business->enabled()) {
+            return null;
+        }
+
+        try {
+            $quote = $this->business->quote([
+                'pickup_latitude' => (float) $store->latitude,
+                'pickup_longitude' => (float) $store->longitude,
+                'dropoff_latitude' => $lat,
+                'dropoff_longitude' => $lng,
+                'vehicle_requirement' => (string) config('delivery.vehicle_requirement'),
+                'zone_key' => (string) config('delivery.zone_key'),
+                'source_system' => (string) config('delivery.business.source_system'),
+                'comparator_quotes' => array_values($comparatorQuotes),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dorzak Delivery quote failed; hiding the option at checkout.', [
+                'store_id' => $store->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        if (! isset($quote['quote_id'], $quote['customer_price_minor'])) {
+            return null;
+        }
+
+        return [
+            'quote_id' => (int) $quote['quote_id'],
+            'fee' => round(((int) $quote['customer_price_minor']) / 100, 2),
+            'expires_at' => $quote['expires_at'] ?? null,
+        ];
+    }
 
     /**
      * Price a specific trip.
@@ -64,40 +114,83 @@ class DeliveryQuoteService
         $candidates = DeliveryProvider::query()->active()->get()
             ->filter(fn (DeliveryProvider $p) => ! $p->is_plan_gated || $planEligible);
 
-        $inRange = $candidates
-            ->filter(fn (DeliveryProvider $p) => $distance <= (float) $p->max_radius_km)
-            ->sortBy(fn (DeliveryProvider $p) => [$p->feeFor($distance), $p->sort_order, $p->id])
-            ->values();
+        $inRange = $candidates->filter(fn (DeliveryProvider $p) => $distance <= (float) $p->max_radius_km);
 
-        if ($inRange->isEmpty()) {
+        // Comparator carriers (Uber, Snoonu, …) are priced by the local formula.
+        $comparators = $inRange->reject->isNetwork()->values();
+
+        // Their prices are what the network undercuts by 20%.
+        $comparatorQuotes = $comparators
+            ->filter(fn (DeliveryProvider $p) => in_array($p->code, (array) config('delivery.comparator_codes'), true))
+            ->map(fn (DeliveryProvider $p) => [
+                'provider' => $p->code,
+                'tier' => (string) config('delivery.comparator_tier'),
+                'amount_minor' => (int) round($p->feeFor($distance) * 100),
+                'provenance' => 'formula',
+            ])->values()->all();
+
+        $options = $comparators->map(fn (DeliveryProvider $p) => [
+            'id' => $p->id,
+            'name' => $p->name,
+            'code' => $p->code,
+            'fee' => $p->feeFor($distance),
+            'distance_km' => $distance,
+            'is_plan_perk' => false,
+            'is_network' => false,
+            'quote_id' => null,
+            'sort_order' => (int) $p->sort_order,
+        ])->all();
+
+        // The Dorzak network carrier is priced live, never by our own formula.
+        $network = $inRange->first(fn (DeliveryProvider $p) => $p->isNetwork());
+        if ($network !== null) {
+            $networkQuote = $this->networkQuote($store, $lat, $lng, $comparatorQuotes);
+            if ($networkQuote !== null) {
+                $options[] = [
+                    'id' => $network->id,
+                    'name' => $network->name,
+                    'code' => $network->code,
+                    'fee' => $networkQuote['fee'],
+                    'distance_km' => $distance,
+                    'is_plan_perk' => (bool) $network->is_plan_gated,
+                    'is_network' => true,
+                    'quote_id' => $networkQuote['quote_id'],
+                    'sort_order' => (int) $network->sort_order,
+                ];
+            }
+        }
+
+        if ($options === []) {
             return $this->fallbackOr($sf, $candidates->isNotEmpty() ? 'OUT_OF_RANGE' : 'NO_PROVIDER');
+        }
+
+        // Cheapest first — the network's undercut normally puts Dorzak on top.
+        // Ties are broken by the platform's display order, then by id, so the
+        // list a customer sees is stable between quotes.
+        usort($options, fn ($a, $b) => [$a['fee'], $a['sort_order'], $a['id']] <=> [$b['fee'], $b['sort_order'], $b['id']]);
+
+        $waived = $this->thresholdWaives($sf, $subtotal);
+        if ($waived) {
+            $options = array_map(fn ($o) => [...$o, 'fee' => 0.0], $options);
         }
 
         // The customer's pick, when it is genuinely available for this trip.
         $chosen = $chosenProviderId !== null
-            ? $inRange->firstWhere('id', $chosenProviderId)
+            ? (collect($options)->firstWhere('id', $chosenProviderId) ?? null)
             : null;
-        $chosen ??= $inRange->first();
-
-        $waived = $this->thresholdWaives($sf, $subtotal);
-
-        $options = $inRange->map(fn (DeliveryProvider $p) => [
-            'id' => $p->id,
-            'name' => $p->name,
-            'fee' => $waived ? 0.0 : $p->feeFor($distance),
-            'distance_km' => $distance,
-            'is_plan_perk' => (bool) $p->is_plan_gated,
-        ])->all();
+        $chosen ??= $options[0];
 
         return $this->result(
             'quoted',
-            $waived ? 0.0 : $chosen->feeFor($distance),
+            $chosen['fee'],
             $distance,
-            $chosen->id,
-            $chosen->name,
+            $chosen['id'],
+            $chosen['name'],
             $waived,
             null,
             $options,
+            $chosen['quote_id'],
+            $chosen['code'],
         );
     }
 
@@ -157,7 +250,7 @@ class DeliveryQuoteService
         return $threshold !== null && $subtotal >= (float) $threshold;
     }
 
-    private function result(string $mode, ?float $fee, ?float $distance, ?int $providerId, ?string $providerName, bool $waived, ?string $reason = null, array $options = []): array
+    private function result(string $mode, ?float $fee, ?float $distance, ?int $providerId, ?string $providerName, bool $waived, ?string $reason = null, array $options = [], ?int $quoteId = null, ?string $providerCode = null): array
     {
         return [
             'mode' => $mode,
@@ -168,6 +261,9 @@ class DeliveryQuoteService
             'waived' => $waived,
             'reason' => $reason,
             'options' => $options,
+            // Set only for the Dorzak network carrier — required to dispatch.
+            'quote_id' => $quoteId,
+            'provider_code' => $providerCode,
         ];
     }
 }

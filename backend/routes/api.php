@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\StaffInvitationController;
 use App\Http\Controllers\Api\StorefrontMediaController;
 use App\Http\Controllers\Api\SubscriptionController;
+use App\Http\Controllers\Api\Webhook\DorzakBusinessWebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -193,6 +194,14 @@ Route::prefix('v1/platform')->middleware(['auth:sanctum', 'platform.admin'])->gr
     Route::put('users/{user}/active', [PlatformUserController::class, 'setActive']);
     Route::post('users/{user}/reset-password', [PlatformUserController::class, 'resetPassword']);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Dorzak Business (delivery network) callbacks — HMAC-signed, no session.
+|--------------------------------------------------------------------------
+*/
+Route::post('webhooks/dorzak-business', DorzakBusinessWebhookController::class)
+    ->middleware('throttle:120,1');
 
 /*
 |--------------------------------------------------------------------------

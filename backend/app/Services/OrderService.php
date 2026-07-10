@@ -9,6 +9,8 @@ use App\Enums\PaymentStatus;
 use App\Events\OrderCancelled;
 use App\Events\OrderCompleted;
 use App\Events\OrderCreated;
+use App\Jobs\CancelDorzakDelivery;
+use App\Jobs\DispatchDorzakDelivery;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
@@ -91,6 +93,8 @@ class OrderService
                 'delivery_provider_name' => $data['delivery_provider_name'] ?? null,
                 'delivery_distance_km' => $data['delivery_distance_km'] ?? null,
                 'delivery_fee_status' => $data['delivery_fee_status'] ?? null,
+                'delivery_quote_id' => $data['delivery_quote_id'] ?? null,
+                'delivery_provider_code' => $data['delivery_provider_code'] ?? null,
                 'total' => $totals['total'],
                 'notes' => $data['notes'] ?? null,
                 'payment_reference' => $data['payment_reference'] ?? null,
@@ -216,6 +220,11 @@ class OrderService
         }
 
         $order->forceFill(['status' => $to])->save();
+
+        // The merchant has accepted and started making it — summon a driver.
+        if ($to === OrderStatus::PREPARING) {
+            DispatchDorzakDelivery::dispatch((int) $order->id)->afterCommit();
+        }
     }
 
     private function cancel(Order $order, bool $restore): void
@@ -225,6 +234,12 @@ class OrderService
             $this->applyCustomerStats($order, -1);
         }
         $order->forceFill(['status' => OrderStatus::CANCELLED, 'cancelled_at' => now()])->save();
+
+        // Stand the driver down if one was already being auctioned.
+        if (filled($order->delivery_external_reference)) {
+            CancelDorzakDelivery::dispatch((int) $order->id)->afterCommit();
+        }
+
         OrderCancelled::dispatch($order);
     }
 

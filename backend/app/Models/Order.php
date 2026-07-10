@@ -24,6 +24,8 @@ class Order extends Model
         'delivery_address', 'delivery_address_details', 'delivery_city', 'delivery_latitude', 'delivery_longitude', 'subtotal', 'discount',
         'tax_rate', 'tax_amount', 'delivery_fee', 'total', 'notes',
         'delivery_provider_id', 'delivery_provider_name', 'delivery_distance_km', 'delivery_fee_status',
+        'delivery_quote_id', 'delivery_provider_code', 'delivery_external_reference',
+        'delivery_external_status', 'delivery_dispatched_at',
         'pickup_latitude', 'pickup_longitude', 'pickup_address',
         'payment_reference', 'payment_proof_path', 'placed_at', 'completed_at', 'cancelled_at', 'created_by',
     ];
@@ -50,6 +52,7 @@ class Order extends Model
             'delivery_distance_km' => 'decimal:2',
             'pickup_latitude' => 'decimal:7',
             'pickup_longitude' => 'decimal:7',
+            'delivery_dispatched_at' => 'datetime',
         ];
     }
 
