@@ -80,6 +80,9 @@ Route::prefix('v1')->group(function () {
         Route::put('settings/payments', [SettingsController::class, 'updatePayments']);
         Route::put('settings/integrations', [SettingsController::class, 'updateIntegrations']);
         Route::put('settings/storefront', [SettingsController::class, 'updateStorefront']);
+        // Loyalty program config (premium — PlanFeature::LOYALTY).
+        Route::get('settings/loyalty', [\App\Http\Controllers\Api\LoyaltyController::class, 'show']);
+        Route::put('settings/loyalty', [\App\Http\Controllers\Api\LoyaltyController::class, 'update']);
         Route::post('settings/storefront/banner', [StorefrontMediaController::class, 'banner']);
         Route::post('settings/storefront/logo', [StorefrontMediaController::class, 'logo']);
 

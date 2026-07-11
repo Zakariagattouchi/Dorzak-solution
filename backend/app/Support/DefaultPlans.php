@@ -70,6 +70,7 @@ final class DefaultPlans
                     PlanFeature::WHATSAPP_ORDERING->value => null,
                     PlanFeature::CUSTOMER_CRM->value => null,
                     PlanFeature::ADVANCED_REPORTS->value => null,
+                    PlanFeature::LOYALTY->value => null,
                     PlanFeature::STAFF_SEATS->value => 5,
                     PlanFeature::PRODUCT_IMAGES_LIMIT->value => 8,
                     // PRODUCTS_LIMIT / CATEGORIES_LIMIT absent => unlimited.
@@ -97,6 +98,7 @@ final class DefaultPlans
                     PlanFeature::WHATSAPP_ORDERING->value => null,
                     PlanFeature::CUSTOMER_CRM->value => null,
                     PlanFeature::ADVANCED_REPORTS->value => null,
+                    PlanFeature::LOYALTY->value => null,
                     // All limits absent => unlimited staff/products/categories/photos.
                 ],
             ],
