@@ -17,7 +17,7 @@ class Customer extends Model
     use BelongsToStore, HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'store_id', 'name', 'email', 'phone', 'address', 'address_details', 'city', 'latitude', 'longitude', 'tax_id', 'notes',
+        'store_id', 'name', 'email', 'phone', 'referral_code', 'address', 'address_details', 'city', 'latitude', 'longitude', 'tax_id', 'notes',
     ];
 
     protected function casts(): array

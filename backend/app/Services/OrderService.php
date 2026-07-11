@@ -35,6 +35,7 @@ class OrderService
         private readonly LoyaltyService $loyalty,
         private readonly CouponService $coupons,
         private readonly WalletService $wallet,
+        private readonly ReferralService $referrals,
     ) {}
 
     public function create(Store $store, array $data, ?User $user = null): Order
@@ -49,6 +50,12 @@ class OrderService
                 ?? ($status === OrderStatus::COMPLETE ? PaymentStatus::PAID->value : PaymentStatus::UNPAID->value));
 
             $customer = ! empty($data['customer_id']) ? Customer::find($data['customer_id']) : null;
+
+            // Attribute a referral before this order exists, so "first order"
+            // reads zero prior orders. Reward fires when the order completes.
+            if ($customer !== null && ! empty($data['referral_code'])) {
+                $this->referrals->attribute($store, $customer, $data['referral_code'], $customer->orders()->count());
+            }
 
             [$lines, $itemRows] = $this->buildItems($data['items']);
 
@@ -149,6 +156,7 @@ class OrderService
                 $lowStock = $this->stock->deductForOrder($order, $user);
                 $this->applyCustomerStats($order, 1);
                 $this->loyalty->accrueForOrder($order);
+                $this->referrals->rewardOnOrder($order);
                 $order->forceFill(['completed_at' => now()])->save();
                 $this->notifyLowStock($store, $lowStock);
             }
@@ -240,6 +248,7 @@ class OrderService
         $low = $this->stock->deductForOrder($order, $user);
         $this->applyCustomerStats($order, 1);
         $this->loyalty->accrueForOrder($order);
+        $this->referrals->rewardOnOrder($order);
         $order->forceFill(['status' => OrderStatus::COMPLETE, 'completed_at' => now()])->save();
         $this->notifyLowStock($order->store, $low);
         OrderCompleted::dispatch($order);

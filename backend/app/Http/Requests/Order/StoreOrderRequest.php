@@ -34,6 +34,7 @@ class StoreOrderRequest extends FormRequest
             'discount' => ['nullable', 'numeric', 'min:0'],
             'coupon_code' => ['nullable', 'string', 'max:60'],
             'wallet_redeem' => ['nullable', 'numeric', 'min:0'],
+            'referral_code' => ['nullable', 'string', 'max:16'],
             'payment_method' => ['required', Rule::in($methods)],
             'status' => ['sometimes', Rule::in([OrderStatus::CONFIRMING->value, OrderStatus::COMPLETE->value])],
             'notes' => ['nullable', 'string', 'max:500'],

@@ -91,6 +91,9 @@ Route::prefix('v1')->group(function () {
         Route::get('gift-cards', [\App\Http\Controllers\Api\GiftCardController::class, 'index']);
         Route::post('gift-cards', [\App\Http\Controllers\Api\GiftCardController::class, 'store']);
         Route::post('gift-cards/redeem', [\App\Http\Controllers\Api\GiftCardController::class, 'redeem']);
+        // Referral program (premium — PlanFeature::REFERRALS).
+        Route::get('settings/referrals', [\App\Http\Controllers\Api\ReferralController::class, 'show']);
+        Route::put('settings/referrals', [\App\Http\Controllers\Api\ReferralController::class, 'update']);
         Route::post('settings/storefront/banner', [StorefrontMediaController::class, 'banner']);
         Route::post('settings/storefront/logo', [StorefrontMediaController::class, 'logo']);
 
