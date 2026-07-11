@@ -32,6 +32,7 @@ class OrderService
     public function __construct(
         private readonly OrderTotalsService $totals,
         private readonly StockService $stock,
+        private readonly LoyaltyService $loyalty,
     ) {}
 
     public function create(Store $store, array $data, ?User $user = null): Order
@@ -112,6 +113,7 @@ class OrderService
             if ($status === OrderStatus::COMPLETE) {
                 $lowStock = $this->stock->deductForOrder($order, $user);
                 $this->applyCustomerStats($order, 1);
+                $this->loyalty->accrueForOrder($order);
                 $order->forceFill(['completed_at' => now()])->save();
                 $this->notifyLowStock($store, $lowStock);
             }
@@ -202,6 +204,7 @@ class OrderService
     {
         $low = $this->stock->deductForOrder($order, $user);
         $this->applyCustomerStats($order, 1);
+        $this->loyalty->accrueForOrder($order);
         $order->forceFill(['status' => OrderStatus::COMPLETE, 'completed_at' => now()])->save();
         $this->notifyLowStock($order->store, $low);
         OrderCompleted::dispatch($order);
