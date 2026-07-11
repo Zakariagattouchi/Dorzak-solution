@@ -106,6 +106,11 @@ Route::prefix('v1')->group(function () {
         Route::get('recurring-orders', [\App\Http\Controllers\Api\RecurringOrderController::class, 'index']);
         Route::post('recurring-orders', [\App\Http\Controllers\Api\RecurringOrderController::class, 'store']);
         Route::patch('recurring-orders/{subscription}', [\App\Http\Controllers\Api\RecurringOrderController::class, 'update']);
+        // Product reviews (premium — PlanFeature::REVIEWS).
+        Route::get('reviews', [\App\Http\Controllers\Api\ReviewController::class, 'index']);
+        Route::post('reviews', [\App\Http\Controllers\Api\ReviewController::class, 'store']);
+        Route::post('reviews/{review}/approve', [\App\Http\Controllers\Api\ReviewController::class, 'approve']);
+        Route::delete('reviews/{review}', [\App\Http\Controllers\Api\ReviewController::class, 'destroy']);
         Route::post('settings/storefront/banner', [StorefrontMediaController::class, 'banner']);
         Route::post('settings/storefront/logo', [StorefrontMediaController::class, 'logo']);
 
