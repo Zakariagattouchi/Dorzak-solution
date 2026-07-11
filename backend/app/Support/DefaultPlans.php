@@ -74,6 +74,7 @@ final class DefaultPlans
                     PlanFeature::COUPONS->value => null,
                     PlanFeature::GIFT_CARDS->value => null,
                     PlanFeature::REFERRALS->value => null,
+                    PlanFeature::SEGMENTS->value => null,
                     PlanFeature::STAFF_SEATS->value => 5,
                     PlanFeature::PRODUCT_IMAGES_LIMIT->value => 8,
                     // PRODUCTS_LIMIT / CATEGORIES_LIMIT absent => unlimited.
@@ -105,6 +106,7 @@ final class DefaultPlans
                     PlanFeature::COUPONS->value => null,
                     PlanFeature::GIFT_CARDS->value => null,
                     PlanFeature::REFERRALS->value => null,
+                    PlanFeature::SEGMENTS->value => null,
                     // All limits absent => unlimited staff/products/categories/photos.
                 ],
             ],

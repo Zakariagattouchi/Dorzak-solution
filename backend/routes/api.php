@@ -94,6 +94,10 @@ Route::prefix('v1')->group(function () {
         // Referral program (premium — PlanFeature::REFERRALS).
         Route::get('settings/referrals', [\App\Http\Controllers\Api\ReferralController::class, 'show']);
         Route::put('settings/referrals', [\App\Http\Controllers\Api\ReferralController::class, 'update']);
+        // Customer segments (premium — PlanFeature::SEGMENTS).
+        Route::get('segments', [\App\Http\Controllers\Api\SegmentController::class, 'index']);
+        Route::post('segments', [\App\Http\Controllers\Api\SegmentController::class, 'store']);
+        Route::delete('segments/{segment}', [\App\Http\Controllers\Api\SegmentController::class, 'destroy']);
         Route::post('settings/storefront/banner', [StorefrontMediaController::class, 'banner']);
         Route::post('settings/storefront/logo', [StorefrontMediaController::class, 'logo']);
 
