@@ -78,4 +78,23 @@ class CouponService
     {
         $coupon->increment('used_count');
     }
+
+    /**
+     * What this coupon actually drove: orders that used it, the revenue they
+     * carried (excluding cancelled), and the discount given away.
+     *
+     * @return array{orders: int, revenue: float, discount_given: float}
+     */
+    public function stats(Coupon $coupon): array
+    {
+        $orders = \App\Models\Order::query()
+            ->where('coupon_id', $coupon->id)
+            ->where('status', '!=', \App\Enums\OrderStatus::CANCELLED);
+
+        return [
+            'orders' => (clone $orders)->count(),
+            'revenue' => (float) (clone $orders)->sum('total'),
+            'discount_given' => (float) (clone $orders)->sum('discount'),
+        ];
+    }
 }

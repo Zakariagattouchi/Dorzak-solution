@@ -35,6 +35,10 @@ class LoyaltyController extends Controller
                 'redeem_points' => $program->redeem_points,
                 'redeem_value' => (float) $program->redeem_value,
             ] : null,
+            'stats' => [
+                'members' => \App\Models\LoyaltyAccount::where('points', '>', 0)->count(),
+                'points_outstanding' => (int) \App\Models\LoyaltyAccount::sum('points'),
+            ],
         ]);
     }
 

@@ -125,6 +125,8 @@ class OrderService
                 'pickup_address' => $pickup['address'],
                 'subtotal' => $totals['subtotal'],
                 'discount' => round($discount, 2),
+                'coupon_id' => $coupon?->id,
+                'coupon_code' => $coupon?->code,
                 'tax_rate' => $totals['tax_rate'],
                 'tax_amount' => $totals['tax_amount'],
                 'delivery_fee' => round((float) ($data['delivery_fee'] ?? 0), 2),

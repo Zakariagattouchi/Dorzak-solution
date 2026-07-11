@@ -52,6 +52,20 @@ class CampaignController extends Controller
         return response()->json(['id' => $campaign->id, 'status' => $campaign->status], 201);
     }
 
+    /** Send a draft/scheduled campaign immediately. */
+    public function send(Request $request, Campaign $campaign): JsonResponse
+    {
+        $store = $this->context->store();
+        abort_unless($campaign->store_id === $store->id, 404);
+        $this->plans->ensure($store, PlanFeature::CAMPAIGNS);
+        abort_unless($request->user()->can('settings.manage'), 403);
+        abort_if($campaign->status === 'sent', 422, 'This campaign has already been sent.');
+
+        $this->campaigns->send($campaign);
+
+        return response()->json(['status' => $campaign->refresh()->status, 'sent_count' => $campaign->sent_count]);
+    }
+
     public function destroy(Request $request, Campaign $campaign): JsonResponse
     {
         abort_unless($campaign->store_id === $this->context->store()->id, 404);

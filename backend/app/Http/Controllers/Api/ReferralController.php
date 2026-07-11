@@ -21,7 +21,8 @@ class ReferralController extends Controller
 
     public function show(): JsonResponse
     {
-        $program = $this->referrals->program($this->context->store());
+        $store = $this->context->store();
+        $program = $this->referrals->program($store);
 
         return response()->json([
             'referral' => $program ? [
@@ -29,6 +30,11 @@ class ReferralController extends Controller
                 'referrer_reward' => (float) $program->referrer_reward,
                 'referee_reward' => (float) $program->referee_reward,
             ] : null,
+            'stats' => [
+                'rewarded' => \App\Models\Referral::where('status', 'rewarded')->count(),
+                'pending' => \App\Models\Referral::where('status', 'pending')->count(),
+                'credit_issued' => (float) \App\Models\WalletEntry::whereIn('reason', ['Referral reward', 'Referral welcome'])->sum('amount'),
+            ],
         ]);
     }
 

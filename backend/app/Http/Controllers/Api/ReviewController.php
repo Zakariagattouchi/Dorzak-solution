@@ -28,9 +28,10 @@ class ReviewController extends Controller
             $q->where('approved', false);
         }
 
-        $rows = $q->limit(200)->get()->map(fn (Review $r) => [
-            'id' => $r->id, 'product_id' => $r->product_id, 'author_name' => $r->author_name,
-            'rating' => $r->rating, 'comment' => $r->comment, 'approved' => $r->approved,
+        $rows = $q->with('product:id,name')->limit(200)->get()->map(fn (Review $r) => [
+            'id' => $r->id, 'product_id' => $r->product_id, 'product_name' => $r->product?->name,
+            'author_name' => $r->author_name, 'rating' => $r->rating, 'comment' => $r->comment,
+            'approved' => $r->approved, 'created_at' => $r->created_at?->toIso8601String(),
         ]);
 
         return response()->json(['reviews' => $rows]);

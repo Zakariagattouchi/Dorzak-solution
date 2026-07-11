@@ -83,9 +83,12 @@ Route::prefix('v1')->group(function () {
         // Loyalty program config (premium — PlanFeature::LOYALTY).
         Route::get('settings/loyalty', [\App\Http\Controllers\Api\LoyaltyController::class, 'show']);
         Route::put('settings/loyalty', [\App\Http\Controllers\Api\LoyaltyController::class, 'update']);
+        // Marketing console overview (aggregate stats across growth features).
+        Route::get('marketing/overview', \App\Http\Controllers\Api\MarketingOverviewController::class);
         // Coupons (premium — PlanFeature::COUPONS).
         Route::get('coupons', [\App\Http\Controllers\Api\CouponController::class, 'index']);
         Route::post('coupons', [\App\Http\Controllers\Api\CouponController::class, 'store']);
+        Route::patch('coupons/{coupon}', [\App\Http\Controllers\Api\CouponController::class, 'update']);
         Route::delete('coupons/{coupon}', [\App\Http\Controllers\Api\CouponController::class, 'destroy']);
         // Gift cards + store credit (premium — PlanFeature::GIFT_CARDS).
         Route::get('gift-cards', [\App\Http\Controllers\Api\GiftCardController::class, 'index']);
@@ -101,6 +104,7 @@ Route::prefix('v1')->group(function () {
         // Marketing campaigns (premium — PlanFeature::CAMPAIGNS).
         Route::get('campaigns', [\App\Http\Controllers\Api\CampaignController::class, 'index']);
         Route::post('campaigns', [\App\Http\Controllers\Api\CampaignController::class, 'store']);
+        Route::post('campaigns/{campaign}/send', [\App\Http\Controllers\Api\CampaignController::class, 'send']);
         Route::delete('campaigns/{campaign}', [\App\Http\Controllers\Api\CampaignController::class, 'destroy']);
         // Recurring orders (premium — PlanFeature::RECURRING_ORDERS).
         Route::get('recurring-orders', [\App\Http\Controllers\Api\RecurringOrderController::class, 'index']);

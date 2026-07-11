@@ -56,6 +56,25 @@ class CouponController extends Controller
         return response()->json(['id' => $coupon->id, 'code' => $coupon->code], 201);
     }
 
+    /** Update a coupon — primarily the active toggle, plus editable limits. */
+    public function update(Request $request, Coupon $coupon): JsonResponse
+    {
+        abort_unless($coupon->store_id === $this->context->store()->id, 404);
+        abort_unless($request->user()->can('settings.manage'), 403);
+
+        $data = $request->validate([
+            'active' => ['sometimes', 'boolean'],
+            'min_order' => ['sometimes', 'numeric', 'min:0'],
+            'max_discount' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'usage_limit' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'expires_at' => ['sometimes', 'nullable', 'date'],
+        ]);
+
+        $coupon->update($data);
+
+        return response()->json(['ok' => true, 'active' => $coupon->active]);
+    }
+
     public function destroy(Request $request, Coupon $coupon): JsonResponse
     {
         abort_unless($coupon->store_id === $this->context->store()->id, 404);
