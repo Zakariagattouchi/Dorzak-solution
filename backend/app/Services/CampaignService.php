@@ -19,6 +19,7 @@ class CampaignService
     public function __construct(
         private readonly PlanGate $plans,
         private readonly SegmentService $segments,
+        private readonly WhatsAppSender $whatsapp,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -30,6 +31,7 @@ class CampaignService
             'store_id' => $store->id,
             'subject' => $data['subject'],
             'body' => $data['body'],
+            'channel' => ($data['channel'] ?? 'email') === 'whatsapp' ? 'whatsapp' : 'email',
             'audience' => $this->normalizeAudience($data['audience'] ?? ['type' => 'all']),
             'status' => ! empty($data['scheduled_at']) ? 'scheduled' : 'draft',
             'scheduled_at' => $data['scheduled_at'] ?? null,
@@ -58,8 +60,15 @@ class CampaignService
     public function send(Campaign $campaign): void
     {
         $sent = 0;
+        $viaWhatsapp = $campaign->channel === 'whatsapp';
+
         foreach ($this->audienceFor($campaign) as $customer) {
-            if (! empty($customer->email)) {
+            if ($viaWhatsapp) {
+                if (! empty($customer->phone)) {
+                    $this->whatsapp->send($customer->phone, $campaign->subject.' — '.$campaign->body);
+                    $sent++;
+                }
+            } elseif (! empty($customer->email)) {
                 Mail::to($customer->email)->send(new CampaignMail($campaign));
                 $sent++;
             }

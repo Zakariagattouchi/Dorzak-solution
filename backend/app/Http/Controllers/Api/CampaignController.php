@@ -40,6 +40,7 @@ class CampaignController extends Controller
         $data = $request->validate([
             'subject' => ['required', 'string', 'max:200'],
             'body' => ['required', 'string', 'max:5000'],
+            'channel' => ['nullable', 'in:email,whatsapp'],
             'audience' => ['required', 'array'],
             'audience.type' => ['required', 'in:all,segment'],
             'audience.segment_id' => ['nullable', 'integer'],

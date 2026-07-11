@@ -11,7 +11,7 @@ class Campaign extends Model
     use BelongsToStore;
 
     protected $fillable = [
-        'store_id', 'subject', 'body', 'audience', 'status', 'scheduled_at', 'sent_at', 'sent_count',
+        'store_id', 'subject', 'body', 'channel', 'audience', 'status', 'scheduled_at', 'sent_at', 'sent_count',
     ];
 
     protected function casts(): array
