@@ -32,6 +32,41 @@ export const loyaltyApi = {
   update: (payload: Record<string, unknown>) => request('/settings/loyalty', { method: 'PUT', body: payload }),
 };
 
+/** Premium marketing/growth features. */
+export const couponsApi = {
+  list: () => request('/coupons'),
+  create: (payload: Record<string, unknown>) => request('/coupons', { method: 'POST', body: payload }),
+  remove: (id: number) => request(`/coupons/${id}`, { method: 'DELETE' }),
+};
+
+export const campaignsApi = {
+  list: () => request('/campaigns'),
+  create: (payload: Record<string, unknown>) => request('/campaigns', { method: 'POST', body: payload }),
+  remove: (id: number) => request(`/campaigns/${id}`, { method: 'DELETE' }),
+};
+
+export const referralApi = {
+  get: () => request('/settings/referrals'),
+  update: (payload: Record<string, unknown>) => request('/settings/referrals', { method: 'PUT', body: payload }),
+};
+
+export const giftCardsApi = {
+  list: () => request('/gift-cards'),
+  issue: (amount: number) => request('/gift-cards', { method: 'POST', body: { amount } }),
+};
+
+export const segmentsApi = {
+  list: () => request('/segments'),
+  create: (payload: Record<string, unknown>) => request('/segments', { method: 'POST', body: payload }),
+  remove: (id: number) => request(`/segments/${id}`, { method: 'DELETE' }),
+};
+
+export const reviewsApi = {
+  list: (pending = false) => request(`/reviews${pending ? '?pending=1' : ''}`),
+  approve: (id: number) => request(`/reviews/${id}/approve`, { method: 'POST' }),
+  remove: (id: number) => request(`/reviews/${id}`, { method: 'DELETE' }),
+};
+
 export const staffApi = {
   list: () => request('/staff'),
   invite: (payload: { name: string; email: string; role: string }) => request('/staff/invitations', { method: 'POST', body: payload }),

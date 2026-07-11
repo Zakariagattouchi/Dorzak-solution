@@ -16,6 +16,7 @@ export const mainNavigation: NavItem[] = [
   { label: 'Categories', path: '/categories', icon: 'categories', group: 'Commerce', ability: 'products.view' },
   { label: 'Online Catalog', path: '/catalog', icon: 'storefront', group: 'Commerce', ability: 'settings.manage' },
   { label: 'Customers', path: '/customers', icon: 'customers', group: 'Customers', ability: 'customers.view' },
+  { label: 'Marketing', path: '/marketing', icon: 'trending', group: 'Customers', ability: 'settings.manage' },
   { label: 'Transactions', path: '/sales', icon: 'trending', group: 'Finance', ability: 'orders.view' },
   { label: 'Finances', path: '/finances', icon: 'dollar', group: 'Finance', ability: 'reports.view' },
   { label: 'Analytics', path: '/analytics', icon: 'reports', group: 'Finance', ability: 'reports.view' },

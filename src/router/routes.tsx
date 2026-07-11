@@ -14,6 +14,7 @@ import { StorefrontPage } from '../pages/storefront/StorefrontPage';
 import { StorefrontPreviewPage } from '../pages/storefront/StorefrontPreviewPage';
 import { OrderStatusPage } from '../pages/storefront/OrderStatusPage';
 import { SettingsPage } from '../pages/settings/SettingsPage';
+import { MarketingPage } from '../pages/marketing/MarketingPage';
 import { UsersPage } from '../pages/users/UsersPage';
 import { BillingPage } from '../pages/billing/BillingPage';
 import { LoginPage } from '../pages/auth/LoginPage';
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       { path: 'catalog', element: <StorefrontPage /> },
       { path: 'orders', element: <OrdersPage /> },
       { path: 'customers', element: <CustomersPage /> },
+      { path: 'marketing', element: <MarketingPage /> },
       { path: 'sales', element: <SalesPage /> },
       { path: 'finances', element: <FinancesPage /> },
       { path: 'analytics', element: <ReportsPage /> },
