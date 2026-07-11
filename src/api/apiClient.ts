@@ -101,7 +101,10 @@ export async function downloadFile(path: string, filename: string, base?: string
 
 export async function requestBlob(path: string): Promise<Blob> {
   const token = getToken();
-  const base = (import.meta as any).env?.VITE_API_URL ?? '/api/v1';
+  // Use the shared API_BASE: an empty VITE_API_URL must fall back to /api/v1
+  // (`||`, not `??` — the env var is "" in dev, which `??` would let through
+  // and drop the /api/v1 prefix, 404-ing every proof/blob fetch).
+  const base = API_BASE;
   const url = base.startsWith('http') ? `${base}${path}` : `${window.location.origin}${base}${path}`;
   const response = await fetch(url, {
     headers: {
