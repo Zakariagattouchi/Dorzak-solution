@@ -41,6 +41,7 @@ enum PlanFeature: string
     case REFERRALS = 'REFERRALS';                   // refer-a-friend rewards
     case SEGMENTS = 'SEGMENTS';                     // saved rule-based customer segments
     case CAMPAIGNS = 'CAMPAIGNS';                   // scheduled marketing campaigns
+    case RECURRING_ORDERS = 'RECURRING_ORDERS';     // customer recurring-order subscriptions
 
     // Limits
     case PRODUCTS_LIMIT = 'PRODUCTS_LIMIT';         // products per store
@@ -84,6 +85,7 @@ enum PlanFeature: string
             self::REFERRALS => ['label' => 'Referral program', 'description' => 'Reward customers who refer friends with store credit.', 'group' => 'Growth', 'enforced' => true, 'unit' => null],
             self::SEGMENTS => ['label' => 'Customer segments', 'description' => 'Save rule-based customer segments to target campaigns.', 'group' => 'Growth', 'enforced' => true, 'unit' => null],
             self::CAMPAIGNS => ['label' => 'Marketing campaigns', 'description' => 'Schedule email campaigns to all customers or a segment.', 'group' => 'Growth', 'enforced' => true, 'unit' => null],
+            self::RECURRING_ORDERS => ['label' => 'Recurring orders', 'description' => 'Let customers subscribe to a basket delivered on a cadence.', 'group' => 'Growth', 'enforced' => true, 'unit' => null],
             self::PRODUCTS_LIMIT => ['label' => 'Products', 'description' => 'Maximum products in the catalogue.', 'group' => 'Catalogue limits', 'enforced' => true, 'unit' => 'products'],
             self::CATEGORIES_LIMIT => ['label' => 'Categories', 'description' => 'Maximum categories.', 'group' => 'Catalogue limits', 'enforced' => true, 'unit' => 'categories'],
             self::PRODUCT_IMAGES_LIMIT => ['label' => 'Extra photos per product', 'description' => 'Additional photos allowed on each product beyond the main image.', 'group' => 'Catalogue limits', 'enforced' => true, 'unit' => 'photos'],

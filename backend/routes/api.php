@@ -102,6 +102,10 @@ Route::prefix('v1')->group(function () {
         Route::get('campaigns', [\App\Http\Controllers\Api\CampaignController::class, 'index']);
         Route::post('campaigns', [\App\Http\Controllers\Api\CampaignController::class, 'store']);
         Route::delete('campaigns/{campaign}', [\App\Http\Controllers\Api\CampaignController::class, 'destroy']);
+        // Recurring orders (premium — PlanFeature::RECURRING_ORDERS).
+        Route::get('recurring-orders', [\App\Http\Controllers\Api\RecurringOrderController::class, 'index']);
+        Route::post('recurring-orders', [\App\Http\Controllers\Api\RecurringOrderController::class, 'store']);
+        Route::patch('recurring-orders/{subscription}', [\App\Http\Controllers\Api\RecurringOrderController::class, 'update']);
         Route::post('settings/storefront/banner', [StorefrontMediaController::class, 'banner']);
         Route::post('settings/storefront/logo', [StorefrontMediaController::class, 'logo']);
 

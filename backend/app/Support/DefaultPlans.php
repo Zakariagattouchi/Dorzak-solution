@@ -76,6 +76,7 @@ final class DefaultPlans
                     PlanFeature::REFERRALS->value => null,
                     PlanFeature::SEGMENTS->value => null,
                     PlanFeature::CAMPAIGNS->value => null,
+                    PlanFeature::RECURRING_ORDERS->value => null,
                     PlanFeature::STAFF_SEATS->value => 5,
                     PlanFeature::PRODUCT_IMAGES_LIMIT->value => 8,
                     // PRODUCTS_LIMIT / CATEGORIES_LIMIT absent => unlimited.
@@ -109,6 +110,7 @@ final class DefaultPlans
                     PlanFeature::REFERRALS->value => null,
                     PlanFeature::SEGMENTS->value => null,
                     PlanFeature::CAMPAIGNS->value => null,
+                    PlanFeature::RECURRING_ORDERS->value => null,
                     // All limits absent => unlimited staff/products/categories/photos.
                 ],
             ],
