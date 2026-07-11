@@ -72,6 +72,7 @@ final class DefaultPlans
                     PlanFeature::ADVANCED_REPORTS->value => null,
                     PlanFeature::LOYALTY->value => null,
                     PlanFeature::COUPONS->value => null,
+                    PlanFeature::GIFT_CARDS->value => null,
                     PlanFeature::STAFF_SEATS->value => 5,
                     PlanFeature::PRODUCT_IMAGES_LIMIT->value => 8,
                     // PRODUCTS_LIMIT / CATEGORIES_LIMIT absent => unlimited.
@@ -101,6 +102,7 @@ final class DefaultPlans
                     PlanFeature::ADVANCED_REPORTS->value => null,
                     PlanFeature::LOYALTY->value => null,
                     PlanFeature::COUPONS->value => null,
+                    PlanFeature::GIFT_CARDS->value => null,
                     // All limits absent => unlimited staff/products/categories/photos.
                 ],
             ],

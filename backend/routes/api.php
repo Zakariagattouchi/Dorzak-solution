@@ -87,6 +87,10 @@ Route::prefix('v1')->group(function () {
         Route::get('coupons', [\App\Http\Controllers\Api\CouponController::class, 'index']);
         Route::post('coupons', [\App\Http\Controllers\Api\CouponController::class, 'store']);
         Route::delete('coupons/{coupon}', [\App\Http\Controllers\Api\CouponController::class, 'destroy']);
+        // Gift cards + store credit (premium — PlanFeature::GIFT_CARDS).
+        Route::get('gift-cards', [\App\Http\Controllers\Api\GiftCardController::class, 'index']);
+        Route::post('gift-cards', [\App\Http\Controllers\Api\GiftCardController::class, 'store']);
+        Route::post('gift-cards/redeem', [\App\Http\Controllers\Api\GiftCardController::class, 'redeem']);
         Route::post('settings/storefront/banner', [StorefrontMediaController::class, 'banner']);
         Route::post('settings/storefront/logo', [StorefrontMediaController::class, 'logo']);
 

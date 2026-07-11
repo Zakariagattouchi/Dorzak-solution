@@ -34,6 +34,7 @@ class OrderService
         private readonly StockService $stock,
         private readonly LoyaltyService $loyalty,
         private readonly CouponService $coupons,
+        private readonly WalletService $wallet,
     ) {}
 
     public function create(Store $store, array $data, ?User $user = null): Order
@@ -63,6 +64,21 @@ class OrderService
                 $quote = $this->coupons->quote($store, $data['coupon_code'], round($subtotal, 2));
                 $coupon = $quote['coupon'];
                 $discount = $quote['discount'];
+            }
+
+            // Store credit stacks on any coupon/manual discount, capped at the
+            // remaining goods value, and is debited in this same transaction.
+            $walletRedeem = (float) ($data['wallet_redeem'] ?? 0);
+            if ($walletRedeem > 0 && $customer !== null) {
+                $lineSubtotal = 0.0;
+                foreach ($lines as $line) {
+                    $lineSubtotal += (float) $line['unit_price'] * (int) $line['quantity'];
+                }
+                $applied = round(min($walletRedeem, max(0.0, round($lineSubtotal, 2) - $discount)), 2);
+                if ($applied > 0) {
+                    $this->wallet->redeem($customer, $applied, 'Applied at checkout');
+                    $discount += $applied;
+                }
             }
 
             $totals = $this->totals->compute(

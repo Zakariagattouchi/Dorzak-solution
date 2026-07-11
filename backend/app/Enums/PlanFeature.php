@@ -37,6 +37,7 @@ enum PlanFeature: string
     case ADVANCED_REPORTS = 'ADVANCED_REPORTS';     // analytics dashboards + finance export
     case LOYALTY = 'LOYALTY';                       // points-per-spend loyalty program
     case COUPONS = 'COUPONS';                       // customer-facing discount codes
+    case GIFT_CARDS = 'GIFT_CARDS';                 // prepaid gift cards → store credit
 
     // Limits
     case PRODUCTS_LIMIT = 'PRODUCTS_LIMIT';         // products per store
@@ -76,6 +77,7 @@ enum PlanFeature: string
             self::ADVANCED_REPORTS => ['label' => 'Advanced reports', 'description' => 'Analytics dashboards and finance exports.', 'group' => 'Growth', 'enforced' => false, 'unit' => null],
             self::LOYALTY => ['label' => 'Loyalty program', 'description' => 'Reward repeat customers with points they redeem for discounts.', 'group' => 'Growth', 'enforced' => true, 'unit' => null],
             self::COUPONS => ['label' => 'Coupon codes', 'description' => 'Create discount codes customers apply at checkout.', 'group' => 'Growth', 'enforced' => true, 'unit' => null],
+            self::GIFT_CARDS => ['label' => 'Gift cards', 'description' => 'Sell prepaid gift cards redeemable as store credit.', 'group' => 'Growth', 'enforced' => true, 'unit' => null],
             self::PRODUCTS_LIMIT => ['label' => 'Products', 'description' => 'Maximum products in the catalogue.', 'group' => 'Catalogue limits', 'enforced' => true, 'unit' => 'products'],
             self::CATEGORIES_LIMIT => ['label' => 'Categories', 'description' => 'Maximum categories.', 'group' => 'Catalogue limits', 'enforced' => true, 'unit' => 'categories'],
             self::PRODUCT_IMAGES_LIMIT => ['label' => 'Extra photos per product', 'description' => 'Additional photos allowed on each product beyond the main image.', 'group' => 'Catalogue limits', 'enforced' => true, 'unit' => 'photos'],
