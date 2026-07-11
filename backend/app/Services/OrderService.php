@@ -33,6 +33,7 @@ class OrderService
         private readonly OrderTotalsService $totals,
         private readonly StockService $stock,
         private readonly LoyaltyService $loyalty,
+        private readonly CouponService $coupons,
     ) {}
 
     public function create(Store $store, array $data, ?User $user = null): Order
@@ -50,9 +51,23 @@ class OrderService
 
             [$lines, $itemRows] = $this->buildItems($data['items']);
 
+            // A coupon code, when present, sets the discount; otherwise fall back
+            // to any manual discount. The code is redeemed after the order lands.
+            $discount = (float) ($data['discount'] ?? 0);
+            $coupon = null;
+            if (! empty($data['coupon_code'])) {
+                $subtotal = 0.0;
+                foreach ($lines as $line) {
+                    $subtotal += (float) $line['unit_price'] * (int) $line['quantity'];
+                }
+                $quote = $this->coupons->quote($store, $data['coupon_code'], round($subtotal, 2));
+                $coupon = $quote['coupon'];
+                $discount = $quote['discount'];
+            }
+
             $totals = $this->totals->compute(
                 $lines,
-                (float) ($data['discount'] ?? 0),
+                $discount,
                 [
                     'charge_sales_tax' => (bool) $store->charge_sales_tax,
                     'tax_rate' => (float) $store->tax_rate,
@@ -86,7 +101,7 @@ class OrderService
                 'pickup_longitude' => $pickup['longitude'],
                 'pickup_address' => $pickup['address'],
                 'subtotal' => $totals['subtotal'],
-                'discount' => round((float) ($data['discount'] ?? 0), 2),
+                'discount' => round($discount, 2),
                 'tax_rate' => $totals['tax_rate'],
                 'tax_amount' => $totals['tax_amount'],
                 'delivery_fee' => round((float) ($data['delivery_fee'] ?? 0), 2),
@@ -108,6 +123,10 @@ class OrderService
                 $order->items()->create($row);
             }
             $order->load('items');
+
+            if ($coupon !== null) {
+                $this->coupons->redeem($coupon);
+            }
 
             // Completed POS orders affect stock + customer stats immediately.
             if ($status === OrderStatus::COMPLETE) {

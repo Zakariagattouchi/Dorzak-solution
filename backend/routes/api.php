@@ -83,6 +83,10 @@ Route::prefix('v1')->group(function () {
         // Loyalty program config (premium — PlanFeature::LOYALTY).
         Route::get('settings/loyalty', [\App\Http\Controllers\Api\LoyaltyController::class, 'show']);
         Route::put('settings/loyalty', [\App\Http\Controllers\Api\LoyaltyController::class, 'update']);
+        // Coupons (premium — PlanFeature::COUPONS).
+        Route::get('coupons', [\App\Http\Controllers\Api\CouponController::class, 'index']);
+        Route::post('coupons', [\App\Http\Controllers\Api\CouponController::class, 'store']);
+        Route::delete('coupons/{coupon}', [\App\Http\Controllers\Api\CouponController::class, 'destroy']);
         Route::post('settings/storefront/banner', [StorefrontMediaController::class, 'banner']);
         Route::post('settings/storefront/logo', [StorefrontMediaController::class, 'logo']);
 

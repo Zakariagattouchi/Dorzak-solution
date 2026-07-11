@@ -32,6 +32,7 @@ class StoreOrderRequest extends FormRequest
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:9999'],
             'customer_id' => ['nullable', Rule::exists('customers', 'id')->where('store_id', $storeId)->whereNull('deleted_at')],
             'discount' => ['nullable', 'numeric', 'min:0'],
+            'coupon_code' => ['nullable', 'string', 'max:60'],
             'payment_method' => ['required', Rule::in($methods)],
             'status' => ['sometimes', Rule::in([OrderStatus::CONFIRMING->value, OrderStatus::COMPLETE->value])],
             'notes' => ['nullable', 'string', 'max:500'],
