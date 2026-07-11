@@ -9,9 +9,9 @@ import { CheckboxInput } from '../../components/forms/CheckboxInput';
 import { LocationPicker } from '../../components/forms/LocationPicker';
 import { AppButton } from '../../components/buttons/AppButton';
 import { AppIcon, IconName } from '../../components/icons/AppIcon';
-import { settingsApi, subscriptionApi } from '../../api/endpoints';
+import { settingsApi, subscriptionApi, loyaltyApi } from '../../api/endpoints';
 
-type Tab = 'GENERAL' | 'BUSINESS' | 'CURRENCY' | 'TAXES' | 'RECEIPTS' | 'PAYMENTS' | 'INTEGRATIONS' | 'STAFF' | 'SUBSCRIPTION';
+type Tab = 'GENERAL' | 'BUSINESS' | 'CURRENCY' | 'TAXES' | 'RECEIPTS' | 'PAYMENTS' | 'INTEGRATIONS' | 'LOYALTY' | 'STAFF' | 'SUBSCRIPTION';
 
 const TAB_CONFIG: { key: Tab; label: string; icon: IconName }[] = [
   { key: 'GENERAL', label: 'General', icon: 'storefront' },
@@ -21,6 +21,7 @@ const TAB_CONFIG: { key: Tab; label: string; icon: IconName }[] = [
   { key: 'RECEIPTS', label: 'Receipts', icon: 'receipt' },
   { key: 'PAYMENTS', label: 'Payments', icon: 'card' },
   { key: 'INTEGRATIONS', label: 'Integrations', icon: 'link' },
+  { key: 'LOYALTY', label: 'Loyalty', icon: 'star' },
   { key: 'STAFF', label: 'Users & Staff', icon: 'customers' },
   { key: 'SUBSCRIPTION', label: 'Subscription', icon: 'star' },
 ];
@@ -61,6 +62,42 @@ export const SettingsPage: React.FC = () => {
   const [taxId, setTaxId] = useState(accountInfo.taxId || '');
   const [taxIncluded, setTaxIncluded] = useState(accountInfo.taxIncludedInPrice || false);
   const [chargeSalesTax, setChargeSalesTax] = useState(true);
+
+  // LOYALTY (premium)
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
+  const [loyaltyEarn, setLoyaltyEarn] = useState('1');
+  const [loyaltyRedeemPoints, setLoyaltyRedeemPoints] = useState('100');
+  const [loyaltyRedeemValue, setLoyaltyRedeemValue] = useState('5');
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false);
+
+  useEffect(() => {
+    loyaltyApi.get().then((res: any) => {
+      const l = res?.loyalty;
+      if (l) {
+        setLoyaltyEnabled(!!l.enabled);
+        setLoyaltyEarn(String(l.earn_points_per_currency));
+        setLoyaltyRedeemPoints(String(l.redeem_points));
+        setLoyaltyRedeemValue(String(l.redeem_value));
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleSaveLoyalty = async () => {
+    setLoyaltyLoading(true);
+    try {
+      await loyaltyApi.update({
+        enabled: loyaltyEnabled,
+        earn_points_per_currency: parseInt(loyaltyEarn, 10) || 0,
+        redeem_points: parseInt(loyaltyRedeemPoints, 10) || 1,
+        redeem_value: parseFloat(loyaltyRedeemValue) || 0,
+      });
+      addToast('Loyalty program saved.', 'success');
+    } catch (err: any) {
+      addToast(err?.code === 'PLAN_UPGRADE_REQUIRED' ? 'Upgrade your plan to use loyalty.' : 'Could not save loyalty settings.', 'danger');
+    } finally {
+      setLoyaltyLoading(false);
+    }
+  };
 
   // RECEIPTS
   const [receiptHeader, setReceiptHeader] = useState(accountInfo.receiptHeader || '');
@@ -657,6 +694,30 @@ export const SettingsPage: React.FC = () => {
                   placeholder="e.g. G-XXXXXXXXXX"
                 />
               </div>
+            </div>
+          )}
+
+          {/* LOYALTY (premium) */}
+          {activeTab === 'LOYALTY' && (
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>Loyalty Program</h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Reward repeat customers with points they earn on every order and redeem for discounts.</p>
+              </div>
+              <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: 0 }} />
+              <ToggleSwitch checked={loyaltyEnabled} onChange={setLoyaltyEnabled} label="Enable loyalty program" description="Customers earn points on completed orders." />
+              {loyaltyEnabled && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                  <TextInput label="Points earned per 1 spent" type="number" min="0" value={loyaltyEarn} onChange={e => setLoyaltyEarn(e.target.value)} />
+                  <TextInput label="Points to redeem" type="number" min="1" value={loyaltyRedeemPoints} onChange={e => setLoyaltyRedeemPoints(e.target.value)} />
+                  <TextInput label="Discount value per redemption" type="number" step="0.01" min="0" value={loyaltyRedeemValue} onChange={e => setLoyaltyRedeemValue(e.target.value)} />
+                </div>
+              )}
+              {isAdmin && (
+                <div>
+                  <AppButton variant="primary" type="button" loading={loyaltyLoading} onClick={handleSaveLoyalty}>Save loyalty settings</AppButton>
+                </div>
+              )}
             </div>
           )}
 

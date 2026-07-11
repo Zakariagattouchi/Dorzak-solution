@@ -26,6 +26,12 @@ export const settingsApi = {
   },
 };
 
+/** Loyalty program config (premium — PlanFeature::LOYALTY). */
+export const loyaltyApi = {
+  get: () => request('/settings/loyalty'),
+  update: (payload: Record<string, unknown>) => request('/settings/loyalty', { method: 'PUT', body: payload }),
+};
+
 export const staffApi = {
   list: () => request('/staff'),
   invite: (payload: { name: string; email: string; role: string }) => request('/staff/invitations', { method: 'POST', body: payload }),
