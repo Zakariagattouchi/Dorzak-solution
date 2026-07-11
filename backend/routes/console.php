@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Revert expired free trials to the default plan.
 Schedule::command('subscriptions:expire-trials')->daily();
+
+// Send scheduled marketing campaigns whose time has arrived (premium).
+Schedule::command('campaigns:dispatch')->everyMinute();

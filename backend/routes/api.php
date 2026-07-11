@@ -98,6 +98,10 @@ Route::prefix('v1')->group(function () {
         Route::get('segments', [\App\Http\Controllers\Api\SegmentController::class, 'index']);
         Route::post('segments', [\App\Http\Controllers\Api\SegmentController::class, 'store']);
         Route::delete('segments/{segment}', [\App\Http\Controllers\Api\SegmentController::class, 'destroy']);
+        // Marketing campaigns (premium — PlanFeature::CAMPAIGNS).
+        Route::get('campaigns', [\App\Http\Controllers\Api\CampaignController::class, 'index']);
+        Route::post('campaigns', [\App\Http\Controllers\Api\CampaignController::class, 'store']);
+        Route::delete('campaigns/{campaign}', [\App\Http\Controllers\Api\CampaignController::class, 'destroy']);
         Route::post('settings/storefront/banner', [StorefrontMediaController::class, 'banner']);
         Route::post('settings/storefront/logo', [StorefrontMediaController::class, 'logo']);
 

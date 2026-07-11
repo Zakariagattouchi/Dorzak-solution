@@ -115,6 +115,11 @@ class Store extends Model
         return $this->hasMany(Customer::class);
     }
 
+    public function segments(): HasMany
+    {
+        return $this->hasMany(CustomerSegment::class);
+    }
+
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
