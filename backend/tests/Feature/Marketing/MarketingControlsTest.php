@@ -101,6 +101,25 @@ class MarketingControlsTest extends TestCase
             ->assertJsonPath('stats.points_outstanding', 250);
     }
 
+    public function test_coupon_list_includes_per_coupon_performance(): void
+    {
+        $this->store->update(['charge_sales_tax' => false]); // keep the math tax-free
+        $coupon = Coupon::create(['store_id' => $this->store->id, 'code' => 'PERF', 'type' => 'PERCENT', 'value' => 10, 'active' => true]);
+        $product = Product::factory()->for($this->store)->create(['price' => 100, 'track_stock' => false]);
+        $this->actingAsMember($this->owner)
+            ->postJson('/api/v1/orders', [
+                'items' => [['product_id' => $product->id, 'quantity' => 1]],
+                'payment_method' => 'CARD', 'coupon_code' => 'PERF',
+            ])->assertCreated();
+
+        $this->actingAsMember($this->owner)
+            ->getJson('/api/v1/coupons')
+            ->assertOk()
+            ->assertJsonPath('coupons.0.orders', 1)
+            ->assertJsonPath('coupons.0.revenue', 90)
+            ->assertJsonPath('coupons.0.discount_given', 10);
+    }
+
     public function test_reviews_list_includes_the_product_name(): void
     {
         $product = Product::factory()->for($this->store)->create(['name' => 'Signature Hoodie']);

@@ -25,12 +25,19 @@ class CouponController extends Controller
 
     public function index(): JsonResponse
     {
-        $rows = Coupon::orderByDesc('id')->get()->map(fn (Coupon $c) => [
-            'id' => $c->id, 'code' => $c->code, 'type' => $c->type, 'value' => (float) $c->value,
-            'min_order' => (float) $c->min_order, 'usage_limit' => $c->usage_limit,
-            'used_count' => $c->used_count, 'active' => $c->active,
-            'expires_at' => $c->expires_at?->toDateString(),
-        ]);
+        $notCancelled = fn ($q) => $q->where('status', '!=', \App\Enums\OrderStatus::CANCELLED);
+
+        $rows = Coupon::query()
+            ->withCount(['orders as orders' => $notCancelled])
+            ->withSum(['orders as revenue' => $notCancelled], 'total')
+            ->withSum(['orders as discount_given' => $notCancelled], 'discount')
+            ->orderByDesc('id')->get()->map(fn (Coupon $c) => [
+                'id' => $c->id, 'code' => $c->code, 'type' => $c->type, 'value' => (float) $c->value,
+                'min_order' => (float) $c->min_order, 'max_discount' => $c->max_discount !== null ? (float) $c->max_discount : null,
+                'usage_limit' => $c->usage_limit, 'used_count' => $c->used_count, 'active' => $c->active,
+                'expires_at' => $c->expires_at?->toDateString(),
+                'orders' => (int) $c->orders, 'revenue' => (float) ($c->revenue ?? 0), 'discount_given' => (float) ($c->discount_given ?? 0),
+            ]);
 
         return response()->json(['coupons' => $rows]);
     }
