@@ -23,9 +23,10 @@ class CampaignController extends Controller
     public function index(): JsonResponse
     {
         $rows = Campaign::orderByDesc('id')->get()->map(fn (Campaign $c) => [
-            'id' => $c->id, 'subject' => $c->subject, 'status' => $c->status,
+            'id' => $c->id, 'subject' => $c->subject, 'status' => $c->status, 'channel' => $c->channel,
+            'wa_template_name' => $c->wa_template_name,
             'audience' => $c->audience, 'scheduled_at' => $c->scheduled_at?->toIso8601String(),
-            'sent_count' => $c->sent_count,
+            'sent_count' => $c->sent_count, 'failed_count' => $c->failed_count,
         ]);
 
         return response()->json(['campaigns' => $rows]);
@@ -41,6 +42,8 @@ class CampaignController extends Controller
             'subject' => ['required', 'string', 'max:200'],
             'body' => ['required', 'string', 'max:5000'],
             'channel' => ['nullable', 'in:email,whatsapp'],
+            'wa_template_name' => ['nullable', 'string', 'max:190'],
+            'wa_template_language' => ['nullable', 'string', 'max:10'],
             'audience' => ['required', 'array'],
             'audience.type' => ['required', 'in:all,segment'],
             'audience.segment_id' => ['nullable', 'integer'],
