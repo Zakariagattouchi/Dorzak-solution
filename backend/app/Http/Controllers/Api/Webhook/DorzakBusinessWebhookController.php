@@ -6,8 +6,10 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\DorzakBusinessClient;
+use App\Services\OrderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Driver-side status flowing back from the Dorzak delivery board.
@@ -15,9 +17,18 @@ use Illuminate\Http\Request;
  * Authenticated by the same exact-body HMAC the outbound calls use — signed
  * over "{timestamp}.{event_type}.{source_order_id}.{raw_body}" — plus a 5-minute
  * replay window. Unsigned or stale calls are rejected.
+ *
+ * Completion side-effects (stock deduction, loyalty, referral, OrderCompleted
+ * event) are always routed through OrderService::complete(), so a webhook-
+ * completed order is indistinguishable from a merchant-completed one.
+ *
+ * Idempotency: once an order is COMPLETE it will not be re-completed, and status
+ * is never regressed (e.g. a stale en_route_customer after delivered is ignored).
  */
 class DorzakBusinessWebhookController extends Controller
 {
+    public function __construct(private readonly OrderService $orders) {}
+
     public function __invoke(Request $request): JsonResponse
     {
         $eventType = (string) $request->header('X-Dorzak-Event-Type');
@@ -45,28 +56,40 @@ class DorzakBusinessWebhookController extends Controller
             return response()->json(['ok' => true, 'ignored' => true]);
         }
 
-        $values = ['delivery_external_status' => (string) ($payload['to'] ?? $eventType)];
+        DB::transaction(function () use ($order, $payload, $eventType): void {
+            // Lock the row so concurrent webhooks don't race on status.
+            $order = Order::withoutGlobalScopes()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $order->load('items');
 
-        if (isset($payload['tender_id'])) {
-            $values['delivery_external_reference'] = (string) $payload['tender_id'];
-        }
-
-        // Map the driver's journey onto the merchant's order status. COMPLETE is
-        // only reached from OUT_FOR_DELIVERY, matching the normal transitions.
-        $state = $payload['to'] ?? null;
-
-        if (in_array($state, ['en_route_customer', 'arrived_customer'], true)) {
-            if ($order->status !== OrderStatus::CANCELLED && $order->status !== OrderStatus::COMPLETE) {
-                $values['status'] = OrderStatus::OUT_FOR_DELIVERY;
+            // Always record the raw delivery carrier state and the external ref.
+            $meta = ['delivery_external_status' => (string) ($payload['to'] ?? $eventType)];
+            if (isset($payload['tender_id'])) {
+                $meta['delivery_external_reference'] = (string) $payload['tender_id'];
             }
-        } elseif ($state === 'delivered' || $eventType === 'delivery.completed') {
-            if ($order->status !== OrderStatus::CANCELLED) {
-                $values['status'] = OrderStatus::COMPLETE;
-                $values['completed_at'] = now();
-            }
-        }
+            $order->forceFill($meta)->save();
 
-        $order->forceFill($values)->save();
+            $state = $payload['to'] ?? null;
+
+            // Map the driver's journey onto the merchant's order status.
+            // Never regress: skip transitions to earlier states.
+            if (in_array($state, ['en_route_customer', 'arrived_customer'], true)) {
+                if ($order->status !== OrderStatus::CANCELLED
+                    && $order->status !== OrderStatus::COMPLETE
+                    && $order->status !== OrderStatus::OUT_FOR_DELIVERY
+                ) {
+                    $order->forceFill(['status' => OrderStatus::OUT_FOR_DELIVERY])->save();
+                }
+            } elseif ($state === 'delivered' || $eventType === 'delivery.completed') {
+                // Idempotent: a second delivery.completed must not re-run side-effects.
+                if ($order->status !== OrderStatus::CANCELLED
+                    && $order->status !== OrderStatus::COMPLETE
+                ) {
+                    // Route through the canonical completion path: deducts stock,
+                    // applies loyalty/referral, sets completed_at, fires OrderCompleted.
+                    $this->orders->complete($order);
+                }
+            }
+        });
 
         return response()->json(['ok' => true]);
     }

@@ -245,7 +245,7 @@ class OrderService
         });
     }
 
-    private function complete(Order $order, ?User $user): void
+    public function complete(Order $order, ?User $user = null): void
     {
         $low = $this->stock->deductForOrder($order, $user);
         $this->applyCustomerStats($order, 1);
