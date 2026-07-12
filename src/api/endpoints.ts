@@ -33,15 +33,29 @@ export const loyaltyApi = {
 };
 
 /** Premium marketing/growth features. */
+export const marketingApi = {
+  overview: () => request('/marketing/overview'),
+};
+
+/** Messaging channel setup: email sender + SMTP, WhatsApp Business API. */
+export const messagingApi = {
+  get: () => request('/settings/messaging'),
+  update: (payload: Record<string, unknown>) => request('/settings/messaging', { method: 'PUT', body: payload }),
+  verifyWhatsapp: () => request('/settings/messaging/verify-whatsapp', { method: 'POST' }),
+  testEmail: () => request('/settings/messaging/test-email', { method: 'POST' }),
+};
+
 export const couponsApi = {
   list: () => request('/coupons'),
   create: (payload: Record<string, unknown>) => request('/coupons', { method: 'POST', body: payload }),
+  update: (id: number, payload: Record<string, unknown>) => request(`/coupons/${id}`, { method: 'PATCH', body: payload }),
   remove: (id: number) => request(`/coupons/${id}`, { method: 'DELETE' }),
 };
 
 export const campaignsApi = {
   list: () => request('/campaigns'),
   create: (payload: Record<string, unknown>) => request('/campaigns', { method: 'POST', body: payload }),
+  sendNow: (id: number) => request(`/campaigns/${id}/send`, { method: 'POST' }),
   remove: (id: number) => request(`/campaigns/${id}`, { method: 'DELETE' }),
 };
 
@@ -53,6 +67,7 @@ export const referralApi = {
 export const giftCardsApi = {
   list: () => request('/gift-cards'),
   issue: (amount: number) => request('/gift-cards', { method: 'POST', body: { amount } }),
+  redeem: (code: string, customerId: number) => request('/gift-cards/redeem', { method: 'POST', body: { code, customer_id: customerId } }),
 };
 
 export const segmentsApi = {
