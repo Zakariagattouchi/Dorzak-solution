@@ -48,8 +48,8 @@ class WhatsAppCampaignTest extends TestCase
             'store_id' => $this->store->id, 'whatsapp_token' => 't',
             'whatsapp_phone_number_id' => '123', 'whatsapp_connected_at' => now(),
         ]);
-        Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '+97455500001']);
-        Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '+97455500002']);
+        Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '+97455500001', 'marketing_consent' => true]);
+        Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '+97455500002', 'marketing_consent' => true]);
         Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '']); // unreachable
 
         $campaign = $this->dueWhatsappCampaign();

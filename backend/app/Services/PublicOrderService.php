@@ -67,7 +67,7 @@ class PublicOrderService
         $delivery = $this->resolveDelivery($store, $data, $fulfillment, $subtotal);
 
         return DB::transaction(function () use ($store, $data, $fulfillment, $delivery): array {
-            $customer = $this->upsertCustomer($store, $data['customer']);
+            $customer = $this->upsertCustomer($store, $data['customer'], $data['marketing_consent'] ?? false);
 
             $order = $this->orders->create($store, [
                 'items' => $data['items'],
@@ -223,11 +223,11 @@ class PublicOrderService
         ];
     }
 
-    private function upsertCustomer(Store $store, array $data)
+    private function upsertCustomer(Store $store, array $data, bool $marketingConsent = false)
     {
         $normalized = preg_replace('/\D/', '', (string) $data['phone']);
 
-        return $store->customers()->where('phone_normalized', $normalized)->first()
+        $customer = $store->customers()->where('phone_normalized', $normalized)->first()
             ?? $store->customers()->create([
                 'name' => $data['name'],
                 'phone' => $data['phone'],
@@ -237,6 +237,13 @@ class PublicOrderService
                 'latitude' => $data['latitude'] ?? null,
                 'longitude' => $data['longitude'] ?? null,
             ]);
+
+        // Only ever upgrade consent, never silently revoke it here.
+        if ($marketingConsent && ! $customer->marketing_consent) {
+            $customer->forceFill(['marketing_consent' => true, 'consented_at' => now()])->save();
+        }
+
+        return $customer;
     }
 
     private function notifyStaff(Store $store, Order $order): void

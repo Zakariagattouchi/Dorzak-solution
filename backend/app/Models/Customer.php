@@ -18,6 +18,7 @@ class Customer extends Model
 
     protected $fillable = [
         'store_id', 'name', 'email', 'phone', 'referral_code', 'address', 'address_details', 'city', 'latitude', 'longitude', 'tax_id', 'notes',
+        'marketing_consent', 'consented_at',
     ];
 
     protected function casts(): array
@@ -27,6 +28,8 @@ class Customer extends Model
             'total_spent' => 'decimal:2',
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
+            'marketing_consent' => 'boolean',
+            'consented_at' => 'datetime',
         ];
     }
 

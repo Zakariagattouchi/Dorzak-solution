@@ -264,4 +264,8 @@ Route::prefix('public')->group(function () {
 
     // Subdomain resolution — SPA calls this on mount when running on {slug}.APP_DOMAIN.
     Route::get('resolve', [PublicStorefrontController::class, 'resolveHost'])->middleware('throttle:60,1');
+
+    // One-click, signed unsubscribe — linked from every campaign email.
+    Route::get('unsubscribe/{customer}', \App\Http\Controllers\Api\Public\PublicUnsubscribeController::class)
+        ->name('public.unsubscribe')->middleware('throttle:30,1');
 });

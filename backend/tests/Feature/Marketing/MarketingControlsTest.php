@@ -42,7 +42,7 @@ class MarketingControlsTest extends TestCase
 
     public function test_a_draft_campaign_can_be_sent_now(): void
     {
-        Customer::factory()->create(['store_id' => $this->store->id, 'email' => 'a@example.com']);
+        Customer::factory()->create(['store_id' => $this->store->id, 'email' => 'a@example.com', 'marketing_consent' => true]);
         $campaign = Campaign::create([
             'store_id' => $this->store->id, 'subject' => 'Sale', 'body' => 'Now',
             'audience' => ['type' => 'all'], 'status' => 'draft',

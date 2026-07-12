@@ -112,8 +112,8 @@ class MessagingChannelsTest extends TestCase
             'store_id' => $this->store->id, 'whatsapp_token' => 't',
             'whatsapp_phone_number_id' => '123', 'whatsapp_connected_at' => now(),
         ]);
-        Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '+97455500001']);
-        Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '+97455500002']);
+        Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '+97455500001', 'marketing_consent' => true]);
+        Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '+97455500002', 'marketing_consent' => true]);
 
         $campaign = Campaign::create([
             'store_id' => $this->store->id, 'subject' => 'Sale', 'body' => '20% off',
@@ -142,8 +142,8 @@ class MessagingChannelsTest extends TestCase
             'store_id' => $this->store->id, 'whatsapp_token' => 't',
             'whatsapp_phone_number_id' => '123', 'whatsapp_connected_at' => now(),
         ]);
-        Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '+97455500001']);
-        Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '+97455500002']);
+        Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '+97455500001', 'marketing_consent' => true]);
+        Customer::factory()->create(['store_id' => $this->store->id, 'phone' => '+97455500002', 'marketing_consent' => true]);
 
         $campaign = Campaign::create([
             'store_id' => $this->store->id, 'subject' => 'S', 'body' => 'B',
@@ -176,7 +176,7 @@ class MessagingChannelsTest extends TestCase
             'store_id' => $this->store->id,
             'email_from_name' => 'Dorzak Merchant', 'email_from_address' => 'hello@dorzak.shop',
         ]);
-        Customer::factory()->create(['store_id' => $this->store->id, 'email' => 'a@example.com']);
+        Customer::factory()->create(['store_id' => $this->store->id, 'email' => 'a@example.com', 'marketing_consent' => true]);
 
         $campaign = Campaign::create([
             'store_id' => $this->store->id, 'subject' => 'S', 'body' => 'B',

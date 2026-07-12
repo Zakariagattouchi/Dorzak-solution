@@ -129,7 +129,7 @@ class CampaignService
             try {
                 Mail::mailer($channel['mailer'])
                     ->to($customer->email)
-                    ->send(new CampaignMail($campaign, $channel['from_address'], $channel['from_name']));
+                    ->send(new CampaignMail($campaign, $channel['from_address'], $channel['from_name'], $customer->id));
                 $sent++;
             } catch (\Throwable $e) {
                 $failed++;
@@ -155,10 +155,10 @@ class CampaignService
         if (($audience['type'] ?? 'all') === 'segment') {
             $segment = $campaign->store->segments()->whereKey($audience['segment_id'] ?? null)->first();
 
-            return $segment === null ? collect() : $this->segments->members($segment);
+            return $segment === null ? collect() : $this->segments->members($segment)->filter(fn ($c) => $c->marketing_consent)->values();
         }
 
-        return $campaign->store->customers()->get();
+        return $campaign->store->customers()->where('marketing_consent', true)->get();
     }
 
     /** @param array<string, mixed> $audience */

@@ -46,8 +46,8 @@ class CampaignServiceTest extends TestCase
 
     public function test_a_due_campaign_sends_to_customers_with_email(): void
     {
-        Customer::factory()->create(['store_id' => $this->store->id, 'email' => 'a@example.com']);
-        Customer::factory()->create(['store_id' => $this->store->id, 'email' => 'b@example.com']);
+        Customer::factory()->create(['store_id' => $this->store->id, 'email' => 'a@example.com', 'marketing_consent' => true]);
+        Customer::factory()->create(['store_id' => $this->store->id, 'email' => 'b@example.com', 'marketing_consent' => true]);
         Customer::factory()->create(['store_id' => $this->store->id, 'email' => null]); // unreachable
         $campaign = $this->campaign();
 
@@ -70,8 +70,8 @@ class CampaignServiceTest extends TestCase
 
     public function test_a_campaign_can_target_a_saved_segment(): void
     {
-        Customer::factory()->create(['store_id' => $this->store->id, 'email' => 'vip@example.com', 'total_spent' => 500]);
-        Customer::factory()->create(['store_id' => $this->store->id, 'email' => 'small@example.com', 'total_spent' => 5]);
+        Customer::factory()->create(['store_id' => $this->store->id, 'email' => 'vip@example.com', 'total_spent' => 500, 'marketing_consent' => true]);
+        Customer::factory()->create(['store_id' => $this->store->id, 'email' => 'small@example.com', 'total_spent' => 5, 'marketing_consent' => true]);
         $segment = CustomerSegment::create(['store_id' => $this->store->id, 'name' => 'VIP', 'rules' => ['min_spent' => 100]]);
         $campaign = $this->campaign(['audience' => ['type' => 'segment', 'segment_id' => $segment->id]]);
 

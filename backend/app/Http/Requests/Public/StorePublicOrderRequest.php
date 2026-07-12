@@ -39,6 +39,7 @@ class StorePublicOrderRequest extends FormRequest
             'payment_reference' => ['nullable', 'string', 'max:120'],
             'payment_proof' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'notes' => ['nullable', 'string', 'max:500'],
+            'marketing_consent' => ['nullable', 'boolean'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => [
                 'required',
