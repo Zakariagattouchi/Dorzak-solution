@@ -25,6 +25,11 @@ class CampaignServiceTest extends TestCase
         Mail::fake();
         $this->store = Store::factory()->create();
         app(StoreContext::class)->setStore($this->store);
+        // Email campaigns require a configured sender identity.
+        \App\Models\MessagingSetting::create([
+            'store_id' => $this->store->id,
+            'email_from_name' => 'Test Store', 'email_from_address' => 'hello@test.shop',
+        ]);
     }
 
     private function campaign(array $attrs = []): Campaign

@@ -11,7 +11,8 @@ class Campaign extends Model
     use BelongsToStore;
 
     protected $fillable = [
-        'store_id', 'subject', 'body', 'channel', 'audience', 'status', 'scheduled_at', 'sent_at', 'sent_count',
+        'store_id', 'subject', 'body', 'channel', 'wa_template_name', 'wa_template_language',
+        'audience', 'status', 'scheduled_at', 'sent_at', 'sent_count', 'failed_count',
     ];
 
     protected function casts(): array
@@ -21,6 +22,7 @@ class Campaign extends Model
             'scheduled_at' => 'datetime',
             'sent_at' => 'datetime',
             'sent_count' => 'integer',
+            'failed_count' => 'integer',
         ];
     }
 }

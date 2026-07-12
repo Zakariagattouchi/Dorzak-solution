@@ -33,6 +33,11 @@ class MarketingControlsTest extends TestCase
         ['user' => $this->owner, 'store' => $this->store] = $this->createStoreWithOwner();
         $this->assignPlan($this->store, 'ENTERPRISE');
         app(StoreContext::class)->setStore($this->store);
+        // Email campaigns require a configured sender identity.
+        \App\Models\MessagingSetting::create([
+            'store_id' => $this->store->id,
+            'email_from_name' => 'Test Store', 'email_from_address' => 'hello@test.shop',
+        ]);
     }
 
     public function test_a_draft_campaign_can_be_sent_now(): void

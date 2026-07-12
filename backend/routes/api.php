@@ -83,6 +83,11 @@ Route::prefix('v1')->group(function () {
         // Loyalty program config (premium — PlanFeature::LOYALTY).
         Route::get('settings/loyalty', [\App\Http\Controllers\Api\LoyaltyController::class, 'show']);
         Route::put('settings/loyalty', [\App\Http\Controllers\Api\LoyaltyController::class, 'update']);
+        // Messaging channel setup (email sender + SMTP, WhatsApp Business API).
+        Route::get('settings/messaging', [\App\Http\Controllers\Api\MessagingSettingsController::class, 'show']);
+        Route::put('settings/messaging', [\App\Http\Controllers\Api\MessagingSettingsController::class, 'update']);
+        Route::post('settings/messaging/verify-whatsapp', [\App\Http\Controllers\Api\MessagingSettingsController::class, 'verifyWhatsapp']);
+        Route::post('settings/messaging/test-email', [\App\Http\Controllers\Api\MessagingSettingsController::class, 'testEmail']);
         // Marketing console overview (aggregate stats across growth features).
         Route::get('marketing/overview', \App\Http\Controllers\Api\MarketingOverviewController::class);
         // Coupons (premium — PlanFeature::COUPONS).
