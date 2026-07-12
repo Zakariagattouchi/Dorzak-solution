@@ -211,6 +211,39 @@ export const OrderDetailModal: React.FC = () => {
           </div>
         </div>
 
+        {/* Courier state — only for Dorzak network-dispatched delivery orders */}
+        {order.courierState && (
+          <div className="card" style={{ padding: '14px' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '8px' }}>COURIER STATUS</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 12px',
+                borderRadius: '999px',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                backgroundColor: 'var(--color-bg)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--text-main)',
+              }}>
+                🚚 {order.courierState}
+              </span>
+              {order.deliveryDispatchedAt && (
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Dispatched {new Date(order.deliveryDispatchedAt).toLocaleString()}
+                </span>
+              )}
+            </div>
+            {order.deliveryExternalReference && (
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                Ref: {order.deliveryExternalReference}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Items */}
         <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>

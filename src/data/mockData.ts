@@ -119,6 +119,10 @@ export interface Order {
   paymentReference?: string;
   hasPaymentProof?: boolean;
   notes?: string;
+  // Network-delivery courier state (only present for Dorzak-dispatched orders)
+  courierState?: string;
+  deliveryDispatchedAt?: string;
+  deliveryExternalReference?: string;
 }
 
 /**

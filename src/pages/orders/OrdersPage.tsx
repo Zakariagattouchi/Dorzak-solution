@@ -122,7 +122,31 @@ export const OrdersPage: React.FC = () => {
         );
       }
     },
-    { key: 'status', header: 'Status', render: row => <div style={{ display: 'grid', gap: 4 }}><StatusPill status={row.status} /><StatusPill status={row.paymentStatus} /></div> },
+    {
+      key: 'status',
+      header: 'Status',
+      render: row => (
+        <div style={{ display: 'grid', gap: 4 }}>
+          <StatusPill status={row.status} />
+          <StatusPill status={row.paymentStatus} />
+          {row.courierState && (
+            <span style={{
+              display: 'inline-block',
+              padding: '2px 8px',
+              borderRadius: '999px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              backgroundColor: 'var(--color-bg)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--text-muted)',
+              whiteSpace: 'nowrap',
+            }}>
+              🚚 {row.courierState}
+            </span>
+          )}
+        </div>
+      )
+    },
     {
       key: 'total',
       header: 'Total',

@@ -7,10 +7,31 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
+ * Maps raw `delivery_external_status` strings coming from the Dorzak Business
+ * network into human-readable labels. Only network-delivery orders expose these
+ * fields; all others get null so the UI can branch cleanly.
+ */
+
+/**
  * @mixin Order
  */
 class OrderResource extends JsonResource
 {
+    /** @var array<string, string> */
+    private const COURIER_LABELS = [
+        'pending_dispatch'    => 'Finding a driver',
+        'auctioning'          => 'Finding a driver',
+        'accepted'            => 'Finding a driver',
+        'en_route_pickup'     => 'Driver en route to you',
+        'arrived_pickup'      => 'Driver en route to you',
+        'en_route_customer'   => 'Out for delivery',
+        'arrived_customer'    => 'Out for delivery',
+        'out_for_delivery'    => 'Out for delivery',
+        'delivered'           => 'Delivered',
+        'failed'              => 'Delivery failed',
+        'returned'            => 'Delivery returned',
+        'cancelled'           => 'Delivery cancelled',
+    ];
     /** Toggle to embed the receipt block (store header/footer) on the detail endpoint. */
     public bool $withReceipt = false;
 
@@ -69,8 +90,36 @@ class OrderResource extends JsonResource
             'created_by' => $this->whenLoaded('creator', fn () => $this->creator ? [
                 'id' => $this->creator->id, 'name' => $this->creator->name,
             ] : null),
+            // Network-delivery courier state — only present for dorzak-dispatched orders.
+            // Internal tender IDs and auction internals are never exposed here.
+            'courier_state' => $this->courierState(),
+            'delivery_dispatched_at' => $this->delivery_provider_code === 'dorzak'
+                ? $this->delivery_dispatched_at?->toIso8601String()
+                : null,
+            'delivery_external_reference' => $this->delivery_provider_code === 'dorzak'
+                ? $this->delivery_external_reference
+                : null,
             'receipt' => $this->when($this->withReceipt, fn () => $this->receiptBlock()),
         ];
+    }
+
+    /**
+     * A human-readable courier label derived from the raw external status string.
+     * Returns null for non-network orders (no delivery_provider_code = 'dorzak').
+     */
+    private function courierState(): ?string
+    {
+        if ($this->delivery_provider_code !== 'dorzak') {
+            return null;
+        }
+
+        $raw = (string) ($this->delivery_external_status ?? '');
+
+        if ($raw === '') {
+            return null;
+        }
+
+        return self::COURIER_LABELS[$raw] ?? ucwords(str_replace('_', ' ', $raw));
     }
 
     /** @return array<string, mixed> */

@@ -111,6 +111,9 @@ export function toOrder(api: any): Order {
     paymentReference: api.payment_reference ?? undefined,
     hasPaymentProof: !!api.has_payment_proof,
     notes: api.notes ?? undefined,
+    courierState: api.courier_state ?? undefined,
+    deliveryDispatchedAt: api.delivery_dispatched_at ?? undefined,
+    deliveryExternalReference: api.delivery_external_reference ?? undefined,
   };
 }
 
