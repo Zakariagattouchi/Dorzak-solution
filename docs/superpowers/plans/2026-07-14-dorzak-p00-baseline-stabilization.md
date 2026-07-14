@@ -13,7 +13,7 @@
 - This document is an implementation plan, not implementation or execution authority. Do not run Task 1 or any later task until Task 0 passes in full under a separate Control Room execution lease.
 - Approved design authority is `docs/superpowers/specs/2026-07-14-dorzak-p00-baseline-stabilization-design.md` at commit `ea7b8258083231c6a9b7aa7c00d89009e29e696e`, SHA-256 `861dc58732d304d45837785d9ac74ff13dd3c44d46e467d531dbb55b408115e8`.
 - Safety erratum gate: that approved design describes a destructive SQLite browser-fixture reset, while this corrected plan uses a create-only PostgreSQL capability because stock Laravel/SQLite cannot satisfy the registered pathname-race requirement. This correction lease does not authorize changing the design or treating the artifacts as identical. Before any P00 execution, the Control Room must durably record an exact design erratum covering the Task 4–5 create-only PostgreSQL contract, obtain exact owner approval of that erratum and this matching plan revision, and update the execution-entry record. Until then Task 0 must fail.
-- The planning-only product input is commit `cc4085cbca11e89257ae8535438db6cfe3dd75cc`, SHA-256 `7ae650f4b04c0fe1e234d4fa41cd4fac673abe1139853f4397f2286da24992f2`. The planning-only roadmap input is artifact commit `069f4833190c75866494e7ba51bff3021070c0bf`, SHA-256 `e9aa2c7970f9edf08f03177458cb496f979a30dbf3cf7fd96480c0c3b9a5cc60`. The current plan-writing exception is not execution authority and does not approve either input program-wide.
+- The owner-approved product baseline is commit `cc4085cbca11e89257ae8535438db6cfe3dd75cc`, SHA-256 `7ae650f4b04c0fe1e234d4fa41cd4fac673abe1139853f4397f2286da24992f2`. The technical roadmap used for execution must be the later independently reviewed and exactly owner-approved amended artifact bound by `P00_APPROVED_ROADMAP_COMMIT` and `P00_APPROVED_ROADMAP_SHA256`; no self-referential future commit is hard-coded into this plan. The documentation-amendment lease is not execution authority.
 - The mandatory serialized order is: preservation/entry preflight; runtime pins; baseline contracts; deterministic browser; frontend quality; backend/PHP quality; PostgreSQL; CI/performance; context/ADRs/runbooks/evidence; independent review and final verification.
 - Never reuse the stale linked worktree. Never run `git add -A`, `git add .`, a broad checkout/reset/clean, or an unscoped formatter. Every task below has one staging allowlist and one focused commit.
 - `backend/app/Support/MediaUrl.php` is protected user-owned state until a separate preservation lease has completed, verified, and evidenced its disposition. Task 2 normally adds tests and corrects the stale consumer assertion without staging that file. Its guarded application-code branch is permitted only if the approved clean `BASE_SHA` demonstrably lacks the approved method body.
@@ -29,7 +29,7 @@
 
 - Formatting and dependency generation are mechanical writer boundaries. Behavior, formatting, dependency, CI-adapter, documentation, and final-evidence changes remain separate commits.
 - PostgreSQL failures may be corrected only when an existing test proves the already-approved current contract. The case-insensitive search correction in Task 11 is the only statically established correction. Any other PostgreSQL behavior choice returns to the Control Room with the exact failing test and SQL/error evidence.
-- P00 does not choose or implement subscription currency redesign, Next.js, ERPNext migration, Organization tenancy, a remote, a CI provider, production runtime versions, a MediaUrl preservation method, an integration base, or an execution worktree.
+- P00 does not choose or implement subscription currency redesign, Next.js, ERPNext migration, Organization tenancy, a MediaUrl preservation method, an integration base, or an execution worktree. The owner has selected `origin` at `https://github.com/Zakariagattouchi/dorzak.git`, integration branch `main`, GitHub Actions, PHP `8.5.6`, Node `24.18.0`, npm `11.16.0`, and Composer `2.9.8`; this plan records their future use but does not add a remote, create a branch, configure GitHub, or execute CI. GitHub Pro has not been authorized: local execution may proceed after Task 0, but Task 17 provider mutation remains blocked until the owner separately authorizes and enables it while keeping the repository private.
 
 ## Execution Input Interface and Stop Rules
 
@@ -41,7 +41,9 @@ The future execution lease must bind the following shell variables to literal va
 | `P00_SAFETY_ERRATUM_COMMIT` / `P00_SAFETY_ERRATUM_SHA256` | Full commit containing the exactly approved safety erratum and the erratum file's 64-hex SHA-256 |
 | `P00_APPROVED_PLAN_COMMIT` | Full commit containing the independently reviewed, exactly owner-approved, provider-complete plan revision |
 | `P00_APPROVED_PLAN_SHA256` | SHA-256 of this separately reviewed, owner-approved plan |
+| `P00_APPROVED_ROADMAP_COMMIT` / `P00_APPROVED_ROADMAP_SHA256` | Full commit containing the independently reviewed, exactly owner-approved amended technical roadmap and its 64-hex SHA-256 |
 | `P00_REMOTE_NAME` / `P00_REMOTE_URL` | Owner-approved canonical Git remote and its exact URL |
+| `P00_INTEGRATION_BRANCH` | Owner-approved canonical integration branch; exactly `main` |
 | `P00_CI_PROVIDER` | Owner-approved provider identifier |
 | `P00_PHP_VERSION` / `P00_NODE_VERSION` | Exact production versions, each with three numeric components |
 | `P00_COMPOSER_VERSION` / `P00_NPM_VERSION` | Exact approved Composer and npm versions, each with three numeric components |
@@ -51,7 +53,7 @@ The future execution lease must bind the following shell variables to literal va
 | `P00_MEDIA_ARTIFACT_PATH` | Empty for a commit; approved durable path for a patch |
 | `P00_MEDIA_VERIFICATION_RESULT` | Exactly `verified` after equality to the reviewed diff was proved |
 | `P00_BASE_SHA` | Owner-approved 40-character clean integration base |
-| `P00_EXECUTION_WORKTREE` / `P00_EXECUTION_BRANCH` | Owner-approved new worktree absolute path and branch |
+| `P00_EXECUTION_WORKTREE` / `P00_EXECUTION_BRANCH` | Owner-approved new worktree absolute path and exact isolated branch `codex/launch-baseline-v1` |
 | `P00_USER_WORKTREE` | Original user checkout whose 16-entry manifest is protected |
 | `P00_USER_BRANCH` / `P00_USER_HEAD` | Exact protected checkout branch and 40-character HEAD captured before preservation/execution |
 | `P00_WORKTREE_IDENTITY_SHA256` | SHA-256 of sorted `worktree` and `branch` records from `git worktree list --porcelain` after the approved execution worktree is created |
@@ -68,7 +70,7 @@ The future execution lease must bind the following shell variables to literal va
 | `P00_RUNNER_ROLE` | Exactly `local` for fresh local commands or `ci` for provider jobs |
 | `P00_RUNNER_CLASS` | Exact current runner-class literal bound by the control record: its `runnerClasses.local` value for fresh local commands or `runnerClasses.ci` value for every provider job |
 
-Guarded decisions are not substitute values. If the provider is GitHub, a later approved amendment may add a GitHub Actions file. If it is GitLab or another provider, that provider's native exact file and API commands must be approved instead. Task 14 stops until that amendment exists; no current task names a provider-native file.
+Guarded decisions are not substitute values. Task 14 below is the complete GitHub Actions adapter plan selected by the owner; it does not create the named files or change provider state. Its exact amended bytes still require independent zero-Critical/Important review, exact owner approval, and a later Control Room execution lease before any task runs.
 
 ## File Responsibility Map
 
@@ -104,7 +106,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - Read: the approved plan at this path
 - Modify: none
 
-**Interface:** This gate consumes the variables defined above and emits only `P00_EXECUTION_GATE PASS base=$P00_BASE_SHA worktree=$P00_EXECUTION_WORKTREE`. It never creates a branch, worktree, patch, commit, or repository file. The current correction candidate intentionally contains the Task 14 stop marker and therefore cannot pass; the owner-selected provider amendment must replace that marker, be independently re-reviewed, and receive exact owner approval before any P00 execution.
+**Interface:** This gate consumes the variables defined above and emits only `P00_EXECUTION_GATE PASS base=$P00_BASE_SHA worktree=$P00_EXECUTION_WORKTREE`. It never creates a branch, worktree, patch, commit, or repository file. The provider-complete decision in Task 14 is necessary but not sufficient: these exact amended bytes must be independently re-reviewed, exactly owner-approved, and bound by the later execution record before this gate can pass.
 
 - [ ] **Verify formal authorities, not the planning exception.**
 
@@ -112,6 +114,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   ```bash
   plan=docs/superpowers/plans/2026-07-14-dorzak-p00-baseline-stabilization.md
+  roadmap=docs/superpowers/specs/2026-07-14-dorzak-technical-execution-roadmap-design.md
   erratum=docs/superpowers/specs/2026-07-14-dorzak-p00-e2e-safety-erratum.md
   test -f "$P00_CONTROL_RECORD"
   printf '%s\n' "$P00_CONTROL_RECORD_COMMIT" | rg -x '[0-9a-f]{40}'
@@ -122,6 +125,11 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   test "$(git log -1 --format=%H -- "$plan")" = "$P00_APPROVED_PLAN_COMMIT"
   test "$(shasum -a 256 "$plan" | awk '{print $1}')" = "$P00_APPROVED_PLAN_SHA256"
   test "$(git show "$P00_APPROVED_PLAN_COMMIT:$plan" | shasum -a 256 | awk '{print $1}')" = "$P00_APPROVED_PLAN_SHA256"
+  printf '%s\n' "$P00_APPROVED_ROADMAP_COMMIT" | rg -x '[0-9a-f]{40}'
+  printf '%s\n' "$P00_APPROVED_ROADMAP_SHA256" | rg -x '[0-9a-f]{64}'
+  test "$(git log -1 --format=%H -- "$roadmap")" = "$P00_APPROVED_ROADMAP_COMMIT"
+  test "$(shasum -a 256 "$roadmap" | awk '{print $1}')" = "$P00_APPROVED_ROADMAP_SHA256"
+  test "$(git show "$P00_APPROVED_ROADMAP_COMMIT:$roadmap" | shasum -a 256 | awk '{print $1}')" = "$P00_APPROVED_ROADMAP_SHA256"
   test "$(git show "$P00_SAFETY_ERRATUM_COMMIT:$erratum" | shasum -a 256 | awk '{print $1}')" = "$P00_SAFETY_ERRATUM_SHA256"
   test "$(shasum -a 256 "$erratum" | awk '{print $1}')" = "$P00_SAFETY_ERRATUM_SHA256"
   node --input-type=module - "$P00_CONTROL_RECORD" <<'NODE'
@@ -142,14 +150,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   artifactApproval('safetyErratum', process.env.P00_SAFETY_ERRATUM_COMMIT, process.env.P00_SAFETY_ERRATUM_SHA256);
   artifactApproval('plan', process.env.P00_APPROVED_PLAN_COMMIT, process.env.P00_APPROVED_PLAN_SHA256);
   artifactApproval('productBaseline', 'cc4085cbca11e89257ae8535438db6cfe3dd75cc', '7ae650f4b04c0fe1e234d4fa41cd4fac673abe1139853f4397f2286da24992f2');
-  artifactApproval('roadmap', '069f4833190c75866494e7ba51bff3021070c0bf', 'e9aa2c7970f9edf08f03177458cb496f979a30dbf3cf7fd96480c0c3b9a5cc60');
+  artifactApproval('roadmap', process.env.P00_APPROVED_ROADMAP_COMMIT, process.env.P00_APPROVED_ROADMAP_SHA256);
   exactKeys(record.approvals.p00Execution, ['approved', 'planCommit', 'planSha256']);
   assert.equal(record.approvals.p00Execution.approved, true);
   assert.equal(record.approvals.p00Execution.planCommit, process.env.P00_APPROVED_PLAN_COMMIT);
   assert.equal(record.approvals.p00Execution.planSha256, process.env.P00_APPROVED_PLAN_SHA256);
   const bindings = {
     approvedPlanCommit: 'P00_APPROVED_PLAN_COMMIT', approvedPlanSha256: 'P00_APPROVED_PLAN_SHA256',
-    remoteName: 'P00_REMOTE_NAME', remoteUrl: 'P00_REMOTE_URL', ciProvider: 'P00_CI_PROVIDER',
+    remoteName: 'P00_REMOTE_NAME', remoteUrl: 'P00_REMOTE_URL', integrationBranch: 'P00_INTEGRATION_BRANCH', ciProvider: 'P00_CI_PROVIDER',
     phpVersion: 'P00_PHP_VERSION', nodeVersion: 'P00_NODE_VERSION', composerVersion: 'P00_COMPOSER_VERSION', npmVersion: 'P00_NPM_VERSION',
     mediaMethod: 'P00_MEDIA_METHOD', mediaReviewedDiffSha256: 'P00_MEDIA_REVIEWED_DIFF_SHA256', mediaArtifactId: 'P00_MEDIA_ARTIFACT_ID',
     mediaArtifactPath: 'P00_MEDIA_ARTIFACT_PATH', mediaVerificationResult: 'P00_MEDIA_VERIFICATION_RESULT', baseSha: 'P00_BASE_SHA',
@@ -199,29 +207,91 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   NODE
   set +e
   node --input-type=module - "$plan" "$P00_CONTROL_RECORD" <<'NODE'
+  import assert from 'node:assert/strict';
+  import { createHash } from 'node:crypto';
   import { readFileSync } from 'node:fs';
   const text = readFileSync(process.argv[2], 'utf8');
   const control = JSON.parse(readFileSync(process.argv[3], 'utf8'));
   const section = text.match(/^### Task 14:[\s\S]*?(?=^### Task 15:)/m)?.[0];
-  if (!section) process.exit(2);
+  assert.ok(section);
   const records = [...section.matchAll(/```json\n([\s\S]*?)\n```/g)]
     .map((match) => JSON.parse(match[1]))
     .filter((value) => value?.schemaVersion === 1 && 'adapterPaths' in value && 'state' in value);
-  if (records.length !== 1) process.exit(2);
+  assert.equal(records.length, 1);
   const value = records[0];
-  const keys = ['adapterPaths','ciRunnerClass','immutableDependencyIdentities','localRunnerClass','normalizerSha256','normalizerTestSha256','provider','pushAndRunCommandsSha256','requiredStatus','requiredStatusCommandsSha256','schemaVersion','state','twoRunCommandsSha256'];
-  if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(keys)) process.exit(2);
-  if (value.state === 'pending') process.exit(42);
-  if (value.state !== 'approved' || !Array.isArray(value.adapterPaths) || value.adapterPaths.length === 0
-      || !Array.isArray(value.immutableDependencyIdentities) || value.immutableDependencyIdentities.length === 0
-      || !value.provider || !value.requiredStatus
-      || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value.localRunnerClass)
-      || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value.ciRunnerClass)
-      || value.localRunnerClass === value.ciRunnerClass
-      || value.localRunnerClass !== control.execution?.runnerClasses?.local
-      || value.ciRunnerClass !== control.execution?.runnerClasses?.ci
-      || !['normalizerSha256','normalizerTestSha256','pushAndRunCommandsSha256','requiredStatusCommandsSha256','twoRunCommandsSha256']
-        .every((key) => /^[0-9a-f]{64}$/.test(value[key]))) process.exit(2);
+  const keys = ['adapterPaths','ciRunnerClass','credentialCapability','immutableDependencyIdentities','localRunnerClass','normalizerSha256','normalizerTestSha256','provider','providerCapability','pushAndRunCommandsSha256','repositoryVisibility','requiredStatus','requiredStatusCommandsSha256','schemaVersion','state','twoRunCommandsSha256','workflowIdentityEnforcement','workflowIdentityLimitation'];
+  const adapterPaths = [
+    '.github/workflows/p00-quality.yml',
+    'scripts/quality/github-actions-postgres-service',
+    'scripts/quality/test-github-actions-postgres-service.sh',
+    'scripts/quality/github-actions-normalize.mjs',
+    'scripts/quality/github-actions-normalize.test.mjs',
+  ];
+  const immutableDependencyIdentities = [
+    'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0',
+    'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
+    'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6',
+    'https://getcomposer.org/download/2.9.8/composer.phar#sha256=59b2c50e10cafa0d8efc19ede9a326d782f096c674a26baf98cf042ce23de890',
+    'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
+    'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c',
+    'docker.io/library/postgres@sha256:c95fd5346040eba2de3c435e14874af18f5d681fb5848d4f081dbead0878af28',
+  ];
+  const blockSha256 = (marker, language) => {
+    const pattern = new RegExp(
+      '<!-- ' + marker + '_BEGIN -->\\n  ~~~' + language + '\\n([\\s\\S]*?)\\n  ~~~\\n  <!-- ' + marker + '_END -->',
+      'g',
+    );
+    const matches = [...text.matchAll(pattern)];
+    assert.equal(matches.length, 1, marker + ' must occur exactly once');
+    const canonical = matches[0][1].split('\n').map((line) => {
+      if (line === '') return '';
+      assert.ok(line.startsWith('  '), marker + ' has an unindented non-empty line');
+      return line.slice(2);
+    }).join('\n') + '\n';
+    return createHash('sha256').update(canonical).digest('hex');
+  };
+  const blockHashes = {
+    normalizerSha256: blockSha256('TASK14_NORMALIZER', 'js'),
+    normalizerTestSha256: blockSha256('TASK14_NORMALIZER_TEST', 'js'),
+    pushAndRunCommandsSha256: blockSha256('TASK14_PUSH_AND_RUN_COMMANDS', 'bash'),
+    requiredStatusCommandsSha256: blockSha256('TASK14_REQUIRED_STATUS_COMMANDS', 'bash'),
+    twoRunCommandsSha256: blockSha256('TASK14_TWO_RUN_COMMANDS', 'bash'),
+  };
+  const validate = (candidate) => {
+    assert.deepEqual(Object.keys(candidate).sort(), [...keys].sort());
+    assert.equal(candidate.schemaVersion, 1);
+    assert.equal(candidate.state, 'approved');
+    assert.equal(candidate.provider, 'github-actions');
+    assert.equal(candidate.credentialCapability, 'github-classic-oauth-workflow-scope-required');
+    assert.equal(candidate.providerCapability, 'github-pro-private-branch-protection-required');
+    assert.equal(candidate.repositoryVisibility, 'private');
+    assert.equal(candidate.requiredStatus, 'required-gates');
+    assert.equal(candidate.workflowIdentityEnforcement, 'control-room-exact-byte-review');
+    assert.equal(candidate.workflowIdentityLimitation, 'classic-check-context-does-not-bind-workflow-path');
+    assert.equal(candidate.localRunnerClass, 'local-macos-arm64');
+    assert.equal(candidate.ciRunnerClass, 'github-hosted-ubuntu-24.04-x64');
+    assert.equal(candidate.localRunnerClass, control.execution?.runnerClasses?.local);
+    assert.equal(candidate.ciRunnerClass, control.execution?.runnerClasses?.ci);
+    assert.deepEqual(candidate.adapterPaths, adapterPaths);
+    assert.deepEqual(candidate.immutableDependencyIdentities, immutableDependencyIdentities);
+    for (const [key, expected] of Object.entries(blockHashes)) {
+      assert.match(candidate[key], /^[0-9a-f]{64}$/);
+      assert.equal(candidate[key], expected, key + ' does not bind its canonical marked block');
+    }
+  };
+  validate(value);
+  const mutatedFixtures = [
+    (candidate) => { candidate.state = 'pending'; },
+    (candidate) => { candidate.provider = 'circleci'; },
+    (candidate) => { candidate.adapterPaths.reverse(); },
+    (candidate) => { candidate.immutableDependencyIdentities.pop(); },
+    (candidate) => { candidate.normalizerSha256 = '0'.repeat(64); },
+  ];
+  for (const mutate of mutatedFixtures) {
+    const candidate = JSON.parse(JSON.stringify(value));
+    mutate(candidate);
+    assert.throws(() => validate(candidate));
+  }
   NODE
   ci_decision_status="$?"
   set -e
@@ -237,16 +307,17 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   test "$P00_MEDIA_VERIFICATION_RESULT" = verified
   printf '%s\n' "$P00_BASE_SHA" | rg -x '[0-9a-f]{40}'
   printf '%s\n' "$P00_MEDIA_REVIEWED_DIFF_SHA256" | rg -x '[0-9a-f]{64}'
-  printf '%s\n' "$P00_PHP_VERSION" | rg -x '[0-9]+\.[0-9]+\.[0-9]+'
-  printf '%s\n' "$P00_NODE_VERSION" | rg -x '[0-9]+\.[0-9]+\.[0-9]+'
-  printf '%s\n' "$P00_COMPOSER_VERSION" | rg -x '[0-9]+\.[0-9]+\.[0-9]+'
-  printf '%s\n' "$P00_NPM_VERSION" | rg -x '[0-9]+\.[0-9]+\.[0-9]+'
-  test -n "$P00_REMOTE_NAME"
-  test -n "$P00_REMOTE_URL"
-  test -n "$P00_CI_PROVIDER"
-  test -n "$P00_EXECUTION_BRANCH"
+  test "$P00_PHP_VERSION" = 8.5.6
+  test "$P00_NODE_VERSION" = 24.18.0
+  test "$P00_COMPOSER_VERSION" = 2.9.8
+  test "$P00_NPM_VERSION" = 11.16.0
+  test "$P00_REMOTE_NAME" = origin
+  test "$P00_REMOTE_URL" = https://github.com/Zakariagattouchi/dorzak.git
+  test "$P00_INTEGRATION_BRANCH" = main
+  test "$P00_CI_PROVIDER" = github-actions
+  test "$P00_EXECUTION_BRANCH" = codex/launch-baseline-v1
   test "$P00_RUNNER_ROLE" = local
-  printf '%s\n' "$P00_RUNNER_CLASS" | rg -x '[A-Za-z0-9][A-Za-z0-9._-]{0,63}'
+  test "$P00_RUNNER_CLASS" = local-macos-arm64
   test "$P00_PROTECTED_STATUS_SHA256" = a797825ef1c504e70abec3dd1a82694cf4fddd76be1544ed716067a9c95d9ffa
   printf '%s\n' "$P00_USER_HEAD" | rg -x '[0-9a-f]{40}'
   printf '%s\n' "$P00_WORKTREE_IDENTITY_SHA256" | rg -x '[0-9a-f]{64}'
@@ -470,7 +541,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   git -C "$P00_EXECUTION_WORKTREE" worktree list --porcelain | rg -Fx "worktree $P00_EXECUTION_WORKTREE"
   ```
 
-  Expected: every command exits `0`. If a stale worktree is named, a protected identity differs, a content entry is unsafe, or the plan still contains the Task 14 stop marker, stop.
+  Expected: every command exits `0`. If a stale worktree is named, a protected identity differs, a content entry is unsafe, or the approved Task 14 record or any canonical marked-block hash differs, stop.
 
 - [ ] **Emit the sole success line and change nothing.**
 
@@ -5200,7 +5271,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   ~~~js
   import assert from 'node:assert/strict';
   import { randomBytes } from 'node:crypto';
-  import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
+  import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
   import { tmpdir } from 'node:os';
   import { join } from 'node:path';
   import test from 'node:test';
@@ -5220,7 +5291,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   const sha40 = '0123456789abcdef0123456789abcdef01234567';
   const sha64 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-  const temp = (name) => mkdtempSync(join(tmpdir(), 'dorzak-p00-' + name + '-'));
+  const temp = (name) => realpathSync(mkdtempSync(join(tmpdir(), 'dorzak-p00-' + name + '-')));
   const json = (path, value) => writeFileSync(path, stableJson(value));
   const inputs = () => ({
     contractSha256,
@@ -5237,7 +5308,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   const platformObservation = (runnerRole = 'local') => ({
     os: 'linux', arch: 'x64', osRelease: 'test-kernel', runnerRole,
     runnerClass: inputs().runnerClasses[runnerRole],
-    zlib: '1.3.1', chromiumExecutableSha256: sha64,
+    zlib: process.versions.zlib, chromiumExecutableSha256: sha64,
   });
   const record = (job, root, runnerRole = 'local') => {
     const declared = inputs();
@@ -5509,8 +5580,19 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     assert.throws(() => aggregateRequiredGates(linked));
   });
 
-  test('aggregate cross-binds one portable input and platform observation', () => {
-    const directory = temp('platform-mismatch');
+  test('aggregate cross-binds portable inputs while preserving per-job platform observations', () => {
+    const varied = temp('platform-varied');
+    resultSet(varied, (values) => {
+      values[5].platformObservation.osRelease = 'different-ephemeral-image-release';
+      values[5].platformObservationFingerprintSha256 = sha256(stableJson(values[5].platformObservation));
+    });
+    const variedAggregate = aggregateRequiredGates(varied);
+    assert.notEqual(
+      variedAggregate.jobs[0].platformObservationFingerprintSha256,
+      variedAggregate.jobs[5].platformObservationFingerprintSha256,
+    );
+    assertAggregate(variedAggregate, 'local');
+    const directory = temp('runner-mismatch');
     resultSet(directory, (values) => {
       values[5].platformObservation.runnerClass = 'different-runner';
       values[5].platformObservationFingerprintSha256 = sha256(stableJson(values[5].platformObservation));
@@ -6264,11 +6346,9 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const shas = new Set(records.map((record) => record.integratedSha));
     const fingerprints = new Set(records.map((record) => record.inputFingerprintSha256));
     const completeInputs = new Set(records.map((record) => stableJson(record.inputs)));
-    const platformFingerprints = new Set(records.map((record) => record.platformObservationFingerprintSha256));
     invariant(shas.size === 1, 'P00 jobs used different SHAs');
     invariant(fingerprints.size === 1, 'P00 jobs used different declared inputs');
     invariant(completeInputs.size === 1, 'P00 jobs used different complete portable inputs');
-    invariant(platformFingerprints.size === 1, 'P00 jobs used different platform observations');
     return {
       schemaVersion: 1,
       status: 'passed',
@@ -6351,8 +6431,9 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
         === sha256(stableJson(value.postgresqlObservation)),
       'Aggregate PostgreSQL observation is not bound to its canonical job artifact');
     }
-    invariant(value.jobs.every((record) => record.platformObservationFingerprintSha256
-      === value.platformObservationFingerprintSha256), 'Aggregate platform mismatch');
+    invariant(value.jobs.every((record) => record.platformObservation.runnerRole === expectedRunnerRole
+      && record.platformObservation.runnerClass === value.inputs.runnerClasses[expectedRunnerRole]),
+    'Aggregate contains a job from the wrong runner role/class');
   }
 
   const fileReferenceSchema = {
@@ -6625,9 +6706,9 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       && record.integratedSha === aggregate.integratedSha
       && record.inputFingerprintSha256 === run.inputFingerprintSha256
       && stableJson(record.inputs) === stableJson(run.inputs)
-      && record.platformObservationFingerprintSha256 === run.platformObservationFingerprintSha256
-      && stableJson(record.platformObservation) === stableJson(run.platformObservation)),
-    'CI jobs do not cross-bind SHA, complete portable inputs, and platform observation');
+      && record.platformObservation.runnerRole === 'ci'
+      && record.platformObservation.runnerClass === run.inputs.runnerClasses.ci),
+    'CI jobs do not cross-bind SHA, complete portable inputs, and the approved CI runner class');
   }
 
   function safeSibling(directory, path) {
@@ -6730,9 +6811,6 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const runs = ciRunPaths.map((path, index) => readSanitizedJson(path, '$.ciRun[' + index + ']'));
     runs.forEach((run) => validateCiRun(run, localAggregate));
     invariant(runs[0].runId !== runs[1].runId, 'CI run IDs must be distinct');
-    invariant(runs[0].platformObservationFingerprintSha256 === runs[1].platformObservationFingerprintSha256
-      && stableJson(runs[0].platformObservation) === stableJson(runs[1].platformObservation),
-    'The two CI runs used different platforms or Chromium executables');
 
     const canonicalDirectory = resolve(outputDirectory);
     invariant(!existsSync(canonicalDirectory), 'Evidence output directory already exists');
@@ -7081,49 +7159,1806 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   Expected: all six jobs and aggregate exit 0 at the clean Task 13 commit; SQLite 446, PostgreSQL 450, frontend unit 8, Playwright 9, zero retries/skips/failures, one immutable PostgreSQL 16 identity, bundle at or below 216700, and the exact Vite warning retained as accepted-open debt. Only this post-commit directory is canonical Task 13 evidence. Run the global writer-boundary checks once more.
 
-### Task 14: Stop for the owner-selected CI adapter and required-status amendment
+### Task 14: Add the exact GitHub Actions adapter and freeze provider commands
 
 **Files:**
-- Modify: exactly one provider-native CI definition named by a later Control Room plan amendment
-- External provider state: aggregate required-status configuration and two-run trigger/download commands
+- Create: `.github/workflows/p00-quality.yml`
+- Create: `scripts/quality/github-actions-postgres-service`
+- Create: `scripts/quality/test-github-actions-postgres-service.sh`
+- Create: `scripts/quality/github-actions-normalize.mjs`
+- Create: `scripts/quality/github-actions-normalize.test.mjs`
+- External provider state, later in Task 17 only: the repository remains private and must first gain owner-authorized GitHub Pro capability for private-repository branch protection; `origin/main`; its push-triggered verification run (or the exact successful existing run reused after an interrupted attempt); repository default branch `main`; zero active repository or inherited ruleset rules applying to `main`; the exact classic `main` protection configuration (strict app-scoped `required-gates`, admins enforced, linear history and conversation resolution required, force pushes/deletions denied, branch creation allowed, branch unlocked, fork syncing denied, and no review or actor restrictions); and two new `workflow_dispatch` runs
 
-**Interfaces:** Logical jobs are exactly `composer-validation`, `php-style-static`, `sqlite`, `postgresql-16`, `frontend`, `playwright`, and dependent `required-gates`. Every job uses a lockfile-only install, approved exact runtimes, immutable PostgreSQL 16 image, same checkout SHA, and provider-neutral scripts from Task 13. `required-gates` is the sole required aggregate status.
+**Interfaces:** GitHub Actions runs on the standard GitHub-hosted `ubuntu-24.04` x64 class. Producer jobs are exactly `composer-validation`, `php-style-static`, `sqlite`, `postgresql-16`, `frontend`, and `playwright`; dependent job `required-gates` is the sole aggregate status. Each producer checks out one exact SHA, installs from committed lockfiles, gives Composer only the job-scoped read-only GitHub token needed for authenticated dist downloads, runs PHP through one immutable Linux/x64 Laravel CI image, proves PHP `8.5.6`, Node `24.18.0`, npm `11.16.0`, Composer `2.9.8`, and every required PHP extension, attests the immutable PostgreSQL 16 image, uses `P00_RUNNER_ROLE=ci` and `P00_RUNNER_CLASS=github-hosted-ubuntu-24.04-x64`, and invokes only its matching Task 13 dispatcher job at attempt one. Every PHP-container invocation pre-records a deterministic unique name, uses a CID file, and carries exact kind/run/job/attempt labels; an `always()` step removes only a still-live lifecycle found by that pre-recorded name or all four exact labels, including a browser server whose process group was killed before the Docker client could write the CID or forward a signal. The aggregate preserves every job's closed platform observation instead of requiring byte-identical observations from separate ephemeral VMs. Local commands remain bound to `P00_RUNNER_ROLE=local` and `P00_RUNNER_CLASS=local-macos-arm64`. Provider mutation fails closed before any push unless the private repository exposes protection and effective-rules readback APIs.
 
-The sole machine-readable decision record in this Task 14 section is currently:
+GitHub classic protection binds a check context and GitHub App, not a workflow path. Ruleset workflows are organization/enterprise controls and are unavailable on this user-owned repository. Therefore P00 does not claim provider-enforced resistance to a malicious authorized contributor replacing the workflow with another GitHub Actions job named `required-gates`; exact-byte Control Room review remains the governing workflow-identity control. The owner must explicitly accept this bounded limitation with the amended plan. Transferring the repository or buying an organization/enterprise plan is outside P00 and remains unauthorized.
+
+The sole machine-readable decision record in this Task 14 section is:
 
 ```json
-{"adapterPaths":[],"ciRunnerClass":null,"immutableDependencyIdentities":[],"localRunnerClass":null,"normalizerSha256":null,"normalizerTestSha256":null,"provider":null,"pushAndRunCommandsSha256":null,"requiredStatus":null,"requiredStatusCommandsSha256":null,"schemaVersion":1,"state":"pending","twoRunCommandsSha256":null}
+{
+  "adapterPaths": [
+    ".github/workflows/p00-quality.yml",
+    "scripts/quality/github-actions-postgres-service",
+    "scripts/quality/test-github-actions-postgres-service.sh",
+    "scripts/quality/github-actions-normalize.mjs",
+    "scripts/quality/github-actions-normalize.test.mjs"
+  ],
+  "ciRunnerClass": "github-hosted-ubuntu-24.04-x64",
+  "credentialCapability": "github-classic-oauth-workflow-scope-required",
+  "immutableDependencyIdentities": [
+    "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+    "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    "docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6",
+    "https://getcomposer.org/download/2.9.8/composer.phar#sha256=59b2c50e10cafa0d8efc19ede9a326d782f096c674a26baf98cf042ce23de890",
+    "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+    "docker.io/library/postgres@sha256:c95fd5346040eba2de3c435e14874af18f5d681fb5848d4f081dbead0878af28"
+  ],
+  "localRunnerClass": "local-macos-arm64",
+  "normalizerSha256": "8ce8f6d66634c02f9097d6327c5ead941774c0aa56306be19cee588b15a93341",
+  "normalizerTestSha256": "12720cc4df3315650ab2ec51b253a3a8e22f02f454f4bfff3187c665575a77a7",
+  "provider": "github-actions",
+  "providerCapability": "github-pro-private-branch-protection-required",
+  "pushAndRunCommandsSha256": "ff1262226efdbd227f813151f4803b8a1f654038e21af01f426eb306d166af9e",
+  "repositoryVisibility": "private",
+  "requiredStatus": "required-gates",
+  "requiredStatusCommandsSha256": "f16e139b1513bf4d043b22cb470aa60313a680fdb1c0227c0fa95a97c3bbbf70",
+  "schemaVersion": 1,
+  "state": "approved",
+  "twoRunCommandsSha256": "2ca2c27375e1e25a19478e3c918091ee53056f7cb644fe9ad871dbafbebc724e",
+  "workflowIdentityEnforcement": "control-room-exact-byte-review",
+  "workflowIdentityLimitation": "classic-check-context-does-not-bind-workflow-path"
+}
 ```
 
-The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headings, selects exactly one record by its closed key set, returns `42` for this exact pending state, `0` only for a closed `approved` record with nonempty adapter/dependency arrays, distinct exact local/CI runner-class literals and five exact 64-hex content hashes, and `2` for every malformed or partial record. Its own source is outside the parsed section, so it cannot satisfy itself. The provider amendment must rerun the parser against fixtures for pending (`42`), approved (`0`), extra/missing/wrong-type/wrong-hash records (`2`) before replacing this record.
+Each of the five hash fields is SHA-256 over the exact bytes between its named `BEGIN`/`END` markers after removing the Markdown-only two-space prefix from every non-empty line and appending one LF. Task 0 performs that extraction, requires exactly one marker pair and exact record equality, and runs negative in-memory fixtures for a pending state, wrong provider, reordered path list, missing immutable identity, and changed block hash.
 
-- [ ] **Enforce the unresolved-input stop.**
+The full-SHA action identities resolve respectively to checkout `v7.0.0`, setup-node `v7.0.0`, upload-artifact `v7.0.1`, and download-artifact `v8.0.1`. PHP runs through the immutable Linux/x64 Laravel test-runner child manifest shown above; its package database binds `php8.5-cli` and every declared extension to `8.5.6-1+ubuntu24.04.1+deb.sury.org+1`. The workflow bypasses the image entrypoint, proves `/usr/bin/php8.5` reports exactly `8.5.6`, and invokes the separately hash-pinned Composer `2.9.8` PHAR. The PostgreSQL identity is the official `16.14-bookworm` Linux/x64 child manifest; its parent OCI index is `sha256:53acb9d8524ff2f66d4fb81a964365027ccc275411d4d83d71e9266aa48535d9`. Mutable tags never appear in executable configuration.
 
-  The current approved inputs do not select a CI provider, provider-native file, immutable action/plugin references, branch-protection API, or two-run API. Therefore no exact non-assumptive code/config snippet can be written in this plan. Stop this affected task until the Control Room durably records the provider decision and approves a focused amendment containing:
+- [ ] **Prove the five adapter paths are absent before creation.**
 
-  - exact provider-native path and complete configuration;
-  - immutable action/plugin/image identities;
-  - exact mapping of all six jobs plus aggregate dependency;
-  - exact `localRunnerClass` and `ciRunnerClass` values matching the Control Room record, with `P00_RUNNER_ROLE=local` plus the former class in every canonical fresh-local command, and `P00_RUNNER_ROLE=ci` plus the latter class in every one of the six provider jobs and the dependent aggregate job;
-  - exact remote push/ref semantics;
-  - exact required-status API command and verification output;
-  - exact commands to trigger two new runs, not retries, and download their artifacts;
-  - a complete provider-output normalizer that emits the Task 13 CI-run schema
-    (schemaVersion, provider, runId, attempt, integratedSha, contractSha256,
-    portable input fingerprint, closed platform observation/fingerprint, immutable
-    PostgreSQL observation, requiredGate, and the six canonical job records),
-    reconstructs exactly six job directories from downloaded raw artifacts,
-    recomputes every log/artifact hash and reporter-derived count, rejects extras,
-    symlinks and escapes, and has complete fixtures and fail-closed tests;
-  - exact staging allowlist and focused CI commit.
+  ```bash
+  test ! -e .github/workflows/p00-quality.yml
+  test ! -e scripts/quality/github-actions-postgres-service
+  test ! -e scripts/quality/test-github-actions-postgres-service.sh
+  test ! -e scripts/quality/github-actions-normalize.mjs
+  test ! -e scripts/quality/github-actions-normalize.test.mjs
+  ```
 
-  A GitHub decision may authorize a `.github/workflows/...` file; absent that decision, creating one is prohibited. A different provider requires its own native artifact.
+  Expected: all checks exit `0`. An existing path is an unreviewed collision and stops this task.
 
-  This is a hard serialized stop for Tasks 15, 16, and 17. Before any P00 execution starts, the exact current plan must be amended with the complete provider-specific content above, independently reviewed with zero Critical and zero Important findings, exactly owner-approved, and durably authorized by Control Room. That amendment must replace the pending decision record with the closed approved record, update P00_APPROVED_PLAN_COMMIT and P00_APPROVED_PLAN_SHA256 in Task 0, and retain every execution-entry prerequisite. Approval of the present correction or of plan writing does not authorize Task 0 or any execution task.
+- [ ] **Create and test the isolated PostgreSQL service helper.**
 
-- [ ] **Record no repository change at this gate.**
+  The helper accepts only `start` and `stop`. `start` launches exactly the digest-pinned Linux/x64 image on loopback, creates a unique no-real-data supervisor and nonce, verifies the live server major and custom nonce, and writes the two closed sanitized attestations required by Tasks 0, 4, 11, and 13. It masks the credential URL before appending it to `GITHUB_ENV`. `stop` removes only the exact recorded container lifecycle ID after checking its run/job labels; absence, substitution, or cleanup failure is fatal and never broadens cleanup. Create the helper and its fake-Docker shell tests from the complete blocks below.
 
-  Expected current outcome: the Task 0 parser exits `42`, so execution stops. There is no staging or commit before the amendment, and Tasks 15–17 must not start. No documentation-only exception bypasses this stop.
+  `scripts/quality/github-actions-postgres-service`:
+
+  <!-- TASK14_POSTGRES_HELPER_BEGIN -->
+  ~~~bash
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  readonly IMAGE='docker.io/library/postgres@sha256:c95fd5346040eba2de3c435e14874af18f5d681fb5848d4f081dbead0878af28'
+  readonly IDENTITY="$IMAGE"
+  readonly ACTION="${1:-}"
+
+  require() {
+    test -n "${!1:-}" || { printf 'P00_GHA_POSTGRES FAIL missing=%s\n' "$1" >&2; exit 2; }
+  }
+
+  for name in RUNNER_TEMP GITHUB_RUN_ID GITHUB_JOB GITHUB_RUN_ATTEMPT; do require "$name"; done
+  test "$GITHUB_RUN_ATTEMPT" = 1 || { printf 'P00_GHA_POSTGRES FAIL retry\n' >&2; exit 2; }
+  case "$GITHUB_RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+  case "$GITHUB_JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+  readonly STATE_ROOT="$RUNNER_TEMP/dorzak-p00-postgres/$GITHUB_RUN_ID/$GITHUB_JOB/$GITHUB_RUN_ATTEMPT"
+  readonly STATE_FILE="$STATE_ROOT/state.json"
+
+  sha256_file() { shasum -a 256 "$1" | awk '{print $1}'; }
+  sha256_text() { printf '%s' "$1" | shasum -a 256 | awk '{print $1}'; }
+
+  cleanup_recorded_container() {
+    test -f "$STATE_FILE" || return 0
+    local id
+    id="$(jq -er '.lifecycleId | select(test("^[0-9a-f]{64}$"))' "$STATE_FILE")"
+    docker rm -f "$id" >/dev/null
+  }
+
+  start() {
+    require GITHUB_ENV
+    test "${RUNNER_OS:-Linux}" = Linux
+    test "${RUNNER_ARCH:-X64}" = X64
+    test ! -e "$STATE_ROOT"
+    umask 077
+    mkdir -p "$STATE_ROOT"
+
+    local nonce nonce_sha suffix supervisor password id arch os port url version observed_nonce
+    nonce="$(openssl rand -hex 32)"
+    nonce_sha="$(sha256_text "$nonce")"
+    suffix="$(openssl rand -hex 6)"
+    supervisor="p00_${GITHUB_RUN_ID}_${suffix}"
+    supervisor="${supervisor:0:50}"
+    password="$(openssl rand -hex 32)"
+    printf '::add-mask::%s\n' "$password"
+
+    docker pull "$IMAGE" >/dev/null
+    arch="$(docker image inspect --format '{{.Architecture}}' "$IMAGE")"
+    os="$(docker image inspect --format '{{.Os}}' "$IMAGE")"
+    test "$arch" = amd64
+    test "$os" = linux
+
+    id="$(docker run -d --rm --pull=never --platform linux/amd64 \
+      --label "dorzak.p00.run=$GITHUB_RUN_ID" \
+      --label "dorzak.p00.job=$GITHUB_JOB" \
+      --label 'dorzak.p00.no-real-data=true' \
+      -e "POSTGRES_USER=$supervisor" \
+      -e "POSTGRES_PASSWORD=$password" \
+      -e POSTGRES_DB=postgres \
+      -p 127.0.0.1::5432 \
+      "$IMAGE" -c "dorzak.instance_nonce_sha256=$nonce_sha")"
+    printf '%s\n' "$id" | rg -x '[0-9a-f]{64}' >/dev/null
+    jq -n --arg id "$id" --arg run "$GITHUB_RUN_ID" --arg job "$GITHUB_JOB" \
+      '{lifecycleId:$id,runId:$run,job:$job}' > "$STATE_FILE"
+    trap cleanup_recorded_container ERR INT TERM
+
+    for _ in $(seq 1 60); do
+      docker exec "$id" pg_isready -U "$supervisor" -d postgres >/dev/null 2>&1 && break
+      sleep 1
+    done
+    docker exec "$id" pg_isready -U "$supervisor" -d postgres >/dev/null
+    docker exec -e "PGPASSWORD=$password" "$id" psql -v ON_ERROR_STOP=1 -U "$supervisor" -d postgres -Atqc \
+      'REVOKE CONNECT ON DATABASE postgres FROM PUBLIC; REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;' >/dev/null
+    version="$(docker exec -e "PGPASSWORD=$password" "$id" psql -v ON_ERROR_STOP=1 -U "$supervisor" -d postgres -Atqc 'SHOW server_version_num')"
+    observed_nonce="$(docker exec -e "PGPASSWORD=$password" "$id" psql -v ON_ERROR_STOP=1 -U "$supervisor" -d postgres -Atqc "SELECT current_setting('dorzak.instance_nonce_sha256')")"
+    case "$version" in (16[0-9][0-9][0-9][0-9]) ;; (*) exit 2;; esac
+    test "$observed_nonce" = "$nonce_sha"
+    port="$(docker port "$id" 5432/tcp | sed -n 's/^127\.0\.0\.1:\([0-9][0-9]*\)$/\1/p')"
+    case "$port" in (*[!0-9]*|'') exit 2;; esac
+    url="postgresql://${supervisor}:${password}@127.0.0.1:${port}/postgres?sslmode=disable"
+    printf '::add-mask::%s\n' "$url"
+
+    local pg_attestation service_attestation
+    pg_attestation="$STATE_ROOT/postgresql-attestation.json"
+    service_attestation="$STATE_ROOT/e2e-service-attestation.json"
+    jq -n --arg identity "$IDENTITY" --arg nonce "$nonce_sha" \
+      '{schemaVersion:2,kind:"oci",identity:$identity,serverMajor:16,immutable:true,instanceNonceSha256:$nonce}' \
+      > "$pg_attestation"
+    jq -n --arg identity "$IDENTITY" --arg nonce "$nonce_sha" --arg lifecycle "$id" --arg role "$supervisor" \
+      '{schemaVersion:1,identity:$identity,serverMajor:16,immutable:true,instanceNonceSha256:$nonce,lifecycleId:$lifecycle,supervisorDatabase:"postgres",supervisorRole:$role,containsRealData:false,canIssueIsolatedCredentials:true,noncandidateAccessDenied:true}' \
+      > "$service_attestation"
+    chmod 600 "$STATE_FILE" "$pg_attestation" "$service_attestation"
+
+    {
+      printf 'P00_PG_IDENTITY_KIND=oci\n'
+      printf 'P00_PG_IDENTITY=%s\n' "$IDENTITY"
+      printf 'P00_PG_ATTESTATION_PATH=%s\n' "$pg_attestation"
+      printf 'P00_PG_ATTESTATION_SHA256=%s\n' "$(sha256_file "$pg_attestation")"
+      printf 'P00_PG_INSTANCE_NONCE_SHA256=%s\n' "$nonce_sha"
+      printf 'P00_E2E_SUPERVISOR_DB_URL=%s\n' "$url"
+      printf 'P00_E2E_SERVICE_LIFECYCLE_ID=%s\n' "$id"
+      printf 'P00_E2E_SERVICE_ATTESTATION_PATH=%s\n' "$service_attestation"
+      printf 'P00_E2E_SERVICE_ATTESTATION_SHA256=%s\n' "$(sha256_file "$service_attestation")"
+    } >> "$GITHUB_ENV"
+    trap - ERR INT TERM
+    printf 'P00_GHA_POSTGRES PASS action=start identity=%s lifecycle=%s\n' "$IDENTITY" "$id"
+  }
+
+  stop() {
+    test -f "$STATE_FILE"
+    local id run_label job_label
+    id="$(jq -er '.lifecycleId | select(test("^[0-9a-f]{64}$"))' "$STATE_FILE")"
+    run_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")"
+    job_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")"
+    test "$run_label" = "$GITHUB_RUN_ID"
+    test "$job_label" = "$GITHUB_JOB"
+    docker rm -f "$id" >/dev/null
+    if docker inspect "$id" >/dev/null 2>&1; then exit 2; fi
+    rm -f "$STATE_FILE" "$STATE_ROOT/postgresql-attestation.json" "$STATE_ROOT/e2e-service-attestation.json"
+    rmdir "$STATE_ROOT"
+    printf 'P00_GHA_POSTGRES PASS action=stop lifecycle=%s\n' "$id"
+  }
+
+  case "$ACTION" in
+    start) start ;;
+    stop) stop ;;
+    *) printf 'usage: %s start|stop\n' "$0" >&2; exit 2 ;;
+  esac
+  ~~~
+  <!-- TASK14_POSTGRES_HELPER_END -->
+
+  `scripts/quality/test-github-actions-postgres-service.sh`:
+
+  <!-- TASK14_POSTGRES_TEST_BEGIN -->
+  ~~~bash
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+  HELPER="$ROOT/scripts/quality/github-actions-postgres-service"
+  test "$(rg -c 'docker.io/library/postgres@sha256:c95fd5346040eba2de3c435e14874af18f5d681fb5848d4f081dbead0878af28' "$HELPER")" = 1
+  test -z "$(rg -n 'postgres:[0-9]' "$HELPER" || true)"
+  test -z "$(rg -n 'docker (rm|stop).*(\*|\$\()' "$HELPER" || true)"
+  bash -n "$HELPER"
+
+  TEMP="$(mktemp -d)"
+  trap 'rm -rf "$TEMP"' EXIT
+  mkdir -p "$TEMP/bin" "$TEMP/runner"
+  export FAKE_DOCKER_STATE="$TEMP/docker"
+  mkdir -p "$FAKE_DOCKER_STATE"
+  cat > "$TEMP/bin/docker" <<'DOCKER'
+  #!/usr/bin/env bash
+  set -euo pipefail
+  printf '%q ' "$@" >> "$FAKE_DOCKER_STATE/calls"
+  printf '\n' >> "$FAKE_DOCKER_STATE/calls"
+  case "$1 $2" in
+    'pull docker.io/library/postgres@sha256:c95fd5346040eba2de3c435e14874af18f5d681fb5848d4f081dbead0878af28') exit 0 ;;
+    'image inspect')
+      case "$4" in ('{{.Architecture}}') printf '%s\n' "${FAKE_ARCH:-amd64}" ;; ('{{.Os}}') printf 'linux\n' ;; (*) exit 2 ;; esac ;;
+    'run -d')
+      nonce="$(printf '%s\n' "$*" | sed -n 's/.*dorzak\.instance_nonce_sha256=\([0-9a-f]\{64\}\).*/\1/p')"
+      printf '%s' "$nonce" > "$FAKE_DOCKER_STATE/nonce"
+      printf '%064d\n' 0 | tr 0 a ;;
+    exec\ *)
+      if printf '%s\n' "$*" | rg -q 'pg_isready|REVOKE CONNECT'; then exit 0; fi
+      if printf '%s\n' "$*" | rg -q 'server_version_num'; then printf '160014\n'; exit 0; fi
+      if printf '%s\n' "$*" | rg -q 'current_setting'; then cat "$FAKE_DOCKER_STATE/nonce"; printf '\n'; exit 0; fi
+      exit 2 ;;
+    'port aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') printf '127.0.0.1:54321\n' ;;
+    'inspect --format')
+      if printf '%s\n' "$3" | rg -q 'dorzak.p00.run'; then printf '7001\n'; else printf 'postgresql-16\n'; fi ;;
+    'rm -f') printf '%s' removed > "$FAKE_DOCKER_STATE/removed" ;;
+    'inspect aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') test ! -f "$FAKE_DOCKER_STATE/removed" ;;
+    *) exit 2 ;;
+  esac
+  DOCKER
+  chmod +x "$TEMP/bin/docker"
+
+  export PATH="$TEMP/bin:$PATH"
+  export RUNNER_TEMP="$TEMP/runner"
+  export RUNNER_OS=Linux
+  export RUNNER_ARCH=X64
+  export GITHUB_RUN_ID=7001
+  export GITHUB_JOB=postgresql-16
+  export GITHUB_RUN_ATTEMPT=1
+  export GITHUB_ENV="$TEMP/github-env"
+  start_output="$($HELPER start)"
+  test -z "$(printf '%s\n' "$start_output" | rg -v '^::add-mask::' | rg 'postgresql://|POSTGRES_PASSWORD' || true)"
+  rg -x 'P00_PG_IDENTITY=docker.io/library/postgres@sha256:c95fd5346040eba2de3c435e14874af18f5d681fb5848d4f081dbead0878af28' "$GITHUB_ENV"
+  rg -x 'P00_PG_ATTESTATION_SHA256=[0-9a-f]{64}' "$GITHUB_ENV"
+  rg -x 'P00_E2E_SERVICE_LIFECYCLE_ID=[0-9a-f]{64}' "$GITHUB_ENV"
+  $HELPER stop
+  test "$(rg -c '^rm -f a{64} $' "$FAKE_DOCKER_STATE/calls")" = 1
+  test -z "$(rg 'rm -f .*(\*|dorzak-p00-postgres)' "$FAKE_DOCKER_STATE/calls" || true)"
+
+  rm -rf "$RUNNER_TEMP/dorzak-p00-postgres" "$FAKE_DOCKER_STATE"
+  mkdir -p "$FAKE_DOCKER_STATE"
+  : > "$GITHUB_ENV"
+  export FAKE_ARCH=arm64
+  if "$HELPER" start >"$TEMP/wrong-arch.log" 2>&1; then exit 1; fi
+  test -z "$(rg 'postgresql://|POSTGRES_PASSWORD' "$TEMP/wrong-arch.log" || true)"
+
+  export GITHUB_RUN_ATTEMPT=2
+  if "$HELPER" start >"$TEMP/retry.log" 2>&1; then exit 1; fi
+  rg -q 'retry' "$TEMP/retry.log"
+  printf 'P00_GHA_POSTGRES_TEST PASS\n'
+  ~~~
+  <!-- TASK14_POSTGRES_TEST_END -->
+
+- [ ] **Create the complete GitHub Actions workflow.**
+
+  The workflow has `pull_request` and `push` triggers for `main` plus `workflow_dispatch` inputs `integrated_sha` and `evidence_nonce` for the two canonical evidence runs. It never uses `pull_request_target`, caches, mutable action tags, retries, `continue-on-error`, artifact overwrite, or cancellation-to-green. Global token permissions are read-only. Every producer uploads one uniquely named closed artifact; `required-gates` downloads all six by exact name, rejects any failed dependency, recomputes the Task 13 aggregate, and uploads exactly one aggregate artifact.
+
+  Run this deterministic generator once from the repository root. It exclusively creates the complete workflow and fails if the path already exists:
+
+  <!-- TASK14_WORKFLOW_GENERATOR_BEGIN -->
+  ~~~js
+  node --input-type=module <<'NODE'
+  import { mkdirSync, writeFileSync } from 'node:fs';
+
+  const jobs = [
+    'composer-validation',
+    'php-style-static',
+    'sqlite',
+    'postgresql-16',
+    'frontend',
+    'playwright',
+  ];
+  const checkout = 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0';
+  const setupNode = 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020';
+  const phpImage = 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6';
+  const composerUrl = 'https://getcomposer.org/download/2.9.8/composer.phar';
+  const composerSha256 = '59b2c50e10cafa0d8efc19ede9a326d782f096c674a26baf98cf042ce23de890';
+  const upload = 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a';
+  const download = 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c';
+
+  const indentContinuation = (value) => value.split('\n').map((line, index) => (
+    index === 0 || line === '' ? line : '  ' + line
+  )).join('\n');
+  const restoreWorkflowIndentation = (value) => {
+    let section = 'root';
+    let requiredGates = false;
+    return value.split('\n').map((line) => {
+      const root = /^(on|permissions|env|jobs):$/.exec(line);
+      if (root) {
+        section = root[1];
+        requiredGates = false;
+        return line;
+      }
+      if (section === 'jobs' && line === 'required-gates:') requiredGates = true;
+      if (line === '') return line;
+      return ['on', 'permissions', 'env'].includes(section) || requiredGates ? '  ' + line : line;
+    }).join('\n');
+  };
+
+  const producer = (job) => indentContinuation(`  ${job}:
+    name: ${job}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Validate immutable run identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          printf '%s\\n' "$P00_INTEGRATED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$P00_INTEGRATED_SHA" = "$GITHUB_SHA"
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch) printf '%s\\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9a-f]{64}$' ;;
+            push|pull_request) printf '%s\\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9]+$' ;;
+            *) exit 2 ;;
+          esac
+      - name: Checkout exact integrated SHA
+        uses: ${checkout}
+        with:
+          ref: \${{ env.P00_INTEGRATED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$P00_INTEGRATED_SHA"
+          test -z "$(git status --short --untracked-files=normal)"
+          test -f "$P00_CONTROL_RECORD"
+      - name: Install exact containerized PHP 8.5.6 and Composer 2.9.8
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = Linux
+          test "$RUNNER_ARCH" = X64
+          runtime="$RUNNER_TEMP/dorzak-p00-php"
+          test ! -e "$runtime"
+          mkdir -p "$runtime/bin" "$runtime/home" "$runtime/containers"
+          chmod 700 "$runtime" "$runtime/bin" "$runtime/home" "$runtime/containers"
+          curl --fail --location --proto '=https' --tlsv1.2 --silent --show-error \\
+            '${composerUrl}' --output "$runtime/composer.phar"
+          printf '%s  %s\\n' '${composerSha256}' "$runtime/composer.phar" | sha256sum --check --strict -
+          chmod 0555 "$runtime/composer.phar"
+          docker pull '${phpImage}' >/dev/null
+          test "$(docker image inspect --format '{{.Architecture}}' '${phpImage}')" = amd64
+          test "$(docker image inspect --format '{{.Os}}' '${phpImage}')" = linux
+          cat > "$runtime/bin/p00-php-container" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          readonly IMAGE='${phpImage}'
+          readonly WORKSPACE="\${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is required}"
+          readonly TEMP="\${RUNNER_TEMP:?RUNNER_TEMP is required}"
+          readonly RUNTIME="$TEMP/dorzak-p00-php"
+          readonly CONTAINERS="$RUNTIME/containers"
+          readonly RUN_ID="\${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
+          readonly JOB="\${GITHUB_JOB:?GITHUB_JOB is required}"
+          readonly ATTEMPT="\${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT is required}"
+          readonly KIND=php-runner
+          test "$WORKSPACE" = "$(realpath "$WORKSPACE")"
+          test "$TEMP" = "$(realpath "$TEMP")"
+          test -d "$CONTAINERS" && test ! -L "$CONTAINERS"
+          case "$RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          case "$PWD/" in "$WORKSPACE/"*|"$TEMP/"*) ;; *) exit 2 ;; esac
+          env_args=()
+          while IFS='=' read -r name _; do
+            printf '%s\\n' "$name" | grep -Eq '^[A-Za-z_][A-Za-z0-9_]*$' || continue
+            case "$name" in
+              CI|GITHUB_ACTIONS|GITHUB_EVENT_NAME|GITHUB_JOB|GITHUB_RUN_ATTEMPT|GITHUB_RUN_ID|GITHUB_SHA|P00_*|APP_*|DB_*|CACHE_*|QUEUE_*|SESSION_*|MAIL_*|LOG_*|FILESYSTEM_*|BROADCAST_*|REDIS_*|FRONTEND_*|COMPOSER_AUTH|COMPOSER_*) ;;
+              *) continue ;;
+            esac
+            env_args+=(--env "$name")
+          done < <(env)
+          remove_exact_container() {
+            local target="$1" expected_id="$2" listed id kind_label run_label job_label attempt_label remaining
+            listed="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test "$(printf '%s\\n' "$listed" | sed '/^$/d' | wc -l | tr -d ' ')" -le 1
+            if test -z "$listed"; then return 0; fi
+            id="$(printf '%s\\n' "$listed" | sed -n '1p')"
+            printf '%s\\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            if test -n "$expected_id"; then test "$id" = "$expected_id"; fi
+            kind_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")"
+            run_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")"
+            job_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")"
+            attempt_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")"
+            test "$kind_label" = "$KIND"
+            test "$run_label" = "$RUN_ID"
+            test "$job_label" = "$JOB"
+            test "$attempt_label" = "$ATTEMPT"
+            docker rm -f "$id" >/dev/null
+            remaining="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test -z "$remaining"
+          }
+          run_php() {
+            local invocation suffix cidfile namefile container_name status id
+            invocation="$(mktemp -d "$CONTAINERS/invocation-XXXXXX")"
+            suffix="\${invocation##*-}"
+            cidfile="$invocation/container.id"
+            namefile="$invocation/container.name"
+            container_name="dorzak-p00-php-$RUN_ID-$JOB-$ATTEMPT-$suffix"
+            printf '%s\\n' "$container_name" > "$namefile"
+            chmod 600 "$namefile"
+            set +e
+            docker run --rm --init --network host \\
+              --name "$container_name" \\
+              --cidfile "$cidfile" \\
+              --label "dorzak.p00.kind=$KIND" \\
+              --label "dorzak.p00.run=$RUN_ID" \\
+              --label "dorzak.p00.job=$JOB" \\
+              --label "dorzak.p00.attempt=$ATTEMPT" \\
+              --user "$(id -u):$(id -g)" \\
+              --workdir "$PWD" \\
+              --volume "$WORKSPACE:$WORKSPACE" \\
+              --volume "$TEMP:$TEMP" \\
+              --volume "$RUNTIME/composer.phar:/p00/composer.phar:ro" \\
+              --volume "$RUNTIME/home:/p00-home" \\
+              --env "GITHUB_WORKSPACE=$WORKSPACE" \\
+              --env "RUNNER_TEMP=$TEMP" \\
+              --env 'HOME=/p00-home' \\
+              --env 'COMPOSER_HOME=/p00-home/composer' \\
+              --env 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \\
+              --env 'PHP_MEMORY_LIMIT=-1' \\
+              "\${env_args[@]}" \\
+              --entrypoint /usr/bin/php8.5 \\
+              "$IMAGE" "$@"
+            status="$?"
+            set -e
+            id=''
+            if test -e "$cidfile"; then
+              test -f "$cidfile" && test ! -L "$cidfile"
+              id="$(cat "$cidfile")"
+              if test -n "$id"; then printf '%s\\n' "$id" | grep -Eq '^[0-9a-f]{64}$'; fi
+            fi
+            remove_exact_container "$container_name" "$id"
+            if test -e "$cidfile"; then
+              rm -f "$cidfile"
+            fi
+            rm -f "$namefile"
+            rmdir "$invocation"
+            return "$status"
+          }
+          case "$(basename "$0")" in
+            php) run_php "$@" ;;
+            composer) run_php /p00/composer.phar "$@" ;;
+            *) exit 2 ;;
+          esac
+          BASH
+          chmod 0555 "$runtime/bin/p00-php-container"
+          ln -s p00-php-container "$runtime/bin/php"
+          ln -s p00-php-container "$runtime/bin/composer"
+          printf '%s\\n' "$runtime/bin" >> "$GITHUB_PATH"
+          test "$("$runtime/bin/php" -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$("$runtime/bin/composer" --version --no-ansi | awk '{print $3}')" = 2.9.8
+          "$runtime/bin/php" -r 'foreach (array_slice($argv, 1) as $extension) {
+            if (!extension_loaded($extension)) { fwrite(STDERR, "missing extension: $extension\\n"); exit(1); }
+          }' bcmath ctype curl dom fileinfo filter gd intl mbstring openssl pcntl pdo pdo_pgsql pdo_sqlite session simplexml tokenizer xml zip
+      - name: Set up Node 24.18.0
+        uses: ${setupNode}
+        with:
+          node-version: 24.18.0
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Install exact npm and verify every runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.16.0 --ignore-scripts
+          test "$(php -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$(node -p 'process.versions.node')" = 24.18.0
+          test "$(npm --version)" = 11.16.0
+          composer_version="$(composer --version --no-ansi | sed -n 's/^Composer version \\([^ ]*\\).*/\\1/p')"
+          test "$composer_version" = 2.9.8
+      - name: Install committed dependencies only
+        shell: bash
+        env:
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"\${{ github.token }}"}}'
+        run: |
+          set -euo pipefail
+          (cd backend && composer install --no-interaction --prefer-dist --no-progress)
+          npm ci
+          npx playwright install --with-deps chromium
+          test -z "$(git status --short --untracked-files=normal)"
+      - id: postgres
+        name: Start and attest isolated PostgreSQL 16
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service start
+      - name: Run ${job}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export P00_ARTIFACT_DIR="$RUNNER_TEMP/p00"
+          scripts/quality/run-p00 ${job}
+          test -d "$P00_ARTIFACT_DIR/${job}"
+          test ! -L "$P00_ARTIFACT_DIR/${job}"
+      - name: Upload ${job} artifact
+        uses: ${upload}
+        with:
+          name: ${job}
+          path: \${{ runner.temp }}/p00/${job}/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: true
+      - name: Remove exact PHP runner lifecycles
+        if: \${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$RUNNER_TEMP/dorzak-p00-php/containers"
+          kind=php-runner
+          case "$GITHUB_RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$GITHUB_JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$GITHUB_RUN_ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          remove_exact() {
+            local id="$1"
+            printf '%s\\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")" = "$kind"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")" = "$GITHUB_RUN_ID"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")" = "$GITHUB_JOB"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")" = "$GITHUB_RUN_ATTEMPT"
+            docker rm -f "$id" >/dev/null
+          }
+          sweep_exact_labels() {
+            local listed id
+            listed="$(docker ps -aq --no-trunc \\
+              --filter "label=dorzak.p00.kind=$kind" \\
+              --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \\
+              --filter "label=dorzak.p00.job=$GITHUB_JOB" \\
+              --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+            printf '%s\\n' "$listed" | while IFS= read -r id; do
+              if test -z "$id"; then continue; fi
+              remove_exact "$id"
+            done
+          }
+          sweep_exact_labels
+          sweep_exact_labels
+          remaining="$(docker ps -aq --no-trunc \\
+            --filter "label=dorzak.p00.kind=$kind" \\
+            --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \\
+            --filter "label=dorzak.p00.job=$GITHUB_JOB" \\
+            --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+          test -z "$remaining"
+          if test -d "$state"; then
+            test ! -L "$state"
+            for invocation in "$state"/invocation-*; do
+              if test ! -e "$invocation"; then continue; fi
+              test -d "$invocation" && test ! -L "$invocation"
+              cidfile="$invocation/container.id"
+              namefile="$invocation/container.name"
+              unexpected="$(find "$invocation" -mindepth 1 -maxdepth 1 ! -name container.id ! -name container.name -print -quit)"
+              test -z "$unexpected"
+              if test -e "$cidfile"; then
+                test -f "$cidfile" && test ! -L "$cidfile"
+                id="$(cat "$cidfile")"
+                if test -n "$id"; then
+                  printf '%s\\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+                fi
+                rm -f "$cidfile"
+              fi
+              if test -e "$namefile"; then
+                test -f "$namefile" && test ! -L "$namefile"
+                container_name="$(cat "$namefile")"
+                printf '%s\\n' "$container_name" | grep -Eq '^dorzak-p00-php-[0-9]+-[A-Za-z0-9_-]+-[0-9]+-[A-Za-z0-9]+$'
+                rm -f "$namefile"
+              fi
+              rmdir "$invocation"
+            done
+            remaining_state="$(find "$state" -mindepth 1 -print -quit)"
+            test -z "$remaining_state"
+          fi
+      - name: Stop exact PostgreSQL lifecycle
+        if: \${{ always() && steps.postgres.outcome == 'success' }}
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service stop
+  `);
+
+  const downloads = jobs.map((job) => `    - name: Download ${job}
+        uses: ${download}
+        with:
+          name: ${job}
+          path: \${{ runner.temp }}/p00/${job}
+`).join('');
+
+  const workflow = restoreWorkflowIndentation(`name: P00 Quality
+run-name: p00-\${{ github.event_name == 'workflow_dispatch' && inputs.evidence_nonce || github.run_id }}
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      integrated_sha:
+        description: Exact 40-hex commit already at refs/heads/main
+        required: true
+        type: string
+      evidence_nonce:
+        description: Unique 64-hex nonce identifying one new evidence run
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  P00_CONTROL_RECORD: docs/superpowers/control/execution/p00-execution-entry.json
+  P00_PHP_VERSION: 8.5.6
+  P00_NODE_VERSION: 24.18.0
+  P00_NPM_VERSION: 11.16.0
+  P00_COMPOSER_VERSION: 2.9.8
+  P00_RUNNER_ROLE: ci
+  P00_RUNNER_CLASS: github-hosted-ubuntu-24.04-x64
+  P00_ATTEMPT: \${{ github.run_attempt }}
+  P00_INTEGRATED_SHA: \${{ github.event_name == 'workflow_dispatch' && inputs.integrated_sha || github.sha }}
+  P00_EVIDENCE_NONCE: \${{ github.event_name == 'workflow_dispatch' && inputs.evidence_nonce || github.run_id }}
+
+jobs:
+${jobs.map(producer).join('')}
+  required-gates:
+    name: required-gates
+    if: \${{ always() }}
+    needs: [composer-validation, php-style-static, sqlite, postgresql-16, frontend, playwright]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Require all six producer jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '\${{ needs.composer-validation.result }}' = success
+          test '\${{ needs.php-style-static.result }}' = success
+          test '\${{ needs.sqlite.result }}' = success
+          test '\${{ needs.postgresql-16.result }}' = success
+          test '\${{ needs.frontend.result }}' = success
+          test '\${{ needs.playwright.result }}' = success
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          test "$P00_INTEGRATED_SHA" = "$GITHUB_SHA"
+      - name: Checkout exact integrated SHA
+        uses: ${checkout}
+        with:
+          ref: \${{ env.P00_INTEGRATED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node 24.18.0
+        uses: ${setupNode}
+        with:
+          node-version: 24.18.0
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+  ${downloads}    - name: Recompute required aggregate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$P00_INTEGRATED_SHA"
+          test "$(find "$RUNNER_TEMP/p00" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')" = 6
+          node scripts/quality/p00.mjs aggregate "$RUNNER_TEMP/p00"
+          mkdir "$RUNNER_TEMP/required-gates"
+          mv "$RUNNER_TEMP/p00.required-gates.json" "$RUNNER_TEMP/required-gates/required-gates.json"
+      - name: Upload required-gates artifact
+        uses: ${upload}
+        with:
+          name: required-gates
+          path: \${{ runner.temp }}/required-gates/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: true
+  `);
+
+  mkdirSync('.github/workflows', { recursive: true });
+  writeFileSync('.github/workflows/p00-quality.yml', workflow, { flag: 'wx' });
+  NODE
+  ~~~
+  <!-- TASK14_WORKFLOW_GENERATOR_END -->
+
+  Expected: `.github/workflows/p00-quality.yml` is created once; each producer contains the same immutable setup and runs one distinct Task 13 job; the aggregate has six exact dependencies and no provider write permission.
+
+- [ ] **Create the complete provider normalizer and fail-closed tests.**
+
+  The normalizer consumes one canonical GitHub metadata document plus exactly seven downloaded provider ZIP files. It verifies provider digests, safely parses and extracts only regular ZIP entries, rejects ZIP64/encryption/path escapes/duplicates/symlinks/special files/oversize payloads, reconstructs exactly six canonical job directories, calls Task 13 aggregation to recompute reporter counts and every file hash, requires byte-equivalence with the downloaded aggregate, and atomically emits one Task 13 CI-run document. Its tests cover valid input and every registered provider, archive, count, identity, retry, extra-entry, escape, symlink, and partial-publication refusal.
+
+  `scripts/quality/github-actions-normalize.mjs`:
+
+  <!-- TASK14_NORMALIZER_BEGIN -->
+  ~~~js
+  import { createHash } from 'node:crypto';
+  import {
+    existsSync,
+    lstatSync,
+    mkdirSync,
+    mkdtempSync,
+    readFileSync,
+    readdirSync,
+    realpathSync,
+    renameSync,
+    rmSync,
+    writeFileSync,
+  } from 'node:fs';
+  import { basename, dirname, join, resolve } from 'node:path';
+  import { fileURLToPath } from 'node:url';
+  import { inflateRawSync } from 'node:zlib';
+  import {
+    aggregateRequiredGates,
+    assertAggregate,
+    contract,
+    contractSha256,
+    sha256,
+    stableJson,
+  } from './p00.mjs';
+
+  const SHA40 = /^[0-9a-f]{40}$/;
+  const SHA64 = /^[0-9a-f]{64}$/;
+  const JOBS = contract.jobs.map((job) => job.name);
+  const JOB_SET = new Set(JOBS);
+  const ARTIFACTS = [...JOBS, 'required-gates'];
+  const MAX_ENTRIES = 128;
+  const MAX_ENTRY_BYTES = 64 * 1024 * 1024;
+  const MAX_TOTAL_BYTES = 128 * 1024 * 1024;
+  const MAX_METADATA_BYTES = 1024 * 1024;
+
+  function invariant(condition, message) {
+    if (!condition) throw new Error(message);
+  }
+
+  function exactKeys(value, keys, label) {
+    invariant(value !== null && typeof value === 'object' && !Array.isArray(value), label + ' must be an object');
+    invariant(JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort()), label + ' keys are not closed');
+  }
+
+  function readJson(path) {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  }
+
+  const crcTable = Array.from({ length: 256 }, (_, value) => {
+    let crc = value;
+    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    return crc >>> 0;
+  });
+
+  export function crc32(bytes) {
+    let crc = 0xffffffff;
+    for (const byte of bytes) crc = (crc >>> 8) ^ crcTable[(crc ^ byte) & 0xff];
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  function safeArchivePath(name) {
+    invariant(typeof name === 'string' && name.length > 0 && name.length <= 240, 'Unsafe ZIP entry length');
+    invariant(!name.includes('\\') && !name.includes('\0') && !name.startsWith('/'), 'Unsafe ZIP entry path');
+    invariant(/^[A-Za-z0-9._/-]+$/.test(name), 'ZIP entry has unsupported characters');
+    const directory = name.endsWith('/');
+    const body = directory ? name.slice(0, -1) : name;
+    const parts = body.split('/');
+    invariant(parts.length > 0 && parts.every((part) => part !== '' && part !== '.' && part !== '..'), 'ZIP entry escapes root');
+    return { directory, path: parts.join('/') };
+  }
+
+  function findEndOfCentralDirectory(bytes) {
+    const minimum = Math.max(0, bytes.length - 22 - 65535);
+    for (let offset = bytes.length - 22; offset >= minimum; offset -= 1) {
+      if (bytes.readUInt32LE(offset) !== 0x06054b50) continue;
+      const commentLength = bytes.readUInt16LE(offset + 20);
+      if (offset + 22 + commentLength === bytes.length) return offset;
+    }
+    throw new Error('ZIP end-of-central-directory is missing');
+  }
+
+  function containsZip64Extra(bytes, offset, length) {
+    const end = offset + length;
+    invariant(end <= bytes.length, 'ZIP extra-field boundary is invalid');
+    let cursor = offset;
+    while (cursor < end) {
+      invariant(cursor + 4 <= end, 'ZIP extra-field header is truncated');
+      const id = bytes.readUInt16LE(cursor);
+      const size = bytes.readUInt16LE(cursor + 2);
+      cursor += 4;
+      invariant(cursor + size <= end, 'ZIP extra-field payload is truncated');
+      if (id === 0x0001) return true;
+      cursor += size;
+    }
+    invariant(cursor === end, 'ZIP extra-field boundary is invalid');
+    return false;
+  }
+
+  export function inspectZip(bytes) {
+    invariant(Buffer.isBuffer(bytes) && bytes.length >= 22, 'ZIP bytes are invalid');
+    const eocd = findEndOfCentralDirectory(bytes);
+    const disk = bytes.readUInt16LE(eocd + 4);
+    const centralDisk = bytes.readUInt16LE(eocd + 6);
+    const diskEntries = bytes.readUInt16LE(eocd + 8);
+    const totalEntries = bytes.readUInt16LE(eocd + 10);
+    const centralSize = bytes.readUInt32LE(eocd + 12);
+    const centralOffset = bytes.readUInt32LE(eocd + 16);
+    invariant(disk === 0 && centralDisk === 0 && diskEntries === totalEntries, 'Multi-disk ZIP is prohibited');
+    invariant(totalEntries > 0 && totalEntries <= MAX_ENTRIES, 'ZIP entry count is invalid');
+    invariant(totalEntries !== 0xffff && centralSize !== 0xffffffff && centralOffset !== 0xffffffff, 'ZIP64 is prohibited');
+    invariant(centralOffset + centralSize === eocd, 'ZIP central directory boundary is invalid');
+    const entries = [];
+    const names = new Set();
+    let cursor = centralOffset;
+    let totalUncompressed = 0;
+    for (let index = 0; index < totalEntries; index += 1) {
+      invariant(bytes.readUInt32LE(cursor) === 0x02014b50, 'ZIP central entry signature is invalid');
+      const madeBy = bytes.readUInt16LE(cursor + 4);
+      const flags = bytes.readUInt16LE(cursor + 8);
+      const method = bytes.readUInt16LE(cursor + 10);
+      const expectedCrc32 = bytes.readUInt32LE(cursor + 16);
+      const compressedSize = bytes.readUInt32LE(cursor + 20);
+      const uncompressedSize = bytes.readUInt32LE(cursor + 24);
+      const nameLength = bytes.readUInt16LE(cursor + 28);
+      const extraLength = bytes.readUInt16LE(cursor + 30);
+      const commentLength = bytes.readUInt16LE(cursor + 32);
+      const startDisk = bytes.readUInt16LE(cursor + 34);
+      const externalAttributes = bytes.readUInt32LE(cursor + 38);
+      const localOffset = bytes.readUInt32LE(cursor + 42);
+      const end = cursor + 46 + nameLength + extraLength + commentLength;
+      invariant(end <= eocd && startDisk === 0, 'ZIP central entry boundary is invalid');
+      invariant((flags & 0x0001) === 0, 'Encrypted ZIP entries are prohibited');
+      invariant(method === 0 || method === 8, 'ZIP compression method is unsupported');
+      invariant(compressedSize !== 0xffffffff && uncompressedSize !== 0xffffffff && localOffset !== 0xffffffff, 'ZIP64 entry is prohibited');
+      invariant(!containsZip64Extra(bytes, cursor + 46 + nameLength, extraLength), 'ZIP64 extra field is prohibited');
+      invariant(uncompressedSize <= MAX_ENTRY_BYTES, 'ZIP entry is too large');
+      totalUncompressed += uncompressedSize;
+      invariant(totalUncompressed <= MAX_TOTAL_BYTES, 'ZIP payload is too large');
+      const name = bytes.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8');
+      const safe = safeArchivePath(name);
+      invariant(!names.has(safe.path), 'Duplicate ZIP path is prohibited');
+      names.add(safe.path);
+      const host = madeBy >>> 8;
+      const mode = externalAttributes >>> 16;
+      if (host === 3 && mode !== 0) {
+        const type = mode & 0o170000;
+        invariant(safe.directory ? type === 0o040000 : type === 0o100000, 'ZIP symlink or special file is prohibited');
+      } else {
+        const dosDirectory = (externalAttributes & 0x10) !== 0;
+        invariant(dosDirectory === safe.directory, 'ZIP file type is ambiguous');
+      }
+      entries.push({
+        ...safe,
+        compressedSize,
+        uncompressedSize,
+        expectedCrc32,
+        flags,
+        method,
+        localOffset,
+        centralOffset,
+      });
+      cursor = end;
+    }
+    invariant(cursor === eocd, 'ZIP central directory has trailing data');
+    return entries;
+  }
+
+  export function extractZip(zipPath, destination) {
+    const zipStat = lstatSync(zipPath);
+    invariant(zipStat.isFile() && !zipStat.isSymbolicLink() && realpathSync(zipPath) === resolve(zipPath), 'ZIP path is unsafe');
+    invariant(!existsSync(destination), 'ZIP destination already exists');
+    const bytes = readFileSync(zipPath);
+    const entries = inspectZip(bytes);
+    mkdirSync(destination, { recursive: false, mode: 0o700 });
+    for (const entry of entries) {
+      invariant(entry.localOffset + 30 <= entry.centralOffset, 'ZIP local header boundary is invalid');
+      invariant(bytes.readUInt32LE(entry.localOffset) === 0x04034b50, 'ZIP local entry signature is invalid');
+      const localFlags = bytes.readUInt16LE(entry.localOffset + 6);
+      const localMethod = bytes.readUInt16LE(entry.localOffset + 8);
+      const localCrc32 = bytes.readUInt32LE(entry.localOffset + 14);
+      const localCompressedSize = bytes.readUInt32LE(entry.localOffset + 18);
+      const localUncompressedSize = bytes.readUInt32LE(entry.localOffset + 22);
+      const localNameLength = bytes.readUInt16LE(entry.localOffset + 26);
+      const localExtraLength = bytes.readUInt16LE(entry.localOffset + 28);
+      const localHeaderEnd = entry.localOffset + 30 + localNameLength + localExtraLength;
+      invariant(localHeaderEnd <= entry.centralOffset, 'ZIP local metadata boundary is invalid');
+      const localName = bytes.subarray(entry.localOffset + 30, entry.localOffset + 30 + localNameLength).toString('utf8');
+      invariant(localName === (entry.directory ? entry.path + '/' : entry.path), 'ZIP local/central name mismatch');
+      invariant(localFlags === entry.flags && localMethod === entry.method, 'ZIP local/central metadata mismatch');
+      invariant(!containsZip64Extra(bytes, entry.localOffset + 30 + localNameLength, localExtraLength), 'ZIP64 local extra field is prohibited');
+      if ((localFlags & 0x0008) === 0) {
+        invariant(
+          localCrc32 === entry.expectedCrc32
+            && localCompressedSize === entry.compressedSize
+            && localUncompressedSize === entry.uncompressedSize,
+          'ZIP local/central size or CRC mismatch',
+        );
+      }
+      const dataStart = localHeaderEnd;
+      const dataEnd = dataStart + entry.compressedSize;
+      invariant(dataEnd <= entry.centralOffset, 'ZIP compressed data boundary is invalid');
+      const output = resolve(destination, entry.path);
+      invariant(output.startsWith(resolve(destination) + '/'), 'ZIP output escapes destination');
+      if (entry.directory) {
+        mkdirSync(output, { recursive: true, mode: 0o700 });
+        continue;
+      }
+      mkdirSync(dirname(output), { recursive: true, mode: 0o700 });
+      const compressed = bytes.subarray(dataStart, dataEnd);
+      const content = entry.method === 0
+        ? Buffer.from(compressed)
+        : inflateRawSync(compressed, { maxOutputLength: Math.max(1, entry.uncompressedSize) });
+      invariant(content.length === entry.uncompressedSize, 'ZIP uncompressed size mismatch');
+      invariant(crc32(content) === entry.expectedCrc32, 'ZIP CRC mismatch');
+      writeFileSync(output, content, { flag: 'wx', mode: 0o600 });
+    }
+    return entries;
+  }
+
+  function assertClosedTree(root) {
+    const canonicalRoot = realpathSync(root);
+    const visit = (directory) => {
+      for (const name of readdirSync(directory)) {
+        const path = join(directory, name);
+        const stat = lstatSync(path);
+        invariant(!stat.isSymbolicLink(), 'Extracted symlink is prohibited');
+        invariant(realpathSync(path).startsWith(canonicalRoot + '/') || realpathSync(path) === canonicalRoot, 'Extracted path escapes root');
+        if (stat.isDirectory()) visit(path);
+        else invariant(stat.isFile(), 'Extracted special file is prohibited');
+      }
+    };
+    visit(canonicalRoot);
+  }
+
+  function validateMetadata(metadata, expectedSha, expectedNonce) {
+    exactKeys(metadata, ['schemaVersion', 'repository', 'integrationBranch', 'workflowPath', 'evidenceNonce', 'run', 'jobs', 'artifacts', 'checks'], '$.metadata');
+    invariant(metadata.schemaVersion === 1, 'Metadata schema mismatch');
+    invariant(metadata.repository === 'Zakariagattouchi/dorzak', 'Repository mismatch');
+    invariant(metadata.integrationBranch === 'main', 'Integration branch mismatch');
+    invariant(metadata.workflowPath === '.github/workflows/p00-quality.yml', 'Workflow path mismatch');
+    invariant(metadata.evidenceNonce === expectedNonce && SHA64.test(expectedNonce), 'Evidence nonce mismatch');
+    exactKeys(metadata.run, ['id', 'attempt', 'event', 'status', 'conclusion', 'headSha', 'headBranch', 'path', 'displayTitle'], '$.metadata.run');
+    invariant(Number.isSafeInteger(metadata.run.id) && metadata.run.id > 0, 'Run ID is invalid');
+    invariant(metadata.run.attempt === 1 && metadata.run.event === 'workflow_dispatch', 'Run is not a new workflow dispatch');
+    invariant(metadata.run.status === 'completed' && metadata.run.conclusion === 'success', 'Run did not pass');
+    invariant(metadata.run.headSha === expectedSha && SHA40.test(expectedSha), 'Run SHA mismatch');
+    invariant(metadata.run.headBranch === 'main', 'Run branch mismatch');
+    invariant(metadata.run.path === '.github/workflows/p00-quality.yml', 'Run workflow path mismatch');
+    invariant(metadata.run.displayTitle === 'p00-' + expectedNonce, 'Run title/nonce mismatch');
+
+    invariant(Array.isArray(metadata.jobs) && metadata.jobs.length === 7, 'Provider job count mismatch');
+    const jobNames = metadata.jobs.map((job) => job.name);
+    invariant(JSON.stringify([...jobNames].sort()) === JSON.stringify([...ARTIFACTS].sort()), 'Provider job names mismatch');
+    invariant(new Set(jobNames).size === jobNames.length, 'Provider jobs are duplicated');
+    invariant(new Set(metadata.jobs.map((job) => job.id)).size === metadata.jobs.length, 'Provider job IDs are duplicated');
+    for (const job of metadata.jobs) {
+      exactKeys(job, ['id', 'name', 'status', 'conclusion', 'headSha', 'runAttempt', 'runnerName', 'labels'], '$.metadata.jobs[]');
+      invariant(Number.isSafeInteger(job.id) && job.id > 0, 'Provider job ID is invalid');
+      invariant(job.status === 'completed' && job.conclusion === 'success', 'Provider job did not pass: ' + job.name);
+      invariant(job.headSha === expectedSha && job.runAttempt === 1, 'Provider job identity mismatch: ' + job.name);
+      invariant(typeof job.runnerName === 'string' && job.runnerName.length > 0, 'Provider runner name is missing');
+      invariant(Array.isArray(job.labels) && job.labels.includes('ubuntu-24.04'), 'Provider runner label mismatch');
+    }
+
+    invariant(Array.isArray(metadata.artifacts) && metadata.artifacts.length === 7, 'Provider artifact count mismatch');
+    const artifactNames = metadata.artifacts.map((artifact) => artifact.name);
+    invariant(JSON.stringify([...artifactNames].sort()) === JSON.stringify([...ARTIFACTS].sort()), 'Provider artifact names mismatch');
+    invariant(new Set(artifactNames).size === artifactNames.length, 'Provider artifacts are duplicated');
+    invariant(new Set(metadata.artifacts.map((artifact) => artifact.id)).size === metadata.artifacts.length, 'Provider artifact IDs are duplicated');
+    for (const artifact of metadata.artifacts) {
+      exactKeys(artifact, ['id', 'name', 'sizeInBytes', 'expired', 'digest', 'runId', 'headSha'], '$.metadata.artifacts[]');
+      invariant(Number.isSafeInteger(artifact.id) && artifact.id > 0, 'Artifact ID is invalid');
+      invariant(Number.isSafeInteger(artifact.sizeInBytes) && artifact.sizeInBytes > 0 && artifact.sizeInBytes <= MAX_TOTAL_BYTES, 'Artifact size is invalid');
+      invariant(artifact.expired === false && /^sha256:[0-9a-f]{64}$/.test(artifact.digest), 'Artifact digest/expiry is invalid');
+      invariant(artifact.runId === metadata.run.id && artifact.headSha === expectedSha, 'Artifact run identity mismatch');
+    }
+
+    invariant(Array.isArray(metadata.checks) && metadata.checks.length === 1, 'Required check is ambiguous');
+    const check = metadata.checks[0];
+    exactKeys(check, ['id', 'name', 'status', 'conclusion', 'headSha', 'appId', 'appSlug'], '$.metadata.checks[0]');
+    invariant(Number.isSafeInteger(check.id) && check.id > 0 && Number.isSafeInteger(check.appId) && check.appId > 0, 'Required check identity is invalid');
+    invariant(check.name === 'required-gates' && check.status === 'completed' && check.conclusion === 'success', 'Required check did not pass');
+    invariant(check.headSha === expectedSha && check.appSlug === 'github-actions', 'Required check app/SHA mismatch');
+  }
+
+  function validatePostgresqlObservation(observation, aggregate) {
+    exactKeys(observation, ['kind', 'identity', 'attestationSha256', 'instanceNonceSha256', 'endpointSha256', 'serverVersionNum', 'databaseName'], '$.postgresqlObservation');
+    invariant(observation.kind === 'oci' && observation.identity === aggregate.inputs.postgresql.identity, 'PostgreSQL identity mismatch');
+    invariant(/^docker\.io\/library\/postgres@sha256:[0-9a-f]{64}$/.test(observation.identity), 'PostgreSQL identity is mutable');
+    invariant(SHA64.test(observation.attestationSha256) && SHA64.test(observation.instanceNonceSha256) && SHA64.test(observation.endpointSha256), 'PostgreSQL observation hash is invalid');
+    invariant(Number.isInteger(observation.serverVersionNum) && observation.serverVersionNum >= 160000 && observation.serverVersionNum < 170000, 'PostgreSQL major is not 16');
+    invariant(typeof observation.databaseName === 'string' && /_test$/.test(observation.databaseName), 'PostgreSQL database is not a test candidate');
+    const reference = aggregate.jobs.find((job) => job.job === 'postgresql-16')?.artifacts?.postgresqlIdentity;
+    invariant(reference?.sha256 === sha256(stableJson(observation)), 'PostgreSQL observation is not bound to its job artifact');
+  }
+
+  export function normalize({ metadataPath, zipDirectory, outputPath, expectedSha, expectedNonce, faultPoint = null }) {
+    invariant([null, 'after-temp', 'after-rename'].includes(faultPoint), 'Unknown fault point');
+    invariant(resolve(outputPath) === outputPath, 'Normalizer output path must be absolute');
+    invariant(!existsSync(outputPath), 'Normalizer output already exists');
+    const metadataStat = lstatSync(metadataPath);
+    invariant(metadataStat.isFile() && !metadataStat.isSymbolicLink() && realpathSync(metadataPath) === resolve(metadataPath), 'Metadata path is unsafe');
+    invariant(metadataStat.size > 0 && metadataStat.size <= MAX_METADATA_BYTES, 'Metadata file size is invalid');
+    const metadata = readJson(metadataPath);
+    validateMetadata(metadata, expectedSha, expectedNonce);
+    const zipDirectoryStat = lstatSync(zipDirectory);
+    invariant(zipDirectoryStat.isDirectory() && !zipDirectoryStat.isSymbolicLink(), 'ZIP directory is unsafe');
+    const canonicalZipDirectory = realpathSync(zipDirectory);
+    invariant(canonicalZipDirectory === resolve(zipDirectory), 'ZIP directory is unsafe');
+    const zipNames = readdirSync(canonicalZipDirectory).sort();
+    invariant(JSON.stringify(zipNames) === JSON.stringify(ARTIFACTS.map((name) => name + '.zip').sort()), 'ZIP directory is not closed');
+    const parent = resolve(dirname(outputPath));
+    mkdirSync(parent, { recursive: true });
+    invariant(realpathSync(parent) === parent, 'Normalizer output parent is unsafe');
+    const publication = mkdtempSync(join(parent, '.' + basename(outputPath) + '.tmp-'));
+    let published = false;
+    try {
+      const extractedRoot = join(publication, 'artifacts');
+      mkdirSync(extractedRoot, { mode: 0o700 });
+      for (const artifact of metadata.artifacts) {
+        const zipPath = join(canonicalZipDirectory, artifact.name + '.zip');
+        const stat = lstatSync(zipPath);
+        invariant(stat.isFile() && !stat.isSymbolicLink() && realpathSync(zipPath) === zipPath, 'Artifact ZIP is unsafe');
+        invariant(stat.size === artifact.sizeInBytes, 'Provider artifact size mismatch: ' + artifact.name);
+        invariant('sha256:' + createHash('sha256').update(readFileSync(zipPath)).digest('hex') === artifact.digest, 'Provider artifact digest mismatch: ' + artifact.name);
+        extractZip(zipPath, join(extractedRoot, artifact.name));
+        assertClosedTree(join(extractedRoot, artifact.name));
+      }
+      const jobsRoot = join(publication, 'jobs');
+      mkdirSync(jobsRoot, { mode: 0o700 });
+      for (const job of JOBS) renameSync(join(extractedRoot, job), join(jobsRoot, job));
+      const requiredRoot = join(extractedRoot, 'required-gates');
+      invariant(JSON.stringify(readdirSync(requiredRoot)) === JSON.stringify(['required-gates.json']), 'Required aggregate artifact is not closed');
+      const aggregate = aggregateRequiredGates(jobsRoot);
+      assertAggregate(aggregate, 'ci');
+      invariant(readFileSync(join(requiredRoot, 'required-gates.json'), 'utf8') === stableJson(aggregate), 'Downloaded aggregate differs from recomputation');
+      const observation = readJson(join(jobsRoot, 'postgresql-16', 'postgresql-identity.json'));
+      validatePostgresqlObservation(observation, aggregate);
+      const normalized = {
+        schemaVersion: 1,
+        provider: 'github-actions',
+        runId: String(metadata.run.id),
+        attempt: 1,
+        integratedSha: expectedSha,
+        contractSha256,
+        inputFingerprintSha256: aggregate.inputFingerprintSha256,
+        inputs: aggregate.inputs,
+        platformObservationFingerprintSha256: aggregate.platformObservationFingerprintSha256,
+        platformObservation: aggregate.platformObservation,
+        postgresqlObservation: observation,
+        requiredGate: { status: 'passed', jobs: 6 },
+        jobs: aggregate.jobs,
+      };
+      const temporaryOutput = join(publication, basename(outputPath));
+      writeFileSync(temporaryOutput, stableJson(normalized), { flag: 'wx', mode: 0o600 });
+      if (faultPoint === 'after-temp') throw new Error('Injected normalizer fault after temp');
+      renameSync(temporaryOutput, outputPath);
+      published = true;
+      if (faultPoint === 'after-rename') throw new Error('Injected normalizer fault after rename');
+      return normalized;
+    } finally {
+      if (faultPoint === 'after-rename' && existsSync(outputPath)) rmSync(outputPath, { force: true });
+      rmSync(publication, { recursive: true, force: true });
+      if (!published && existsSync(outputPath)) rmSync(outputPath, { force: true });
+    }
+  }
+
+  if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    const [metadataPath, zipDirectory, outputPath, expectedSha, expectedNonce] = process.argv.slice(2);
+    invariant(metadataPath && zipDirectory && outputPath && expectedSha && expectedNonce, 'usage: github-actions-normalize.mjs METADATA ZIP_DIR OUTPUT SHA NONCE');
+    const value = normalize({
+      metadataPath: resolve(metadataPath),
+      zipDirectory: resolve(zipDirectory),
+      outputPath: resolve(outputPath),
+      expectedSha,
+      expectedNonce,
+    });
+    process.stdout.write('P00_GITHUB_NORMALIZE PASS run=' + value.runId + ' sha=' + value.integratedSha + '\n');
+  }
+  ~~~
+  <!-- TASK14_NORMALIZER_END -->
+
+  `scripts/quality/github-actions-normalize.test.mjs`:
+
+  <!-- TASK14_NORMALIZER_TEST_BEGIN -->
+  ~~~js
+  import assert from 'node:assert/strict';
+  import {
+    existsSync,
+    mkdtempSync,
+    mkdirSync,
+    readFileSync,
+    readdirSync,
+    realpathSync,
+    rmSync,
+    writeFileSync,
+  } from 'node:fs';
+  import { tmpdir } from 'node:os';
+  import { join } from 'node:path';
+  import test from 'node:test';
+  import {
+    aggregateRequiredGates,
+    contract,
+    contractSha256,
+    sha256,
+    stableJson,
+  } from './p00.mjs';
+  import { crc32, inspectZip, normalize } from './github-actions-normalize.mjs';
+
+  const sha40 = '0123456789abcdef0123456789abcdef01234567';
+  const sha64a = 'a'.repeat(64);
+  const sha64b = 'b'.repeat(64);
+  const sha64c = 'c'.repeat(64);
+  const nonce = 'd'.repeat(64);
+  const identity = 'docker.io/library/postgres@sha256:c95fd5346040eba2de3c435e14874af18f5d681fb5848d4f081dbead0878af28';
+  const jobs = contract.jobs.map((job) => job.name);
+  const artifactNames = [...jobs, 'required-gates'];
+  const temp = (name) => realpathSync(mkdtempSync(join(tmpdir(), 'dorzak-p00-gha-' + name + '-')));
+
+  function storedZip(entries) {
+    const locals = [];
+    const centrals = [];
+    let offset = 0;
+    for (const entry of entries) {
+      const name = Buffer.from(entry.name);
+      const content = Buffer.from(entry.content);
+      const crc = crc32(content);
+      const local = Buffer.alloc(30);
+      local.writeUInt32LE(0x04034b50, 0);
+      local.writeUInt16LE(20, 4);
+      local.writeUInt16LE(0x0800, 6);
+      local.writeUInt16LE(0, 8);
+      local.writeUInt32LE(crc, 14);
+      local.writeUInt32LE(content.length, 18);
+      local.writeUInt32LE(content.length, 22);
+      local.writeUInt16LE(name.length, 26);
+      const central = Buffer.alloc(46);
+      central.writeUInt32LE(0x02014b50, 0);
+      central.writeUInt16LE((3 << 8) | 20, 4);
+      central.writeUInt16LE(20, 6);
+      central.writeUInt16LE(0x0800, 8);
+      central.writeUInt16LE(0, 10);
+      central.writeUInt32LE(crc, 16);
+      central.writeUInt32LE(content.length, 20);
+      central.writeUInt32LE(content.length, 24);
+      central.writeUInt16LE(name.length, 28);
+      central.writeUInt32LE((((entry.mode ?? 0o100644) & 0xffff) * 0x10000) >>> 0, 38);
+      central.writeUInt32LE(offset, 42);
+      locals.push(local, name, content);
+      centrals.push(central, name);
+      offset += local.length + name.length + content.length;
+    }
+    const centralBytes = Buffer.concat(centrals);
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0);
+    end.writeUInt16LE(entries.length, 8);
+    end.writeUInt16LE(entries.length, 10);
+    end.writeUInt32LE(centralBytes.length, 12);
+    end.writeUInt32LE(offset, 16);
+    return Buffer.concat([...locals, centralBytes, end]);
+  }
+
+  function inputs() {
+    return {
+      contractSha256,
+      runtime: { php: '8.5.6', composer: '2.9.8', node: '24.18.0', npm: '11.16.0' },
+      lockfileSha256: { composer: sha64a, npm: sha64b },
+      postgresql: { kind: 'oci', identity, policy: 'postgresql-16-test-closed-transport-v1' },
+      playwright: { packageVersion: '1.58.0', chromiumRevision: '1234567' },
+      bundleAlgorithms: { assetSelection: 'html-module-entry-and-modulepreload-v1', gzip: 'node-zlib-level-9' },
+      runnerClasses: { local: 'local-macos-arm64', ci: 'github-hosted-ubuntu-24.04-x64' },
+    };
+  }
+
+  function platform(index) {
+    return {
+      os: 'linux', arch: 'x64', osRelease: 'ephemeral-' + index,
+      runnerRole: 'ci', runnerClass: 'github-hosted-ubuntu-24.04-x64',
+      zlib: '1.3.1', chromiumExecutableSha256: sha64c,
+    };
+  }
+
+  function rawArtifacts(job) {
+    if (job.name === 'composer-validation') return {
+      'dispatcher.tap': 'TAP version 13\nok 1 - list\nok 2 - invalid\n1..2\n',
+      'p00-node.tap': 'TAP version 13\n' + Array.from({ length: 9 }, (_, index) => `ok ${index + 1} - node`).join('\n') + '\n1..9\n',
+    };
+    if (job.name === 'sqlite' || job.name === 'postgresql-16') return {
+      [job.name + '.junit.xml']: `<testsuite tests="${job.testCount}" failures="0" errors="0" skipped="0"></testsuite>\n`,
+    };
+    if (job.name === 'frontend') return {
+      'vitest.json': stableJson({ numTotalTests: 8, numFailedTests: 0, numPendingTests: 0 }),
+      'bundle.json': stableJson({ fixture: 'bundle' }),
+      'vite-build.log': 'accepted fixture warning\n',
+    };
+    if (job.name === 'playwright') return {
+      'playwright.json': stableJson({ stats: { expected: 9, unexpected: 0, flaky: 0, skipped: 0 } }),
+    };
+    return {};
+  }
+
+  function fixture(name) {
+    const root = temp(name);
+    const jobRoot = join(root, 'jobs');
+    const zipRoot = join(root, 'zips');
+    mkdirSync(jobRoot);
+    mkdirSync(zipRoot);
+    const declaredInputs = inputs();
+    const pgObservation = {
+      kind: 'oci', identity, attestationSha256: sha64a,
+      instanceNonceSha256: sha64b, endpointSha256: sha64c,
+      serverVersionNum: 160014, databaseName: 'dorzak_fixture_test',
+    };
+    const records = contract.jobs.map((job, index) => {
+      const directory = join(jobRoot, job.name);
+      mkdirSync(directory);
+      const raw = rawArtifacts(job);
+      if (job.name === 'postgresql-16') raw['postgresql-identity.json'] = stableJson(pgObservation);
+      for (const [path, content] of Object.entries(raw)) writeFileSync(join(directory, path), content);
+      const mapping = {
+        'composer-validation': { dispatcherTap: 'dispatcher.tap', p00NodeTap: 'p00-node.tap' },
+        'php-style-static': {},
+        sqlite: { junit: 'sqlite.junit.xml' },
+        'postgresql-16': { junit: 'postgresql-16.junit.xml', postgresqlIdentity: 'postgresql-identity.json' },
+        frontend: { vitest: 'vitest.json', bundle: 'bundle.json', viteBuildLog: 'vite-build.log' },
+        playwright: { playwrightJson: 'playwright.json' },
+      };
+      const artifacts = Object.fromEntries(Object.entries(mapping[job.name]).map(([key, path]) => [
+        key, { path, sha256: sha256(readFileSync(join(directory, path))) },
+      ]));
+      const log = 'log for ' + job.name + '\n';
+      writeFileSync(join(directory, 'job.log'), log);
+      const observation = platform(index);
+      const record = {
+        schemaVersion: 1,
+        job: job.name,
+        command: job.command,
+        integratedSha: sha40,
+        status: 'passed',
+        exitCode: 0,
+        retryAttempt: 1,
+        testCount: job.testCount,
+        failureCount: 0,
+        unexplainedSkipCount: 0,
+        durationMs: 10,
+        contractSha256,
+        inputFingerprintSha256: sha256(stableJson(declaredInputs)),
+        inputs: declaredInputs,
+        platformObservationFingerprintSha256: sha256(stableJson(observation)),
+        platformObservation: observation,
+        logSha256: sha256(log),
+        artifacts,
+      };
+      writeFileSync(join(directory, 'result.json'), stableJson(record));
+      return record;
+    });
+    const aggregate = aggregateRequiredGates(jobRoot);
+    const zipBytes = {};
+    for (const job of jobs) {
+      const directory = join(jobRoot, job);
+      zipBytes[job] = storedZip(readdirSync(directory).sort().map((path) => ({
+        name: path, content: readFileSync(join(directory, path)),
+      })));
+    }
+    zipBytes['required-gates'] = storedZip([{ name: 'required-gates.json', content: stableJson(aggregate) }]);
+    const artifacts = artifactNames.map((artifact, index) => {
+      const path = join(zipRoot, artifact + '.zip');
+      writeFileSync(path, zipBytes[artifact]);
+      return {
+        id: 2000 + index,
+        name: artifact,
+        sizeInBytes: zipBytes[artifact].length,
+        expired: false,
+        digest: 'sha256:' + sha256(zipBytes[artifact]),
+        runId: 1001,
+        headSha: sha40,
+      };
+    });
+    const metadata = {
+      schemaVersion: 1,
+      repository: 'Zakariagattouchi/dorzak',
+      integrationBranch: 'main',
+      workflowPath: '.github/workflows/p00-quality.yml',
+      evidenceNonce: nonce,
+      run: {
+        id: 1001, attempt: 1, event: 'workflow_dispatch', status: 'completed', conclusion: 'success',
+        headSha: sha40, headBranch: 'main', path: '.github/workflows/p00-quality.yml', displayTitle: 'p00-' + nonce,
+      },
+      jobs: artifactNames.map((job, index) => ({
+        id: 3000 + index, name: job, status: 'completed', conclusion: 'success',
+        headSha: sha40, runAttempt: 1, runnerName: 'GitHub Actions ' + index, labels: ['ubuntu-24.04'],
+      })),
+      artifacts,
+      checks: [{
+        id: 4001, name: 'required-gates', status: 'completed', conclusion: 'success',
+        headSha: sha40, appId: 15368, appSlug: 'github-actions',
+      }],
+    };
+    const metadataPath = join(root, 'metadata.json');
+    writeFileSync(metadataPath, stableJson(metadata));
+    return { root, jobRoot, zipRoot, metadataPath, metadata, records, aggregate };
+  }
+
+  function writeMetadata(value, path) {
+    writeFileSync(path, stableJson(value));
+  }
+
+  test('normalizes one exact successful attempt-one run and preserves per-job observations', () => {
+    const value = fixture('valid');
+    const output = join(value.root, 'ci-run.json');
+    const normalized = normalize({
+      metadataPath: value.metadataPath,
+      zipDirectory: value.zipRoot,
+      outputPath: output,
+      expectedSha: sha40,
+      expectedNonce: nonce,
+    });
+    assert.equal(normalized.provider, 'github-actions');
+    assert.equal(normalized.runId, '1001');
+    assert.equal(normalized.jobs.length, 6);
+    assert.equal(new Set(normalized.jobs.map((job) => job.platformObservation.osRelease)).size, 6);
+    assert.deepEqual(JSON.parse(readFileSync(output, 'utf8')), normalized);
+  });
+
+  test('rejects retry, wrong event/SHA/nonce, failed or extra provider records, and wrong digest', () => {
+    const mutations = [
+      (value) => { value.run.attempt = 2; },
+      (value) => { value.run.event = 'push'; },
+      (value) => { value.run.headSha = 'f'.repeat(40); },
+      (value) => { value.evidenceNonce = 'e'.repeat(64); },
+      (value) => { value.jobs[0].conclusion = 'failure'; },
+      (value) => { value.jobs.push(structuredClone(value.jobs[0])); },
+      (value) => { value.jobs[1].id = value.jobs[0].id; },
+      (value) => { value.artifacts[1].id = value.artifacts[0].id; },
+      (value) => { value.artifacts[0].sizeInBytes += 1; },
+      (value) => { value.artifacts[0].digest = 'sha256:' + 'f'.repeat(64); },
+      (value) => { value.checks[0].appSlug = 'untrusted-app'; },
+    ];
+    for (const [index, mutate] of mutations.entries()) {
+      const item = fixture('metadata-' + index);
+      const changed = structuredClone(item.metadata);
+      mutate(changed);
+      writeMetadata(changed, item.metadataPath);
+      assert.throws(() => normalize({
+        metadataPath: item.metadataPath,
+        zipDirectory: item.zipRoot,
+        outputPath: join(item.root, 'rejected.json'),
+        expectedSha: sha40,
+        expectedNonce: nonce,
+      }));
+      assert.equal(existsSync(join(item.root, 'rejected.json')), false);
+    }
+  });
+
+  test('rejects escape, duplicate, symlink, encryption, ZIP64, and oversized metadata', () => {
+    assert.throws(() => inspectZip(storedZip([{ name: '../escape', content: 'x' }])));
+    assert.throws(() => inspectZip(storedZip([{ name: 'same', content: 'a' }, { name: 'same', content: 'b' }])));
+    assert.throws(() => inspectZip(storedZip([{ name: 'link', content: 'target', mode: 0o120777 }])));
+    const encrypted = storedZip([{ name: 'file', content: 'x' }]);
+    encrypted.writeUInt16LE(encrypted.readUInt16LE(6) | 1, 6);
+    encrypted.writeUInt16LE(encrypted.readUInt16LE(encrypted.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02])) + 8) | 1,
+      encrypted.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02])) + 8);
+    assert.throws(() => inspectZip(encrypted));
+    const zip64 = storedZip([{ name: 'file', content: 'x' }]);
+    const end = zip64.length - 22;
+    zip64.writeUInt16LE(0xffff, end + 10);
+    assert.throws(() => inspectZip(zip64));
+    const oversized = storedZip([{ name: 'file', content: 'x' }]);
+    const central = oversized.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+    oversized.writeUInt32LE(64 * 1024 * 1024 + 1, central + 24);
+    assert.throws(() => inspectZip(oversized));
+  });
+
+  test('rejects changed reporter bytes and wrong runner class', () => {
+    const reporter = fixture('reporter');
+    writeFileSync(join(reporter.jobRoot, 'sqlite', 'sqlite.junit.xml'), '<testsuite tests="445" failures="0" errors="0" skipped="0"></testsuite>\n');
+    const reporterZip = storedZip(readdirSync(join(reporter.jobRoot, 'sqlite')).sort().map((path) => ({
+      name: path, content: readFileSync(join(reporter.jobRoot, 'sqlite', path)),
+    })));
+    writeFileSync(join(reporter.zipRoot, 'sqlite.zip'), reporterZip);
+    reporter.metadata.artifacts.find((artifact) => artifact.name === 'sqlite').digest = 'sha256:' + sha256(reporterZip);
+    reporter.metadata.artifacts.find((artifact) => artifact.name === 'sqlite').sizeInBytes = reporterZip.length;
+    writeMetadata(reporter.metadata, reporter.metadataPath);
+    assert.throws(() => normalize({
+      metadataPath: reporter.metadataPath,
+      zipDirectory: reporter.zipRoot,
+      outputPath: join(reporter.root, 'rejected.json'),
+      expectedSha: sha40,
+      expectedNonce: nonce,
+    }));
+
+    const runner = fixture('runner');
+    const resultPath = join(runner.jobRoot, 'playwright', 'result.json');
+    const result = JSON.parse(readFileSync(resultPath, 'utf8'));
+    result.platformObservation.runnerClass = 'wrong-runner';
+    result.platformObservationFingerprintSha256 = sha256(stableJson(result.platformObservation));
+    writeFileSync(resultPath, stableJson(result));
+    const runnerZip = storedZip(readdirSync(join(runner.jobRoot, 'playwright')).sort().map((path) => ({
+      name: path, content: readFileSync(join(runner.jobRoot, 'playwright', path)),
+    })));
+    writeFileSync(join(runner.zipRoot, 'playwright.zip'), runnerZip);
+    runner.metadata.artifacts.find((artifact) => artifact.name === 'playwright').digest = 'sha256:' + sha256(runnerZip);
+    runner.metadata.artifacts.find((artifact) => artifact.name === 'playwright').sizeInBytes = runnerZip.length;
+    writeMetadata(runner.metadata, runner.metadataPath);
+    assert.throws(() => normalize({
+      metadataPath: runner.metadataPath,
+      zipDirectory: runner.zipRoot,
+      outputPath: join(runner.root, 'rejected.json'),
+      expectedSha: sha40,
+      expectedNonce: nonce,
+    }));
+  });
+
+  test('cleans partial publication after injected faults', () => {
+    for (const faultPoint of ['after-temp', 'after-rename']) {
+      const value = fixture('fault-' + faultPoint);
+      const output = join(value.root, 'ci-run.json');
+      assert.throws(() => normalize({
+        metadataPath: value.metadataPath,
+        zipDirectory: value.zipRoot,
+        outputPath: output,
+        expectedSha: sha40,
+        expectedNonce: nonce,
+        faultPoint,
+      }));
+      assert.equal(existsSync(output), false);
+      assert.equal(readdirSync(value.root).some((entry) => entry.startsWith('.ci-run.json.tmp-')), false);
+      rmSync(value.root, { recursive: true, force: true });
+    }
+  });
+  ~~~
+  <!-- TASK14_NORMALIZER_TEST_END -->
+
+- [ ] **Freeze but do not execute the provider-state command blocks.**
+
+  Task 14 creates repository files only. The three marked command blocks below are executed later by Task 17 after the adapter commit, exact owner approval, and execution lease. They pin `github.com` and the supported GitHub REST API version `2026-03-10`, preserve private visibility, require an owner-authorized GitHub credential with the `workflow` scope, fail before any push if the account cannot expose private-repository protection and effective-rules readback APIs, verify the sole fetch and push URLs, use that exact GitHub CLI credential through a one-shot helper, push the exact integration SHA without force only from an unprotected bootstrap state, set/read back default branch `main`, require zero active ruleset rules, create or validate the exact classic policy, dispatch two distinct new attempt-one runs by unique nonce, poll exact run IDs, download exact artifact IDs, and normalize each run. If `main` is behind while classic protection or any active ruleset rule already exists, execution stops for a separately reviewed integration amendment; policy is never weakened. No rerun endpoint is present.
+
+  Exact push and push-run block:
+
+  <!-- TASK14_PUSH_AND_RUN_COMMANDS_BEGIN -->
+  ~~~bash
+  set -euo pipefail
+  REPO='Zakariagattouchi/dorzak'
+  WORKFLOW='.github/workflows/p00-quality.yml'
+  API_VERSION='2026-03-10'
+  INTEGRATED_SHA="${CODE_SHA:?CODE_SHA is required}"
+  export GH_HOST=github.com
+  test "$GH_HOST" = github.com
+  test "$P00_REMOTE_NAME" = origin
+  test "$P00_REMOTE_URL" = https://github.com/Zakariagattouchi/dorzak.git
+  test "$P00_INTEGRATION_BRANCH" = main
+  test "$P00_CI_PROVIDER" = github-actions
+  printf '%s\n' "$INTEGRATED_SHA" | rg -x '[0-9a-f]{40}'
+  test "$(git rev-parse HEAD)" = "$INTEGRATED_SHA"
+  test -z "$(git status --short --untracked-files=normal)"
+  auth_status="$(gh auth status --active --hostname github.com 2>&1)"
+  printf '%s\n' "$auth_status" | rg -q "Token scopes:.*'workflow'"
+  repository="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" "repos/$REPO")"
+  test "$(printf '%s' "$repository" | jq -r .full_name)" = "$REPO"
+  test "$(printf '%s' "$repository" | jq -r .visibility)" = private
+  test "$(printf '%s' "$repository" | jq -r .private)" = true
+  test "$(printf '%s' "$repository" | jq -r '.permissions.admin // false')" = true
+  test "$(printf '%s' "$repository" | jq -r '.permissions.push // false')" = true
+  git_gh() {
+    git -c credential.helper= -c credential.helper='!gh auth git-credential' "$@"
+  }
+  mkdir -p .artifacts/p00/github
+  chmod 700 .artifacts/p00/github
+  if git remote get-url origin >/dev/null 2>&1; then
+    :
+  else
+    git remote add origin "$P00_REMOTE_URL"
+  fi
+  test "$(git remote get-url --all origin | wc -l | tr -d ' ')" = 1
+  test "$(git remote get-url --all origin)" = "$P00_REMOTE_URL"
+  test "$(git remote get-url --push --all origin | wc -l | tr -d ' ')" = 1
+  test "$(git remote get-url --push --all origin)" = "$P00_REMOTE_URL"
+  remote_lines="$(git_gh ls-remote "$P00_REMOTE_URL" refs/heads/main)"
+  test "$(printf '%s\n' "$remote_lines" | sed '/^$/d' | wc -l | tr -d ' ')" -le 1
+  remote_before="$(printf '%s\n' "$remote_lines" | awk 'NR==1 {print $1}')"
+  if test -n "$remote_before"; then
+    printf '%s\n' "$remote_before" | rg -x '[0-9a-f]{40}'
+    git_gh fetch --no-tags "$P00_REMOTE_URL" "$remote_before"
+    git merge-base --is-ancestor "$remote_before" "$INTEGRATED_SHA"
+  fi
+  gh api --paginate --slurp -H "X-GitHub-Api-Version: $API_VERSION" \
+    "repos/$REPO/rules/branches/main?per_page=100" \
+    | jq 'add' > .artifacts/p00/github/effective-rules-before.json
+  protection_path="repos/$REPO/branches/main/protection"
+  protection_before=.artifacts/p00/github/protection-before-push.json
+  protection_error=.artifacts/p00/github/protection-before-push.err
+  if gh api -H "X-GitHub-Api-Version: $API_VERSION" "$protection_path" \
+    >"$protection_before" 2>"$protection_error"; then
+    protection_present=true
+  else
+    rg -q 'HTTP 404' "$protection_error"
+    protection_present=false
+  fi
+  PUSH_MARKER=''
+  if test "$remote_before" != "$INTEGRATED_SHA"; then
+    test "$protection_present" = false
+    test "$(jq 'length' .artifacts/p00/github/effective-rules-before.json)" = 0
+    PUSH_MARKER="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    git_gh push --porcelain "$P00_REMOTE_URL" "$INTEGRATED_SHA:refs/heads/main"
+  fi
+  test "$(git_gh ls-remote "$P00_REMOTE_URL" refs/heads/main | awk 'NR==1 {print $1}')" = "$INTEGRATED_SHA"
+  gh api --method PATCH -H "X-GitHub-Api-Version: $API_VERSION" "repos/$REPO" -f default_branch=main >/dev/null
+  test "$(gh api -H "X-GitHub-Api-Version: $API_VERSION" "repos/$REPO" --jq .default_branch)" = main
+  PUSH_RUN_ID=''
+  if test -n "$PUSH_MARKER"; then
+    for _ in $(seq 1 120); do
+      runs="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" \
+        "repos/$REPO/actions/workflows/p00-quality.yml/runs?branch=main&event=push&per_page=100")"
+      matches="$(printf '%s' "$runs" | jq -c --arg sha "$INTEGRATED_SHA" --arg marker "$PUSH_MARKER" \
+        '[.workflow_runs[] | select(.head_sha==$sha and .head_branch=="main" and .event=="push" and .run_attempt==1 and .created_at >= $marker)]')"
+      count="$(printf '%s' "$matches" | jq 'length')"
+      test "$count" -le 1
+      if test "$count" = 1; then PUSH_RUN_ID="$(printf '%s' "$matches" | jq -r '.[0].id')"; break; fi
+      sleep 5
+    done
+  else
+    runs="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" \
+      "repos/$REPO/actions/workflows/p00-quality.yml/runs?branch=main&event=push&per_page=100")"
+    matches="$(printf '%s' "$runs" | jq -c --arg sha "$INTEGRATED_SHA" \
+      '[.workflow_runs[] | select(.head_sha==$sha and .head_branch=="main" and .event=="push" and .run_attempt==1)] | sort_by(.created_at,.id) | reverse')"
+    count="$(printf '%s' "$matches" | jq 'length')"
+    test "$count" -ge 1
+    PUSH_RUN_ID="$(printf '%s' "$matches" | jq -r '.[0].id')"
+  fi
+  printf '%s\n' "$PUSH_RUN_ID" | rg -x '[1-9][0-9]*'
+  for _ in $(seq 1 180); do
+    run="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" "repos/$REPO/actions/runs/$PUSH_RUN_ID")"
+    status="$(printf '%s' "$run" | jq -r .status)"
+    test "$(printf '%s' "$run" | jq -r .head_sha)" = "$INTEGRATED_SHA"
+    test "$(printf '%s' "$run" | jq -r .head_branch)" = main
+    test "$(printf '%s' "$run" | jq -r .event)" = push
+    test "$(printf '%s' "$run" | jq -r .path)" = "$WORKFLOW"
+    test "$(printf '%s' "$run" | jq -r .run_attempt)" = 1
+    if test "$status" = completed; then test "$(printf '%s' "$run" | jq -r .conclusion)" = success; break; fi
+    sleep 10
+  done
+  test "$status" = completed
+  printf '%s' "$run" | jq -S '{schemaVersion:1,runId:.id,headSha:.head_sha,event,attempt:.run_attempt,status,conclusion}' \
+    > .artifacts/p00/github/push-run.json
+  ~~~
+  <!-- TASK14_PUSH_AND_RUN_COMMANDS_END -->
+
+  Exact required-status configuration/read-back block:
+
+  <!-- TASK14_REQUIRED_STATUS_COMMANDS_BEGIN -->
+  ~~~bash
+  set -euo pipefail
+  REPO='Zakariagattouchi/dorzak'
+  API_VERSION='2026-03-10'
+  INTEGRATED_SHA="${CODE_SHA:?CODE_SHA is required}"
+  export GH_HOST=github.com
+  test "$GH_HOST" = github.com
+  repository="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" "repos/$REPO")"
+  test "$(printf '%s' "$repository" | jq -r .visibility)" = private
+  test "$(printf '%s' "$repository" | jq -r '.permissions.admin // false')" = true
+  test "$(jq 'length' .artifacts/p00/github/effective-rules-before.json)" = 0
+  PUSH_RUN_ID="$(jq -er '.runId | select(type=="number" and .>0)' .artifacts/p00/github/push-run.json)"
+  jobs="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" \
+    "repos/$REPO/actions/runs/$PUSH_RUN_ID/jobs?filter=latest&per_page=100")"
+  required_job="$(printf '%s' "$jobs" | jq -c '[.jobs[] | select(.name=="required-gates" and .status=="completed" and .conclusion=="success")]')"
+  test "$(printf '%s' "$required_job" | jq 'length')" = 1
+  REQUIRED_JOB_ID="$(printf '%s' "$required_job" | jq -r '.[0].id')"
+  checks="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" \
+    -H 'Accept: application/vnd.github+json' "repos/$REPO/commits/$INTEGRATED_SHA/check-runs?filter=latest&per_page=100")"
+  required_check="$(printf '%s' "$checks" | jq -c --arg run "$PUSH_RUN_ID" --arg job "$REQUIRED_JOB_ID" \
+    '[.check_runs[] | select(.name=="required-gates" and .app.slug=="github-actions" and .status=="completed" and .conclusion=="success" and (.details_url | contains("/actions/runs/"+$run+"/job/"+$job)))]')"
+  test "$(printf '%s' "$required_check" | jq 'length')" = 1
+  ACTIONS_APP_ID="$(printf '%s' "$required_check" | jq -r '.[0].app.id')"
+  printf '%s\n' "$ACTIONS_APP_ID" | rg -x '[1-9][0-9]*'
+  protection_path="repos/$REPO/branches/main/protection"
+  current=.artifacts/p00/github/protection-before.json
+  error=.artifacts/p00/github/protection-before.err
+  if gh api -H "X-GitHub-Api-Version: $API_VERSION" "$protection_path" >"$current" 2>"$error"; then
+    jq -e --argjson app "$ACTIONS_APP_ID" '
+      .required_status_checks.strict==true
+      and (.required_status_checks.checks|length)==1
+      and .required_status_checks.checks[0].context=="required-gates"
+      and .required_status_checks.checks[0].app_id==$app
+      and .enforce_admins.enabled==true
+      and .required_pull_request_reviews==null
+      and .restrictions==null
+      and .required_linear_history.enabled==true
+      and .allow_force_pushes.enabled==false
+      and .allow_deletions.enabled==false
+      and .block_creations.enabled==false
+      and .required_conversation_resolution.enabled==true
+      and .lock_branch.enabled==false
+      and .allow_fork_syncing.enabled==false
+    ' "$current"
+  else
+    rg -q 'HTTP 404' "$error"
+    jq -n --argjson app "$ACTIONS_APP_ID" '{
+      required_status_checks:{strict:true,checks:[{context:"required-gates",app_id:$app}]},
+      enforce_admins:true,
+      required_pull_request_reviews:null,
+      restrictions:null,
+      required_linear_history:true,
+      allow_force_pushes:false,
+      allow_deletions:false,
+      block_creations:false,
+      required_conversation_resolution:true,
+      lock_branch:false,
+      allow_fork_syncing:false
+    }' | gh api --method PUT -H "X-GitHub-Api-Version: $API_VERSION" "$protection_path" --input - >/dev/null
+  fi
+  gh api -H "X-GitHub-Api-Version: $API_VERSION" "$protection_path" > .artifacts/p00/github/protection-after.json
+  jq -e --argjson app "$ACTIONS_APP_ID" '
+    .required_status_checks.strict==true
+    and (.required_status_checks.checks|length)==1
+    and .required_status_checks.checks[0].context=="required-gates"
+    and .required_status_checks.checks[0].app_id==$app
+    and .enforce_admins.enabled==true
+    and .required_pull_request_reviews==null
+    and .restrictions==null
+    and .required_linear_history.enabled==true
+    and .allow_force_pushes.enabled==false
+    and .allow_deletions.enabled==false
+    and .block_creations.enabled==false
+    and .required_conversation_resolution.enabled==true
+    and .lock_branch.enabled==false
+    and .allow_fork_syncing.enabled==false
+  ' .artifacts/p00/github/protection-after.json
+  gh api --paginate --slurp -H "X-GitHub-Api-Version: $API_VERSION" \
+    "repos/$REPO/rules/branches/main?per_page=100" \
+    | jq 'add' > .artifacts/p00/github/effective-rules-after.json
+  test "$(jq 'length' .artifacts/p00/github/effective-rules-after.json)" = 0
+  ~~~
+  <!-- TASK14_REQUIRED_STATUS_COMMANDS_END -->
+
+  Exact two-new-run, metadata, ZIP-download, and normalization block:
+
+  <!-- TASK14_TWO_RUN_COMMANDS_BEGIN -->
+  ~~~bash
+  set -euo pipefail
+  REPO='Zakariagattouchi/dorzak'
+  WORKFLOW='.github/workflows/p00-quality.yml'
+  API_VERSION='2026-03-10'
+  INTEGRATED_SHA="${CODE_SHA:?CODE_SHA is required}"
+  export GH_HOST=github.com
+  test "$GH_HOST" = github.com
+  repository="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" "repos/$REPO")"
+  test "$(printf '%s' "$repository" | jq -r .visibility)" = private
+  test "$(printf '%s' "$repository" | jq -r '.permissions.push // false')" = true
+  git_gh() {
+    git -c credential.helper= -c credential.helper='!gh auth git-credential' "$@"
+  }
+  test "$(printf '%s' "$repository" | jq -r .default_branch)" = main
+  workflow="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" "repos/$REPO/actions/workflows/p00-quality.yml")"
+  test "$(printf '%s' "$workflow" | jq -r .path)" = "$WORKFLOW"
+  test "$(printf '%s' "$workflow" | jq -r .state)" = active
+  test "$(git remote get-url --push --all origin | wc -l | tr -d ' ')" = 1
+  test "$(git remote get-url --push --all origin)" = "$P00_REMOTE_URL"
+  test "$(git_gh ls-remote "$P00_REMOTE_URL" refs/heads/main | awk 'NR==1 {print $1}')" = "$INTEGRATED_SHA"
+  test "$(jq 'length' .artifacts/p00/github/effective-rules-after.json)" = 0
+  mkdir -p .artifacts/p00/ci
+  chmod 700 .artifacts/p00/ci
+  NONCE_1="$(openssl rand -hex 32)"
+  NONCE_2="$(openssl rand -hex 32)"
+  test "$NONCE_1" != "$NONCE_2"
+  for nonce in "$NONCE_1" "$NONCE_2"; do
+    existing="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" \
+      "repos/$REPO/actions/workflows/p00-quality.yml/runs?branch=main&event=workflow_dispatch&per_page=100" \
+      --jq ".workflow_runs | map(select(.display_title==\"p00-$nonce\")) | length")"
+    test "$existing" = 0
+    jq -n --arg sha "$INTEGRATED_SHA" --arg nonce "$nonce" \
+      '{ref:"main",inputs:{integrated_sha:$sha,evidence_nonce:$nonce}}' \
+      | gh api --method POST -H "X-GitHub-Api-Version: $API_VERSION" \
+          "repos/$REPO/actions/workflows/p00-quality.yml/dispatches" --input - >/dev/null
+  done
+  find_run() {
+    local nonce="$1" matches count
+    for _ in $(seq 1 120); do
+      matches="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" \
+        "repos/$REPO/actions/workflows/p00-quality.yml/runs?branch=main&event=workflow_dispatch&per_page=100" \
+        | jq -c --arg title "p00-$nonce" --arg sha "$INTEGRATED_SHA" \
+          '[.workflow_runs[] | select(.display_title==$title and .head_sha==$sha and .event=="workflow_dispatch" and .run_attempt==1)]')"
+      count="$(printf '%s' "$matches" | jq 'length')"
+      test "$count" -le 1
+      if test "$count" = 1; then printf '%s' "$matches" | jq -r '.[0].id'; return 0; fi
+      sleep 5
+    done
+    return 2
+  }
+  RUN_1="$(find_run "$NONCE_1")"
+  RUN_2="$(find_run "$NONCE_2")"
+  test "$RUN_1" != "$RUN_2"
+  for run_id in "$RUN_1" "$RUN_2"; do
+    for _ in $(seq 1 180); do
+      run="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" "repos/$REPO/actions/runs/$run_id")"
+      test "$(printf '%s' "$run" | jq -r .head_sha)" = "$INTEGRATED_SHA"
+      test "$(printf '%s' "$run" | jq -r .head_branch)" = main
+      test "$(printf '%s' "$run" | jq -r .event)" = workflow_dispatch
+      test "$(printf '%s' "$run" | jq -r .run_attempt)" = 1
+      status="$(printf '%s' "$run" | jq -r .status)"
+      if test "$status" = completed; then test "$(printf '%s' "$run" | jq -r .conclusion)" = success; break; fi
+      sleep 10
+    done
+    test "$status" = completed
+  done
+  collect_run() {
+    local ordinal="$1" run_id="$2" nonce="$3" raw run_json jobs_json artifacts_json checks_json
+    raw=".artifacts/p00/ci/raw-$ordinal"
+    mkdir "$raw" "$raw/zips"
+    run_json="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" "repos/$REPO/actions/runs/$run_id")"
+    jobs_json="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" "repos/$REPO/actions/runs/$run_id/jobs?filter=latest&per_page=100")"
+    artifacts_json="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" "repos/$REPO/actions/runs/$run_id/artifacts?per_page=100")"
+    checks_json="$(gh api -H "X-GitHub-Api-Version: $API_VERSION" -H 'Accept: application/vnd.github+json' \
+      "repos/$REPO/commits/$INTEGRATED_SHA/check-runs?filter=all&per_page=100")"
+    jq -n --arg repo "$REPO" --arg nonce "$nonce" --argjson run "$run_json" --argjson jobs "$jobs_json" \
+      --argjson artifacts "$artifacts_json" --argjson checks "$checks_json" --arg run_id "$run_id" '{
+        schemaVersion:1,
+        repository:$repo,
+        integrationBranch:"main",
+        workflowPath:".github/workflows/p00-quality.yml",
+        evidenceNonce:$nonce,
+        run:{id:$run.id,attempt:$run.run_attempt,event:$run.event,status:$run.status,conclusion:$run.conclusion,headSha:$run.head_sha,headBranch:$run.head_branch,path:$run.path,displayTitle:$run.display_title},
+        jobs:($jobs.jobs | map({id,name,status,conclusion,headSha:.head_sha,runAttempt:.run_attempt,runnerName:.runner_name,labels}) | sort_by(.name)),
+        artifacts:($artifacts.artifacts | map({id,name,sizeInBytes:.size_in_bytes,expired,digest,runId:.workflow_run.id,headSha:.workflow_run.head_sha}) | sort_by(.name)),
+        checks:($checks.check_runs | map(select(.name=="required-gates" and .app.slug=="github-actions" and (.details_url|contains("/actions/runs/"+$run_id+"/")))) | map({id,name,status,conclusion,headSha:.head_sha,appId:.app.id,appSlug:.app.slug}))
+      }' > "$raw/metadata.json"
+    test "$(jq '.artifacts|length' "$raw/metadata.json")" = 7
+    while IFS=$'\t' read -r artifact_id artifact_name digest; do
+      printf '%s\n' "$artifact_name" | rg -x 'composer-validation|php-style-static|sqlite|postgresql-16|frontend|playwright|required-gates'
+      gh api -H "X-GitHub-Api-Version: $API_VERSION" "repos/$REPO/actions/artifacts/$artifact_id/zip" > "$raw/zips/$artifact_name.zip"
+      test "sha256:$(shasum -a 256 "$raw/zips/$artifact_name.zip" | awk '{print $1}')" = "$digest"
+    done < <(jq -r '.artifacts[] | [.id,.name,.digest] | @tsv' "$raw/metadata.json")
+    node scripts/quality/github-actions-normalize.mjs \
+      "$raw/metadata.json" "$raw/zips" ".artifacts/p00/ci/ci-run-$ordinal.json" "$INTEGRATED_SHA" "$nonce"
+  }
+  collect_run 1 "$RUN_1" "$NONCE_1"
+  collect_run 2 "$RUN_2" "$NONCE_2"
+  test "$(jq -r .runId .artifacts/p00/ci/ci-run-1.json)" != "$(jq -r .runId .artifacts/p00/ci/ci-run-2.json)"
+  test "$(jq -r .attempt .artifacts/p00/ci/ci-run-1.json)" = 1
+  test "$(jq -r .attempt .artifacts/p00/ci/ci-run-2.json)" = 1
+  ~~~
+  <!-- TASK14_TWO_RUN_COMMANDS_END -->
+
+- [ ] **Run Task 14 verification and commit exactly five files.**
+
+  ```bash
+  chmod +x scripts/quality/github-actions-postgres-service \
+    scripts/quality/test-github-actions-postgres-service.sh
+  bash scripts/quality/test-github-actions-postgres-service.sh
+  node --test scripts/quality/github-actions-normalize.test.mjs
+  node --check scripts/quality/github-actions-normalize.mjs
+  npx prettier --check .github/workflows/p00-quality.yml
+  rg -n 'runs-on: ubuntu-24.04|P00_RUNNER_ROLE: ci|P00_RUNNER_CLASS: github-hosted-ubuntu-24.04-x64|required-gates' .github/workflows/p00-quality.yml
+  test -z "$(rg -n 'uses: [^#[:space:]]+@(v[0-9]+|main|master|[0-9]+\.[0-9]+)' .github/workflows/p00-quality.yml || true)"
+  test -z "$(rg -n 'pull_request_target|continue-on-error|retry|^[[:space:]]+cache:' .github/workflows/p00-quality.yml || true)"
+  test "$(rg -c '^  (composer-validation|php-style-static|sqlite|postgresql-16|frontend|playwright|required-gates):$' .github/workflows/p00-quality.yml)" = 7
+  test "$(rg -c 'docker pull .*laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6' .github/workflows/p00-quality.yml)" = 6
+  test "$(rg -c 'getcomposer.org/download/2.9.8/composer.phar' .github/workflows/p00-quality.yml)" = 6
+  test -z "$(rg -n 'setup-php|laravel-test-runner:' .github/workflows/p00-quality.yml || true)"
+  git diff --check
+  git add -- .github/workflows/p00-quality.yml \
+    scripts/quality/github-actions-postgres-service \
+    scripts/quality/test-github-actions-postgres-service.sh \
+    scripts/quality/github-actions-normalize.mjs \
+    scripts/quality/github-actions-normalize.test.mjs
+  expected_paths="$(printf '%s\n' \
+    .github/workflows/p00-quality.yml \
+    scripts/quality/github-actions-normalize.mjs \
+    scripts/quality/github-actions-normalize.test.mjs \
+    scripts/quality/github-actions-postgres-service \
+    scripts/quality/test-github-actions-postgres-service.sh | LC_ALL=C sort)"
+  test "$(git diff --cached --name-only | LC_ALL=C sort)" = "$expected_paths"
+  git diff --cached --check
+  git commit -m "ci: add immutable P00 GitHub gates"
+  ```
+
+  Expected: both test suites pass, the workflow contains exactly seven jobs and only full-SHA action references, the staged allowlist is exact, and one focused commit is created. Stop after the commit and rerun every writer-boundary and Task 0 check. Tasks 15–17 remain blocked until the exact implementation commit is independently reviewed and the later execution gate authorizes provider state.
 
 ### Task 15: Record repository context and the seven initial architecture decisions
 
@@ -7169,8 +9004,11 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
   ## Bounded contexts
 
   - Execution context resolves actor, organization, authorized location, plan version, country pack and correlation ID and fails closed.
-  - Merchant/Superadmin React owns desktop management, POS/editor interaction and governed platform operations; it never owns server authorization or provider credentials.
-  - Laravel owns Dorzak control-plane and native-domain rules and exposes Dorzak DTOs.
+  - The current Vite/React app is the merchant desktop, POS and builder-editor surface; it is not the P17 Superadmin target.
+  - The internal Superadmin target is a separate Frappe-native site/database using Frappe Desk with minimal Dorzak branding and only a versioned approved application manifest.
+  - Superadmin cross-merchant visibility and intervention use tenant-bound Dorzak gateway and `dorzak_core` APIs plus explicit reason-bound, time-limited, audited grants. The internal site never queries merchant databases directly, shares merchant credentials, or stores uncontrolled raw merchant records.
+  - Laravel owns Dorzak platform authority and native-domain rules and exposes governed Dorzak DTO/API contracts.
+  - P17 remains Not started and Not authorized; P00 records this boundary only.
   - ERPNext owns paid operational/financial records after their approved cutovers.
   - Payments, storage, messaging and future ERP commands sit behind narrow versioned adapters.
   - The public/customer surface is a separate server-rendered React deployment; its final framework waits for the measured P05 decision.
@@ -7266,12 +9104,12 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
     {
       id: '0007',
       slug: 'frontend-surface-boundaries',
-      title: 'Frontend surface boundaries',
-      context: 'Merchant administration and public customer rendering have different deployment, performance and authority needs.',
-      decision: 'The current Vite/React app remains the P00 merchant/Superadmin surface. The public/customer surface is a separate server-rendered React deployment. Next.js is a preferred candidate only; final selection is deferred until the measured P05 spike and its ADR pass.',
-      benefit: 'The recovered management surface remains stable while public rendering is measured independently.',
-      cost: 'The repository will ultimately operate two explicit frontend deployment surfaces.',
-      verification: 'The measured P05 frontend spike and its ADR gate verify the final public framework. P00 performs documentation only.',
+      title: 'Frontend and internal Superadmin surface boundaries',
+      context: 'Merchant administration, public/customer rendering and Dorzak-internal Superadmin operations have different deployment, branding, isolation and authority needs.',
+      decision: 'The current Vite/React app remains the P00 merchant-management surface. The public/customer surface is a separate server-rendered React deployment; Next.js remains only a preferred candidate pending the measured P05 spike and ADR. The internal Superadmin target is a separate Frappe-native site/database using Frappe Desk with minimal Dorzak branding. It uses only governed tenant-bound Dorzak gateway and dorzak_core APIs plus explicit audited grants for merchant visibility or intervention; it never queries merchant databases directly, shares merchant credentials, or stores uncontrolled raw merchant records. Its versioned application manifest is selected only by a later approved P17 design. P17 remains Not started and Not authorized; P00 records this boundary only.',
+      benefit: 'Merchant, public/customer and internal operational surfaces remain explicit while merchant data and authority stay isolated.',
+      cost: 'A later separately authorized P17 design must select the exact application manifest and prove its API, grant and isolation boundaries.',
+      verification: 'The measured P05 spike verifies the public framework. Separately approved P17 design, plan and isolation/source-of-truth/grant tests verify Superadmin. P00 performs documentation only and grants no P17 authorization.',
     },
   ];
 
@@ -7320,7 +9158,15 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
   for file in docs/adr/*.md; do
     for heading in Status Context Decision Consequences Verification References; do rg -x "## $heading" "$file"; done
   done
-  rg -n 'Next.js is a preferred candidate only|deferred until the measured P05 spike' docs/adr/0007-frontend-surface-boundaries.md
+  rg -F 'Next.js remains only a preferred candidate' docs/adr/0007-frontend-surface-boundaries.md
+  for file in CONTEXT.md docs/adr/0007-frontend-surface-boundaries.md; do
+    rg -F 'separate Frappe-native site/database' "$file"
+    rg -F 'minimal Dorzak branding' "$file"
+    rg -F 'tenant-bound Dorzak gateway' "$file"
+    rg -n 'versioned (approved )?application manifest' "$file"
+    rg -F 'never queries merchant databases directly' "$file"
+    rg -F 'P17 remains Not started and Not authorized' "$file"
+  done
   rg -n 'No dual-write|one authority|Qatar/QAR|PostgreSQL 16' CONTEXT.md docs/adr
   ```
 
@@ -7546,7 +9392,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
 
 - [ ] **Require Task 14's approved/implemented adapter before closure.**
 
-  This task cannot start under the present plan. First verify the later exact plan amendment and its Control Room record, independent review with zero Critical/Important findings, exact owner approval, updated P00_APPROVED_PLAN_COMMIT/P00_APPROVED_PLAN_SHA256, provider-native CI commit, canonical remote, sole required-gates status, immutable provider dependencies, exact approved runtimes, immutable PostgreSQL identity, complete provider normalizer, and exact two-run commands.
+  This task cannot start merely because this plan exists. First verify this exact amended plan and its later Control Room execution record, independent review with zero Critical/Important findings, exact owner approval, updated P00_APPROVED_PLAN_COMMIT/P00_APPROVED_PLAN_SHA256, provider-native CI commit, canonical remote, sole required-gates status, immutable provider dependencies, exact approved runtimes, immutable PostgreSQL identity, complete provider normalizer, and exact two-run commands.
 
   ~~~bash
   # First rerun every Task 0 command, including the scoped Task 14 decision-record parser.
@@ -7665,12 +9511,11 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
 
 - [ ] **Push the exact integrated SHA and obtain two new CI runs.**
 
-  ```bash
-  git -C "$P00_EXECUTION_WORKTREE" push "$P00_REMOTE_NAME" "$INTEGRATED_SHA:refs/heads/$P00_EXECUTION_BRANCH"
-  test "$(git ls-remote "$P00_REMOTE_NAME" "refs/heads/$P00_EXECUTION_BRANCH" | awk '{print $1}')" = "$INTEGRATED_SHA"
-  ```
+  This provider phase has separate material prerequisites: the owner must authorize and enable GitHub Pro for the still-private user-owned repository, and authorize a GitHub CLI credential that can add/update workflow files. The read-only 2026-07-14 preflight returned HTTP `403` for both branch-protection and effective-rules endpoints, and the current classic OAuth token exposes only `gist`, `read:org`, and `repo` rather than the required `workflow` scope. Provider execution is therefore currently blocked; never make the repository public or silently refresh credentials as a substitute for owner authorization. The owner approval must also explicitly accept the documented classic-check workflow-identity limitation. Local Tasks 0–16 do not require either provider capability.
 
-  Use only the complete trigger/download/normalizer commands embedded by the approved Task 14 amendment. Trigger run 1 and run 2 as distinct new runs, never reruns/retries. The amended normalizer writes exactly .artifacts/p00/ci/ci-run-1.json and ci-run-2.json in the Task 13 schema. Then require:
+  After that prerequisite is registered, execute the exact canonical Task 14 blocks `TASK14_PUSH_AND_RUN_COMMANDS`, `TASK14_REQUIRED_STATUS_COMMANDS`, and `TASK14_TWO_RUN_COMMANDS`, in that order and without alteration. They push `INTEGRATED_SHA` only to the owner-approved `origin/main`, verify the resulting push run, require zero applicable active ruleset rules, install or validate the exact app-scoped `required-gates` policy, and obtain two new workflow-dispatch runs. Do not substitute a generic branch push or target `P00_EXECUTION_BRANCH`.
+
+  Trigger run 1 and run 2 as distinct new runs, never reruns/retries. The amended normalizer writes exactly `.artifacts/p00/ci/ci-run-1.json` and `.artifacts/p00/ci/ci-run-2.json` in the Task 13 schema. Then require:
 
   ```bash
   CI_RUN_1=".artifacts/p00/ci/ci-run-1.json"
@@ -7850,7 +9695,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
 | Full PostgreSQL 16 suite, closed transport parser, every-boot default-PDO guard, wrong-nonce/substitution refusal and portable existing contract | Task 11 |
 | Process-level order/stock/wallet concurrency with barriers | Task 12 |
 | Provider-neutral jobs, control-bound runner class, aggregate, counts/versions/hashes, closed/atomic evidence interfaces | Task 13 |
-| Provider-native thin wrapper and required status without assumption | Task 14 stop gate and later approved amendment |
+| Provider-native thin wrapper, immutable dependencies, exact provider commands and app-scoped required status | Task 14; provider state only in gated Task 17 |
 | CONTEXT, seven ADRs, accurate setup/runbook/recovery | Tasks 15–16 |
 | Clean `CODE_SHA`, independent review, fresh checkout, two same-SHA CI runs with portable/per-run PostgreSQL boundaries, sanitized atomic evidence and exact parent/path SHA identities | Task 17 |
 
@@ -7864,6 +9709,6 @@ Before plan approval and again after any approved amendment:
 - [ ] Check interface names and cross-bindings across PHP, TypeScript, shell, JSON and evidence (`e2e:serve`, all three E2E phases, `PostgresQualificationGuard::assertPdo`, `ProcessBarrier::run`, the exact `P00_RUNNER_ROLE`/`P00_RUNNER_CLASS` pair, six job names, root evidence paths, portable/per-run PostgreSQL identities, and SHA/parent identities) for exact consistency; rerun both registered endpoint-substitution canaries and the valid-PG16 wrong-nonce refusal.
 - [ ] Check tasks are numbered 0–17 exactly once and retain mandatory order.
 - [ ] Check each writer has one staging allowlist, shared manifests/lockfiles/config/evidence have one serialized owner, and no command stages the original user-owned paths accidentally.
-- [ ] Check Task 14 remains a hard stop, the closed control JSON still binds every approval/input by exact record commit/hash, and Task 0/17 state that plan approval is not execution authority.
+- [ ] Check Task 14 is a complete approved design but not execution authority, all five canonical marked-block hashes match its closed record, the Control JSON still binds every approval/input by exact commit/hash, and Task 17 alone owns later provider-state changes.
 
 Execution handoff occurs only after this exact plan is independently reviewed, owner-approved, and durably authorized by the Control Room. Until then, stop at plan review.

@@ -31,12 +31,12 @@ It is a roadmap and architecture design, not an executable implementation plan. 
 1. **On written owner approval, the complete-launch PRD is the product authority.** Earlier PRDs and plans are evidence only where that PRD explicitly preserves them.
 2. **ERPNext is the operational and financial core for every paid merchant.** Dorzak remains the only experience exposed to merchants and customers.
 3. **One paid organization maps to one isolated Frappe site and data boundary.** A site may serve one or several locations of the same organization. Enterprise never requires three locations.
-4. **Dorzak is a modular monolith plus external systems, not a microservice estate.** Laravel owns the control plane and Dorzak-native domains. ERPNext, payment providers, object storage, messaging, and approved marketing systems sit behind narrow Interfaces.
+4. **Dorzak is a modular monolith plus external systems, not a microservice estate.** Laravel owns Dorzak SaaS authority, Dorzak-native domains, and governed gateway APIs. The internal Superadmin experience is a separate Frappe-native site and database. ERPNext, payment providers, object storage, messaging, and approved marketing systems sit behind narrow Interfaces.
 5. **There is one authority for every field and business fact.** No dual-write stock, invoice, payment, customer-account, plan, or workflow truth is permitted.
 6. **The existing merchant React application is preserved and incrementally modularized.** It is not rewritten before the first ERP-owned commerce tracer succeeds.
 7. **The public/customer web surface is a separate server-rendered React deployment.** It will host the corporate site, Free Tools, client websites, and merchant-customer mobile journeys. Next.js App Router is the preferred direction because SEO, localization, image performance, and merchant-site rendering are first-class requirements, but it becomes final only after the architecture spike and ADR in this roadmap pass.
 8. **The builder editor lives in the merchant application; published sites render in the public/customer web surface.** The publication artifact is a validated immutable schema, never arbitrary merchant JavaScript.
-9. **Superadmin is a governed product, not ambient god mode.** Access is read-only by default, reason-bound, audited, time-limited, and delegable by the Superadmin.
+9. **Superadmin is a governed Frappe-native internal product, not ambient god mode.** It uses Frappe Desk with minimal Dorzak branding on a separate site and database. Cross-merchant visibility and intervention use tenant-bound Dorzak gateway and `dorzak_core` APIs plus explicit reason-bound, time-limited, audited grants. The internal site never queries merchant databases directly, shares merchant credentials, or stores uncontrolled raw merchant records.
 10. **Internal feature flags protect incomplete work, but no incomplete plan or category is marketed or released publicly.**
 11. **We do not copy source code merely because it exists locally.** Every candidate passes license, security, architecture, tenant, localization, accessibility, upgrade, and rollback review first.
 12. **Milestones close by evidence, not by percentage or optimism.** A milestone is either open or its exit gate is proven.
@@ -95,8 +95,10 @@ The selected sequence is:
 Corporate + Free Tools + merchant public websites + customer mobile web
                     Next.js public/customer surface
                                   |
-Merchant desktop + Builder editor + governed Superadmin
-                       React/Vite application
+Merchant desktop + Builder editor             Internal Dorzak Superadmin
+        React/Vite application          separate minimally branded Frappe Desk
+                    \                              /
+                     governed Dorzak API calls only
                                   |
                          Dorzak Laravel API/BFF
         identity | tenancy | plans | policy | verticals | audit
@@ -114,8 +116,9 @@ Merchant desktop + Builder editor + governed Superadmin
 
 | Deployment | Responsibility | Must not own |
 |---|---|---|
-| Dorzak Laravel API/BFF | Organization, identity, plans, subscriptions, policies, vertical domains, orchestration, projections, audit, Superadmin APIs | ERP accounting/stock truth; public page rendering |
-| Merchant/Superadmin React app | Desktop management, POS where applicable, builder editor, operational dashboards, governed platform operations | Direct ERPNext or provider credentials; server authority |
+| Dorzak Laravel API/BFF | Organization, identity, plans, subscriptions, policies, vertical domains, orchestration, projections, audit, and governed Superadmin APIs | ERP accounting/stock truth; public page rendering |
+| Merchant React app | Desktop management, POS where applicable, builder editor, merchant dashboards, and merchant-facing platform status | Direct ERPNext or provider credentials; server authority; internal Superadmin UI |
+| Internal Superadmin Frappe site | Minimally branded Desk, approved internal operational applications and records, redacted projections, and governed platform operations through Dorzak APIs | Dorzak source-of-truth data; direct merchant-database access; shared merchant credentials; uncontrolled raw merchant copies |
 | Preferred public/customer Next.js app | Corporate pages, pricing, Free Tools, Our Clients, published merchant sites, customer mobile journeys, SEO and localized rendering | Financial/stock authority; direct ERPNext access |
 | dorzak_core Frappe app | Narrow ERP commands, mappings, audit envelope, contract version, health and controlled webhooks | Dorzak authentication UI, arbitrary generic CRUD exposure |
 | ERPNext site fleet | Accounting, stock, items, purchasing, canonical commercial documents, Projects/Tasks/Timesheets | Dorzak plan, identity, website, consent, or vertical-native truth |
@@ -133,7 +136,7 @@ backend/
     Http/                   thin controllers, requests, resources, middleware
   tests/
 
-src/                       existing merchant/Superadmin app; migrate by feature
+src/                       existing merchant app; migrate by feature
   features/
     organization/
     commercial/
@@ -141,7 +144,7 @@ src/                       existing merchant/Superadmin app; migrate by feature
     website/
     scheduling/
     verticals/
-    platform/
+    platform/              merchant-facing platform status only; never P17 UI
 
 apps/
   public-web/              added when P05 begins under the approved rendering-stack ADR
@@ -155,7 +158,7 @@ packages/                  created only when a second real consumer exists
   localization/
 ~~~
 
-M0–M4 do not move the entire current React tree merely to make the folders look new. New or materially changed work follows feature locality. Existing pages are decomposed when a task touches them or a measurable bundle/test problem requires it.
+M0–M4 do not move the entire current merchant React tree merely to make the folders look new. New or materially changed work follows feature locality. Existing pages are decomposed when a task touches them or a measurable bundle/test problem requires it. The exact P17 Superadmin site and versioned application manifest are deferred to a separately approved P17 design; legacy React Superadmin screens are not the target architecture.
 
 ---
 
@@ -231,13 +234,13 @@ Vertical Modules may compose these Interfaces. They may not clone their Implemen
 - Local database invariants use transactions, unique constraints, foreign keys, checks, and row locking where required.
 - A database transaction never remains open across ERPNext or provider HTTP calls.
 - Tenant resolution fails closed. Background, public, and Superadmin operations use explicit context modes rather than an absent global scope.
-- Cross-tenant queries are available only through governed platform query Modules and audited grants.
+- Cross-merchant visibility is available only through tenant-bound governed Dorzak gateway APIs under audited grants. The internal Superadmin site never queries merchant databases directly or reuses merchant credentials.
 - Policies authorize server actions even when the UI hides a control.
 - New shared behavior goes in a deep Domain Module. Existing conventional Actions and Services may remain until deliberately migrated.
 - Provider/Frappe code belongs in Infrastructure Adapters, not Domain models or controllers.
 - PHPStan/Larastan is added in P00 at an initially achievable baseline; new code may not add violations, and debt must trend downward.
 
-### 7.3 React / TypeScript
+### 7.3 Merchant/public React / TypeScript
 
 - TypeScript remains strict. Domain and external seams do not use any. Unknown external payloads are runtime-validated before adaptation.
 - UI consumes Dorzak DTOs, never raw ERPNext or payment-provider shapes.
@@ -250,13 +253,13 @@ Vertical Modules may compose these Interfaces. They may not clone their Implemen
 - Direction is a first-class layout input. Chronological axes may remain LTR inside an RTL shell when this is clearer and tested.
 - Use semantic HTML and accessible names before test IDs. Playwright selectors prefer roles and labels.
 - Motion uses transform/opacity, honors reduced motion, is interruptible, and stays within the PRD budgets.
-- Customer web is mobile-first; merchant and Superadmin operations are desktop-first but responsive.
+- Customer web is mobile-first and merchant React is desktop-first. Internal Superadmin follows native Frappe Desk patterns with minimal Dorzak branding; it is not a React target.
 
 ### 7.4 Frappe / ERPNext
 
 - Production pins a supported stable ERPNext/Frappe release and immutable image digest. The supplied develop checkout is reference code only.
 - Upstream core is not edited. dorzak_core uses hooks, patches, fixtures, extend_doctype_class where supported, and narrow whitelisted business commands.
-- Generic resource CRUD, Desk, credentials, and site headers are never exposed to a browser.
+- Merchant and customer browsers never receive merchant-site Desk, generic resource CRUD, credentials, or site headers. Authorized Dorzak staff may use only the separate internal Superadmin Desk; every cross-site action still uses governed APIs.
 - Every command validates contract version, site, organization, actor, role/grant, action, expiry, jti, idempotency key, and correlation ID.
 - ERP patches are forward-only, idempotent where possible, rehearsed on representative sites, and compatible with fleet cohort upgrades.
 - Contract tests run against the deterministic fake and the pinned real Frappe image.
@@ -430,7 +433,7 @@ Zero defects cannot be honestly guaranteed. Dorzak instead uses prevention, dete
 | Database integration on PostgreSQL | constraints, locks, leases, idempotency, migrations, tenant isolation |
 | Adapter contract | Fake and real ERP/provider implementations obey the same Interface |
 | HTTP/API | validation, auth, policy, resource shape, version/conflict behavior |
-| React unit/component | states, accessibility, typed adapters, policy presentation, forms |
+| Merchant/public React unit/component | states, accessibility, typed adapters, policy presentation, forms |
 | End-to-end | real Laravel + database + browser + controlled ERP/provider doubles |
 | Real-stack smoke | pinned ERPNext, payment sandbox, storage, queues, callbacks |
 | Migration/reconciliation | repeatability, parity, rollback/forward recovery |
@@ -558,7 +561,7 @@ The marketing skills under the supplied marketingskills installation are primary
 1. Preserve the current dirty checkout and all user-owned changes.
 2. Before worktree creation, record the exact MediaUrl user diff. With owner approval, either commit it separately on the baseline branch or export and apply only that reviewed patch in the clean worktree.
 3. After owner approval, create a clean isolated worktree from the owner-approved baseline commit. If a manual .worktrees location is used, ignore it first; a sibling/native worktree is preferred.
-4. Maintain a green integration branch named **codex/launch-baseline-v1**.
+4. Maintain **main** as the canonical green provider integration branch. Use **codex/launch-baseline-v1** as the isolated P00 execution branch until its reviewed commits are integrated into main.
 5. Use program branches named **codex/pNN-short-name**.
 6. Record branch merge-base before dispatch. Review **BASE..HEAD**, never an assumed last commit.
 7. Commit code and its tests together in small conventional commits.
@@ -702,7 +705,7 @@ Commercial Stream B may implement only the provider-neutral kernel until the Qat
 - site registry/router;
 - provisioning/upgrade/backup/restore/quarantine sagas;
 - release cohorts, health probes, queue fairness, contract compatibility;
-- Superadmin fleet read model.
+- redacted fleet-health projection and governed API contract for later P17 consumption; no P17 site or UI work.
 
 **Stream B — Commercial platform**
 
@@ -758,7 +761,7 @@ internal administrative/test harness provisions a trial organization
 → provider/cash fact
 → Dorzak projection and receipt
 → refund/return and reconciliation
-→ Superadmin health/audit visibility
+→ redacted health/audit projection through the governed API contract
 ~~~
 
 Outputs:
@@ -779,7 +782,7 @@ Exit evidence:
 - counts, hashes, stock, receivables, tax, and trial balance reconcile;
 - after ROUTED, Laravel rejects authoritative commerce writes;
 - mobile customer journey and desktop merchant journey both pass;
-- Superadmin identifies the exact failed site/command without receiving merchant credentials.
+- a governed test harness identifies the exact failed site/command without receiving merchant credentials and proves the redacted API evidence later P17 may consume; M4 performs no P17 site or UI work.
 
 M4 is the architecture proof. It is not a public release.
 It deliberately does not claim the visitor-facing signup/acquisition journey; that complete journey belongs to P05/M5.
@@ -793,7 +796,7 @@ It deliberately does not claim the visitor-facing signup/acquisition journey; th
 Outputs:
 
 - typed EN/FR/AR catalogues and RTL architecture;
-- Precision Commerce OS tokens, components, graphics, and motion system;
+- Precision Commerce OS tokens, components, graphics, and motion system for merchant, public, and customer surfaces; P17 retains minimally branded native Frappe Desk;
 - a production-shaped rendering-stack spike and ADR comparing the preferred Next.js direction against the current stack for SEO, EN/FR/AR and RTL, verified custom domains, cache/cookie isolation, bundle budgets, deployment cost, observability, and rollback;
 - the approved public/customer web application;
 - corporate navigation, homepage, visitor signup/trial, pricing, category/plan pages, Free Tools framework, Our Clients CMS;
@@ -834,7 +837,7 @@ Outputs:
 - Coiffeur/Salon/Beauty/Spa;
 - plan-specific depth for Pro, Business, and Enterprise;
 - one-location high-operation Enterprise support;
-- relevant website templates, mobile flows, reports, permissions, and Superadmin views.
+- relevant website templates, mobile flows, reports, permissions, and P17-ready governed API/redacted-projection contracts; no P17 site or UI work.
 
 Exit evidence:
 
@@ -860,7 +863,7 @@ Outputs:
 - general business configuration;
 - category-specific privacy, consent, retention, approval, and restricted-marketing rules;
 - extended healthcare trial policy;
-- required websites, customer portals, dashboards, reports, and Superadmin safety controls.
+- required websites, customer portals, dashboards, reports, and server-enforced P17-ready safety contracts; no P17 site or UI work.
 
 Exit evidence:
 
@@ -878,6 +881,8 @@ Exit evidence:
 
 **Parallelism:** at most two streams; Superadmin and shared audit changes serialized.
 
+P17 remains **Not started** and **Not authorized**. Its M8 work requires a separately approved P17 design, implementation plan, and explicit execution authorization.
+
 Outputs:
 
 - CRM, loyalty, referrals, reviews, campaigns, communications, attribution;
@@ -885,7 +890,7 @@ Outputs:
 - ERP-backed Work/Projects/Tasks/Timesheets with Gantt projection;
 - managed website/service Delivery Room;
 - approved shipping/delivery provider scope;
-- complete Superadmin organization, commercial, ERP fleet, support, intervention, public-content, incident, and delegated-team controls.
+- complete separate Frappe-native internal Superadmin site for organization, commercial, ERP fleet, support, intervention, public-content, incident, and delegated-team operations, using minimally branded Desk, a versioned approved application manifest, governed APIs and grants, and redacted projections.
 
 Exit evidence:
 
@@ -896,7 +901,9 @@ Exit evidence:
 - shipping/payment callbacks are signed, deduplicated, and reconciled;
 - Superadmin grants are reason-bound, time-limited, read-only by default, auditable, revocable, and require explicit elevation for mutation;
 - no Dorzak teammate obtains access unless Superadmin grants it;
-- tenant health and failure location are visible without exposing secrets.
+- tenant health and failure location are visible without exposing secrets;
+- the internal Superadmin site and database remain separate from every merchant site and database, with no direct merchant-database access, shared credentials, or uncontrolled raw merchant copies;
+- source-of-truth API tests, application-manifest compatibility tests, cross-tenant denials, owner-access tests, and grant expiry/revocation tests pass.
 
 ### M9 — Complete-launch qualification and release
 
@@ -961,7 +968,7 @@ M6 commerce + restaurant + complete P09 appointments/beauty
   ↓
 M7 healthcare + education + gym + nonprofit + general
   ↓
-M8 growth + Work + delivery + Superadmin
+M8 growth + Work + delivery + Frappe-native Superadmin
   ↓
 M9 qualification, rehearsal, one public launch
 ~~~
@@ -997,8 +1004,8 @@ No homepage, plan UI, ERP provisioning, Work, builder, or vertical coding begins
 
 | Source | Use | Boundary |
 |---|---|---|
-| Existing Dorzak React/Laravel product | Primary implementation starting point and closest current Pro behavior | Preserve verified behavior, migrate authority deliberately, and refactor only behind tests |
-| ERPNext/Frappe | Canonical ERP core | Pinned stable release; one isolated site per organization; dorzak_core commands; no exposed Desk/generic API |
+| Existing Dorzak React/Laravel product | Primary merchant-facing implementation starting point and closest current Pro behavior | Preserve verified merchant behavior, migrate authority deliberately, and refactor only behind tests; do not retain legacy React Superadmin as the P17 target |
+| ERPNext/Frappe | Canonical ERP core plus the separate internal P17 Desk direction | Pinned stable release; one isolated site per paid organization; dorzak_core commands; no merchant/customer exposure to Desk or generic APIs; only the distinct internal P17 site exposes minimally branded Desk to authorized Dorzak staff |
 | Approved Qatar/Tunisia payment providers | Dorzak subscription and merchant payment rails where commercially approved | Provider-neutral kernel, hosted/tokenized page, signed receipts, reconciliation |
 | Frappe Docker | Deployment/backup/site-operation patterns | Adapt after production hardening; do not deploy the supplied development ERP checkout |
 
@@ -1007,7 +1014,7 @@ No homepage, plan UI, ERP provisioning, Work, builder, or vertical coding begins
 | Source | Learn or adapt | Do not do |
 |---|---|---|
 | Website builder | responsive canvas, layers, section schema, preview/snapshot concepts | embed AGPL runtime or arbitrary HTML/CSS/JS without legal/security approval |
-| Frappe UI | semantic tokens, behavior, list/editor interaction patterns | import its Vue beta into React or copy Frappe identity |
+| Frappe UI | semantic tokens, behavior, list/editor interaction patterns | port Frappe UI into merchant React or apply Frappe identity to merchant/customer surfaces; P17 intentionally retains native Desk patterns with minimal Dorzak branding |
 | Frappe Gantt | pinned hardened timeline renderer | treat it as Work authority, scheduling engine, or authorization |
 | Frappe Payments / local payment examples | gateway vocabulary, webhook and adapter shapes | assume Stripe or a sample provider works in Qatar/Tunisia |
 | ERPNext Shipping | provider terminology and payload/test vocabulary | copy its operational engine or mix it with Work |
@@ -1030,7 +1037,7 @@ No homepage, plan UI, ERP provisioning, Work, builder, or vertical coding begins
 ### 16.4 Explicitly deferred or isolated
 
 - Mautic is Dorzak’s internal marketing engine at launch. Merchant Mautic requires a later isolated-per-merchant design.
-- CRM, Helpdesk, HRMS, and Insights are future server-side integration candidates, not launch-critical engines.
+- CRM, Helpdesk, HRMS, and Insights are candidates only for explicit versioned site manifests after license, security, supported-version, migration, backup, localization, and contract review. None is automatically installed or currently authorized.
 - Education and shipping repositories are domain vocabulary and test references, not Dorzak’s source of truth.
 - GPL/AGPL material is never copied before written license review. A service boundary alone does not settle license obligations.
 
@@ -1121,6 +1128,8 @@ If two documents disagree, the higher level wins until it is deliberately amende
 Approval of the session/control model may authorize a fresh read-only P00 task to inspect the review-candidate baseline and roadmap and present a non-authoritative proposed P00 design. It does not authorize writing or committing that design.
 
 The owner must explicitly approve both the complete-launch PRD review candidate and this roadmap before they become formal execution authority.
+
+Approval of this roadmap does not authorize P17 design or plan writing, implementation, application installation, site provisioning, credentials, migration, or execution.
 
 Separate staged approvals are required for:
 
