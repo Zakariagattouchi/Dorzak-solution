@@ -31,7 +31,7 @@ class CustomerApiTest extends TestCase
         Customer::factory()->for($this->store)->create(['name' => 'Sarah Jenkins', 'email' => 'sarah@x.com', 'phone' => '+1 555-0144']);
         Customer::factory()->for($this->store)->create(['name' => 'David Miller', 'email' => 'd@y.com', 'phone' => '+1 555-0812']);
 
-        $this->actingAsMember($this->owner)->getJson('/api/v1/customers?search=sarah')->assertJsonCount(1, 'data');
+        $this->actingAsMember($this->owner)->getJson('/api/v1/customers?search=jenkins')->assertJsonCount(1, 'data');
         $this->actingAsMember($this->owner)->getJson('/api/v1/customers?search=0812')->assertJsonCount(1, 'data');
     }
 

@@ -52,9 +52,9 @@ class Customer extends Model
         $like = '%'.str_replace('%', '\%', $term).'%';
 
         return $query->where(fn (Builder $q) => $q
-            ->where('name', 'like', $like)
-            ->orWhere('email', 'like', $like)
-            ->orWhere('phone', 'like', $like));
+            ->whereLike('name', $like, caseSensitive: false)
+            ->orWhereLike('email', $like, caseSensitive: false)
+            ->orWhereLike('phone', $like, caseSensitive: false));
     }
 
     public function orders(): HasMany

@@ -101,9 +101,12 @@ class Product extends Model
         $like = '%'.str_replace('%', '\%', $term).'%';
 
         return $query->where(function (Builder $q) use ($like) {
-            $q->where('name', 'like', $like)
-                ->orWhere('sku', 'like', $like)
-                ->orWhereHas('category', fn (Builder $c) => $c->where('name', 'like', $like));
+            $q->whereLike('name', $like, caseSensitive: false)
+                ->orWhereLike('sku', $like, caseSensitive: false)
+                ->orWhereHas(
+                    'category',
+                    fn (Builder $category) => $category->whereLike('name', $like, caseSensitive: false),
+                );
         });
     }
 }
