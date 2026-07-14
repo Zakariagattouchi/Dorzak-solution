@@ -59,7 +59,10 @@ export function DataTable<T>({
         <tbody>
           {data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length + (selectable ? 1 : 0)} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+              <td
+                colSpan={columns.length + (selectable ? 1 : 0)}
+                style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}
+              >
                 No records found.
               </td>
             </tr>
@@ -79,9 +82,7 @@ export function DataTable<T>({
                     </td>
                   )}
                   {columns.map((col) => (
-                    <td key={col.key}>
-                      {col.render ? col.render(row) : (row as any)[col.key]}
-                    </td>
+                    <td key={col.key}>{col.render ? col.render(row) : (row as any)[col.key]}</td>
                   ))}
                 </tr>
               );

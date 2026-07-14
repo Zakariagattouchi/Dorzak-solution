@@ -56,15 +56,61 @@ import {
 } from 'iconoir-react';
 
 export type IconName =
-  | 'pos' | 'products' | 'categories' | 'orders' | 'customers' | 'reports'
-  | 'storefront' | 'settings' | 'billing' | 'plus' | 'search' | 'filter'
-  | 'edit' | 'trash' | 'check' | 'close' | 'chevronRight' | 'chevronLeft'
-  | 'dollar' | 'userPlus' | 'arrowRight' | 'trending' | 'checkCircle'
-  | 'alert' | 'info' | 'menu' | 'card' | 'cash' | 'transfer' | 'whatsapp'
-  | 'eye' | 'star' | 'mail' | 'sparkles' | 'building' | 'refresh' | 'receipt'
-  | 'link' | 'lightbulb' | 'mapPin' | 'note' | 'clipboard' | 'tag' | 'fileText'
-  | 'home' | 'dineIn' | 'qr' | 'scanQr' | 'table' | 'copy' | 'phone'
-  | 'cart' | 'clock' | 'delivery' | 'flame';
+  | 'pos'
+  | 'products'
+  | 'categories'
+  | 'orders'
+  | 'customers'
+  | 'reports'
+  | 'storefront'
+  | 'settings'
+  | 'billing'
+  | 'plus'
+  | 'search'
+  | 'filter'
+  | 'edit'
+  | 'trash'
+  | 'check'
+  | 'close'
+  | 'chevronRight'
+  | 'chevronLeft'
+  | 'dollar'
+  | 'userPlus'
+  | 'arrowRight'
+  | 'trending'
+  | 'checkCircle'
+  | 'alert'
+  | 'info'
+  | 'menu'
+  | 'card'
+  | 'cash'
+  | 'transfer'
+  | 'whatsapp'
+  | 'eye'
+  | 'star'
+  | 'mail'
+  | 'sparkles'
+  | 'building'
+  | 'refresh'
+  | 'receipt'
+  | 'link'
+  | 'lightbulb'
+  | 'mapPin'
+  | 'note'
+  | 'clipboard'
+  | 'tag'
+  | 'fileText'
+  | 'home'
+  | 'dineIn'
+  | 'qr'
+  | 'scanQr'
+  | 'table'
+  | 'copy'
+  | 'phone'
+  | 'cart'
+  | 'clock'
+  | 'delivery'
+  | 'flame';
 
 interface AppIconProps {
   name: IconName;
@@ -133,5 +179,14 @@ const icons: Record<IconName, React.ElementType> = {
 
 export const AppIcon: React.FC<AppIconProps> = ({ name, size = 20, className = '', color }) => {
   const Icon = icons[name] || Box;
-  return <Icon aria-hidden="true" width={size} height={size} strokeWidth={2} className={className} color={color} />;
+  return (
+    <Icon
+      aria-hidden="true"
+      width={size}
+      height={size}
+      strokeWidth={2}
+      className={className}
+      color={color}
+    />
+  );
 };

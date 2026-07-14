@@ -18,13 +18,19 @@ export interface ApiError {
 }
 
 export function getToken(): string | null {
-  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
 }
 export function setToken(token: string | null): void {
   try {
     if (token) localStorage.setItem(TOKEN_KEY, token);
     else localStorage.removeItem(TOKEN_KEY);
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 type Options = {
@@ -39,7 +45,10 @@ export async function request<T = unknown>(path: string, opts: Options = {}): Pr
   const method = opts.method ?? 'GET';
   const base = opts.base ?? API_BASE;
 
-  const url = new URL(`${base}${path}`, base.startsWith('http') ? undefined : window.location.origin);
+  const url = new URL(
+    `${base}${path}`,
+    base.startsWith('http') ? undefined : window.location.origin,
+  );
   if (opts.params) {
     for (const [k, v] of Object.entries(opts.params)) {
       if (v !== undefined && v !== '') url.searchParams.set(k, String(v));
@@ -105,7 +114,9 @@ export async function requestBlob(path: string): Promise<Blob> {
   // (`||`, not `??` — the env var is "" in dev, which `??` would let through
   // and drop the /api/v1 prefix, 404-ing every proof/blob fetch).
   const base = API_BASE;
-  const url = base.startsWith('http') ? `${base}${path}` : `${window.location.origin}${base}${path}`;
+  const url = base.startsWith('http')
+    ? `${base}${path}`
+    : `${window.location.origin}${base}${path}`;
   const response = await fetch(url, {
     headers: {
       Accept: 'image/*',

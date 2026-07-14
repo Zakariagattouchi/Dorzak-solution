@@ -28,7 +28,14 @@ test('bootstraps guest/authenticated sessions and exposes login validation', asy
   expect(useAuthStore.getState().status).toBe('guest');
 
   const user = { id: 1, name: 'Owner', email: 'owner@e2e.dorzak.test', is_platform_admin: false };
-  const store = { id: 1, name: 'Dorzak', currency: 'QAR', symbol_placement: 'BEFORE', language: 'en', country: 'Qatar' };
+  const store = {
+    id: 1,
+    name: 'Dorzak',
+    currency: 'QAR',
+    symbol_placement: 'BEFORE',
+    language: 'en',
+    country: 'Qatar',
+  };
   setToken('valid');
   vi.mocked(authApi.me).mockResolvedValue({
     data: { user, store, role: 'OWNER', abilities: ['orders.create'] },

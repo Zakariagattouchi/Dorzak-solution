@@ -90,10 +90,18 @@
   border-inline-start: 4px solid var(--color-border);
 }
 
-.toast.success { border-inline-start-color: var(--color-success); }
-.toast.warning { border-inline-start-color: var(--color-warning); }
-.toast.danger { border-inline-start-color: var(--color-error); }
-.toast.info { border-inline-start-color: var(--color-info); }
+.toast.success {
+  border-inline-start-color: var(--color-success);
+}
+.toast.warning {
+  border-inline-start-color: var(--color-warning);
+}
+.toast.danger {
+  border-inline-start-color: var(--color-error);
+}
+.toast.info {
+  border-inline-start-color: var(--color-info);
+}
 
 @media (max-width: 767px) {
   .modal-overlay {

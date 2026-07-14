@@ -22,10 +22,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
         <div className="flex flex-col">
           {label && <span className="form-label">{label}</span>}
           {description && (
-            <span
-              id={descriptionId}
-              style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}
-            >
+            <span id={descriptionId} style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               {description}
             </span>
           )}

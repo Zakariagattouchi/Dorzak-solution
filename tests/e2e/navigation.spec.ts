@@ -3,7 +3,9 @@ import { expect, test } from './fixtures/merchant';
 test('redirects to checkout and renders the protected shell', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/checkout$/);
-  await expect(page.getByRole('complementary', { name: 'Primary navigation' })).toContainText('Dorzak Merchant');
+  await expect(page.getByRole('complementary', { name: 'Primary navigation' })).toContainText(
+    'Dorzak Merchant',
+  );
 });
 
 test('navigates through every merchant route semantically', async ({ page }) => {

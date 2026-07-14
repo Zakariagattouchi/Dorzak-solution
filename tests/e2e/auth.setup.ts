@@ -17,10 +17,10 @@ setup('authenticate the deterministic merchant', async ({ page, request }) => {
   expect(payload.data.token).toMatch(/\|/);
 
   await page.goto(frontendUrl);
-  await page.evaluate(
-    ({ key, token }) => localStorage.setItem(key, token),
-    { key: tokenKey, token: payload.data.token },
-  );
+  await page.evaluate(({ key, token }) => localStorage.setItem(key, token), {
+    key: tokenKey,
+    token: payload.data.token,
+  });
   await page.goto('/checkout');
   await expect(page.getByRole('complementary', { name: 'Primary navigation' })).toBeVisible();
   await page.context().storageState({ path: storageStatePath });

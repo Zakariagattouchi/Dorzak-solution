@@ -45,31 +45,35 @@ export const router = createBrowserRouter([
       { path: 'config', element: <SettingsPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'billing', element: <BillingPage /> },
-      { path: '*', element: <Navigate to="/checkout" replace /> }
-    ]
+      { path: '*', element: <Navigate to="/checkout" replace /> },
+    ],
   },
   {
     path: '/catalog/preview',
-    element: <StorefrontPreviewPage />
+    element: <StorefrontPreviewPage />,
   },
   {
     path: '/store/:slug',
-    element: <StorefrontPreviewPage />
+    element: <StorefrontPreviewPage />,
   },
   {
     path: '/store/:slug/orders/:orderNumber',
-    element: <OrderStatusPage />
+    element: <OrderStatusPage />,
   },
   {
     path: '/platform',
-    element: <PlatformShell><PlatformPage /></PlatformShell>
+    element: (
+      <PlatformShell>
+        <PlatformPage />
+      </PlatformShell>
+    ),
   },
   {
     path: '/login',
-    element: <LoginPage />
+    element: <LoginPage />,
   },
   {
     path: '/signup',
-    element: <SignupPage />
-  }
+    element: <SignupPage />,
+  },
 ]);

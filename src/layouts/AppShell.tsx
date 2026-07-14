@@ -21,7 +21,8 @@ export const AppShell: React.FC = () => {
   const { fetchSettings } = useSettingsStore();
 
   // A store-less platform admin belongs in the platform console, not here.
-  const isPlatformOnly = status === 'authenticated' && store === null && user?.is_platform_admin === true;
+  const isPlatformOnly =
+    status === 'authenticated' && store === null && user?.is_platform_admin === true;
 
   // Establish the session on first mount.
   useEffect(() => {
@@ -48,7 +49,13 @@ export const AppShell: React.FC = () => {
         role="status"
         aria-label="Loading your store…"
         aria-live="polite"
-        style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--text-muted)',
+        }}
       >
         Loading your store…
       </div>
@@ -67,7 +74,11 @@ export const AppShell: React.FC = () => {
     <div className="app-shell">
       <Sidebar isOpen={isMenuOpen} onNavigate={() => setIsMenuOpen(false)} />
       {isMenuOpen && (
-        <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setIsMenuOpen(false)} />
+        <button
+          className="sidebar-scrim"
+          aria-label="Close navigation"
+          onClick={() => setIsMenuOpen(false)}
+        />
       )}
       <div className="app-main">
         <ImpersonationBanner />

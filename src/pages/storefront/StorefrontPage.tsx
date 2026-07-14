@@ -14,7 +14,9 @@ export const StorefrontPage: React.FC = () => {
   const { addToast } = useToastStore();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'STATUS' | 'BRANDING' | 'FULFILLMENT' | 'PAYMENTS'>('STATUS');
+  const [activeTab, setActiveTab] = useState<'STATUS' | 'BRANDING' | 'FULFILLMENT' | 'PAYMENTS'>(
+    'STATUS',
+  );
 
   // Form states
   const [storeSlug, setStoreSlug] = useState('');
@@ -51,21 +53,27 @@ export const StorefrontPage: React.FC = () => {
   const [onFreePlan, setOnFreePlan] = useState(false);
 
   // Couriers collect from the store pin; without it delivery can't be offered.
-  const storeHasLocation = (accountInfo as any)?.latitude != null && (accountInfo as any)?.longitude != null;
+  const storeHasLocation =
+    (accountInfo as any)?.latitude != null && (accountInfo as any)?.longitude != null;
 
   // A branded storefront is a paid feature — surface that up front instead of
   // letting the save fail with a plan error.
   useEffect(() => {
     (subscriptionApi.get() as Promise<any>)
       .then((res) => setOnFreePlan(!!res?.data?.plan_is_default))
-      .catch(() => { /* banner is best-effort */ });
+      .catch(() => {
+        /* banner is best-effort */
+      });
   }, []);
 
   // Sync state from store when accountInfo loaded
   useEffect(() => {
     if (accountInfo) {
       setStoreSlug(accountInfo.storeSlug || '');
-      setStorePublicUrl((accountInfo.publicUrl || '').trim() || `${window.location.origin}/store/${accountInfo.storeSlug || ''}`);
+      setStorePublicUrl(
+        (accountInfo.publicUrl || '').trim() ||
+          `${window.location.origin}/store/${accountInfo.storeSlug || ''}`,
+      );
       setStoreBio(accountInfo.storeBio || '');
       setBannerUrl(accountInfo.bannerUrl || '');
       setLogoUrl(accountInfo.logoUrl || '');
@@ -94,19 +102,25 @@ export const StorefrontPage: React.FC = () => {
 
   const publicUrl = storePublicUrl || `${window.location.origin}/store/${storeSlug}`;
   const publicUrlPlaceholder = `${window.location.origin}/store/${storeSlug}`.trim();
-  const storefrontUrl = (storePublicUrl && !storePublicUrl.includes('/store/')
-    ? storePublicUrl.trim().replace(/\/+$/, '') + `/store/${storeSlug}`
-    : publicUrl).trim();
+  const storefrontUrl = (
+    storePublicUrl && !storePublicUrl.includes('/store/')
+      ? storePublicUrl.trim().replace(/\/+$/, '') + `/store/${storeSlug}`
+      : publicUrl
+  ).trim();
   const tableCount = Math.max(0, Math.min(500, parseInt(dineInTableCount || '0', 10) || 0));
-  const tableLinks = useMemo(() => Array.from({ length: tableCount }, (_, index) => {
-    const table = index + 1;
-    const url = `${storefrontUrl}?mode=dine_in&table=${table}`;
-    return {
-      table,
-      url,
-      qr: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=12&data=${encodeURIComponent(url)}`,
-    };
-  }), [publicUrl, tableCount]);
+  const tableLinks = useMemo(
+    () =>
+      Array.from({ length: tableCount }, (_, index) => {
+        const table = index + 1;
+        const url = `${storefrontUrl}?mode=dine_in&table=${table}`;
+        return {
+          table,
+          url,
+          qr: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=12&data=${encodeURIComponent(url)}`,
+        };
+      }),
+    [publicUrl, tableCount],
+  );
 
   const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -162,7 +176,7 @@ export const StorefrontPage: React.FC = () => {
         showOutOfStockOnline: showOutOfStock,
         productCardLayout,
         showStoreHeader,
-        showStoreGradient
+        showStoreGradient,
       });
 
       // Step 3: Refresh to get the newly generated media URLs from backend
@@ -173,7 +187,10 @@ export const StorefrontPage: React.FC = () => {
       addToast('Online storefront customization saved!', 'success');
     } catch (err: any) {
       if (err?.code === 'PLAN_UPGRADE_REQUIRED') {
-        addToast('A branded storefront is a paid feature — start a free trial or upgrade to claim your store link', 'info');
+        addToast(
+          'A branded storefront is a paid feature — start a free trial or upgrade to claim your store link',
+          'info',
+        );
         navigate('/billing');
       } else {
         addToast(err?.message ?? 'Failed to save storefront options', 'danger');
@@ -184,11 +201,18 @@ export const StorefrontPage: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: '900px', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+    <div
+      style={{ maxWidth: '900px', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 className="text-title-lg" style={{ margin: 0 }}>Online Storefront Customizer</h2>
-          <span className="text-body-sm text-muted">Configure your public web catalog, online ordering wizard, banner, and WhatsApp integration</span>
+          <h2 className="text-title-lg" style={{ margin: 0 }}>
+            Online Storefront Customizer
+          </h2>
+          <span className="text-body-sm text-muted">
+            Configure your public web catalog, online ordering wizard, banner, and WhatsApp
+            integration
+          </span>
         </div>
         <AppButton variant="secondary" onClick={() => navigate(`/catalog/preview`)}>
           <AppIcon name="eye" size={16} /> Live Catalog Preview
@@ -196,34 +220,70 @@ export const StorefrontPage: React.FC = () => {
       </div>
 
       {onFreePlan && (
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', borderLeft: '4px solid var(--dorzak-primary)' }}>
+        <div
+          className="card"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            flexWrap: 'wrap',
+            borderLeft: '4px solid var(--dorzak-primary)',
+          }}
+        >
           <AppIcon name="sparkles" size={20} color="var(--dorzak-primary)" />
           <div style={{ flex: 1, minWidth: '220px' }}>
-            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Your branded storefront is a paid feature</div>
+            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+              Your branded storefront is a paid feature
+            </div>
             <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              On the Free plan customers see your view-only menu link. Claim your own store link, online ordering and delivery with a free trial.
+              On the Free plan customers see your view-only menu link. Claim your own store link,
+              online ordering and delivery with a free trial.
             </span>
           </div>
-          <AppButton variant="primary" onClick={() => navigate('/billing')}>View plans</AppButton>
+          <AppButton variant="primary" onClick={() => navigate('/billing')}>
+            View plans
+          </AppButton>
         </div>
       )}
 
       {/* Delivery needs a pickup point — couriers collect from your store pin. */}
       {allowDelivery && !storeHasLocation && (
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', borderLeft: '4px solid var(--dorzak-warning, #f59e0b)', backgroundColor: '#fef3c7' }}>
+        <div
+          className="card"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            flexWrap: 'wrap',
+            borderLeft: '4px solid var(--dorzak-warning, #f59e0b)',
+            backgroundColor: '#fef3c7',
+          }}
+        >
           <AppIcon name="mapPin" size={20} color="#92400e" />
           <div style={{ flex: 1, minWidth: '220px' }}>
-            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#92400e' }}>Delivery is off until you set your store location</div>
+            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#92400e' }}>
+              Delivery is off until you set your store location
+            </div>
             <span style={{ fontSize: '0.82rem', color: '#92400e' }}>
-              Couriers collect from your store pin — without it we can't price a delivery or tell a driver where to go.
+              Couriers collect from your store pin — without it we can't price a delivery or tell a
+              driver where to go.
             </span>
           </div>
-          <AppButton variant="primary" onClick={() => navigate('/config')}>Set location</AppButton>
+          <AppButton variant="primary" onClick={() => navigate('/config')}>
+            Set location
+          </AppButton>
         </div>
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid var(--color-border)', overflowX: 'auto' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: '4px',
+          borderBottom: '1px solid var(--color-border)',
+          overflowX: 'auto',
+        }}
+      >
         {(['STATUS', 'BRANDING', 'FULFILLMENT', 'PAYMENTS'] as const).map((tab) => (
           <button
             key={tab}
@@ -233,11 +293,12 @@ export const StorefrontPage: React.FC = () => {
               padding: '10px 16px',
               fontSize: '13px',
               fontWeight: 700,
-              borderBottom: activeTab === tab ? '2px solid var(--color-primary)' : '2px solid transparent',
+              borderBottom:
+                activeTab === tab ? '2px solid var(--color-primary)' : '2px solid transparent',
               color: activeTab === tab ? 'var(--color-primary)' : 'var(--color-ink-muted)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
-              transition: 'all var(--transition-fast)'
+              transition: 'all var(--transition-fast)',
             }}
           >
             {tab === 'STATUS' && 'Store Status & Link'}
@@ -248,38 +309,81 @@ export const StorefrontPage: React.FC = () => {
         ))}
       </div>
 
-      <form onSubmit={handleSave} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <form
+        onSubmit={handleSave}
+        className="card"
+        style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
+      >
         {/* Tab 1: Status & Link */}
         {activeTab === 'STATUS' && (
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
               <div>
-                <h3 className="text-title-md" style={{ margin: 0 }}>Online Catalog Activation</h3>
-                <span className="text-body-sm text-muted">Publish your online store for public customer orders</span>
+                <h3 className="text-title-md" style={{ margin: 0 }}>
+                  Online Catalog Activation
+                </h3>
+                <span className="text-body-sm text-muted">
+                  Publish your online store for public customer orders
+                </span>
               </div>
               <ToggleSwitch
                 checked={accountInfo.onlineStoreEnabled}
                 onChange={async () => {
                   await toggleOnlineStore();
-                  addToast(`Online store ${!accountInfo.onlineStoreEnabled ? 'enabled' : 'disabled'}`, 'info');
+                  addToast(
+                    `Online store ${!accountInfo.onlineStoreEnabled ? 'enabled' : 'disabled'}`,
+                    'info',
+                  );
                 }}
               />
             </div>
 
             {accountInfo.onlineStoreEnabled && (
-              <div style={{ backgroundColor: 'var(--color-primary-soft)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-primary-border)' }}>
-                <span className="text-label-sm" style={{ color: 'var(--color-primary)', display: 'block', marginBottom: '4px' }}>CUSTOM STORE WEB ADDRESS</span>
+              <div
+                style={{
+                  backgroundColor: 'var(--color-primary-soft)',
+                  padding: '16px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--color-primary-border)',
+                }}
+              >
+                <span
+                  className="text-label-sm"
+                  style={{ color: 'var(--color-primary)', display: 'block', marginBottom: '4px' }}
+                >
+                  CUSTOM STORE WEB ADDRESS
+                </span>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <TextInput value={storePublicUrl} onChange={(e) => setStorePublicUrl(e.target.value.trim())} placeholder={publicUrlPlaceholder} style={{ flex: 1 }} />
-                  <AppButton type="button" variant="secondary" onClick={() => {
-                    window.open(storefrontUrl, '_blank', 'noopener');
-                  }}>
+                  <TextInput
+                    value={storePublicUrl}
+                    onChange={(e) => setStorePublicUrl(e.target.value.trim())}
+                    placeholder={publicUrlPlaceholder}
+                    style={{ flex: 1 }}
+                  />
+                  <AppButton
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      window.open(storefrontUrl, '_blank', 'noopener');
+                    }}
+                  >
                     Open
                   </AppButton>
-                  <AppButton type="button" variant="secondary" onClick={() => {
-                    navigator.clipboard.writeText(storefrontUrl);
-                    addToast('Storefront URL copied!', 'success');
-                  }}>
+                  <AppButton
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(storefrontUrl);
+                      addToast('Storefront URL copied!', 'success');
+                    }}
+                  >
                     Copy
                   </AppButton>
                 </div>
@@ -289,7 +393,9 @@ export const StorefrontPage: React.FC = () => {
             <TextInput
               label="Store Link Slug"
               value={storeSlug}
-              onChange={(e) => setStoreSlug(e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, ''))}
+              onChange={(e) =>
+                setStoreSlug(e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, ''))
+              }
               placeholder="e.g. my-store-name"
             />
           </>
@@ -298,7 +404,9 @@ export const StorefrontPage: React.FC = () => {
         {/* Tab 2: Branding & Banner */}
         {activeTab === 'BRANDING' && (
           <>
-            <h3 className="text-title-md" style={{ margin: 0 }}>Visual Branding & Catalog Header</h3>
+            <h3 className="text-title-md" style={{ margin: 0 }}>
+              Visual Branding & Catalog Header
+            </h3>
             <TextInput
               label="Store Header Bio / Welcome Message"
               value={storeBio}
@@ -307,25 +415,93 @@ export const StorefrontPage: React.FC = () => {
             />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <label className="file-upload-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--color-border-strong)', padding: '16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>
-                {bannerUrl && <img src={bannerUrl} alt="Current banner" style={{ maxHeight: '100px', maxWidth: '100%', marginBottom: '8px', objectFit: 'cover' }} />}
+              <label
+                className="file-upload-card"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px dashed var(--color-border-strong)',
+                  padding: '16px',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                }}
+              >
+                {bannerUrl && (
+                  <img
+                    src={bannerUrl}
+                    alt="Current banner"
+                    style={{
+                      maxHeight: '100px',
+                      maxWidth: '100%',
+                      marginBottom: '8px',
+                      objectFit: 'cover',
+                    }}
+                  />
+                )}
                 <strong>Cover Banner</strong>
                 <span className="text-label-sm text-muted">JPG, PNG or WebP</span>
-                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleBannerChange} style={{ marginTop: '8px' }} />
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleBannerChange}
+                  style={{ marginTop: '8px' }}
+                />
               </label>
 
-              <label className="file-upload-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--color-border-strong)', padding: '16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>
-                {logoUrl && <img src={logoUrl} alt="Current logo" style={{ maxHeight: '100px', maxWidth: '100%', marginBottom: '8px', objectFit: 'contain' }} />}
+              <label
+                className="file-upload-card"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px dashed var(--color-border-strong)',
+                  padding: '16px',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                }}
+              >
+                {logoUrl && (
+                  <img
+                    src={logoUrl}
+                    alt="Current logo"
+                    style={{
+                      maxHeight: '100px',
+                      maxWidth: '100%',
+                      marginBottom: '8px',
+                      objectFit: 'contain',
+                    }}
+                  />
+                )}
                 <strong>Store Logo</strong>
                 <span className="text-label-sm text-muted">JPG, PNG or WebP</span>
-                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleLogoChange} style={{ marginTop: '8px' }} />
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleLogoChange}
+                  style={{ marginTop: '8px' }}
+                />
               </label>
             </div>
 
             <div className="form-group">
               <label className="form-label">Primary Color</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <input type="color" value={accentColor} onChange={(e) => setAccentColor(e.target.value)} style={{ width: '60px', height: '36px', padding: '0', borderRadius: 'var(--radius-xs)', border: '1px solid var(--color-border-strong)', cursor: 'pointer' }} />
+                <input
+                  type="color"
+                  value={accentColor}
+                  onChange={(e) => setAccentColor(e.target.value)}
+                  style={{
+                    width: '60px',
+                    height: '36px',
+                    padding: '0',
+                    borderRadius: 'var(--radius-xs)',
+                    border: '1px solid var(--color-border-strong)',
+                    cursor: 'pointer',
+                  }}
+                />
                 <span className="text-body-sm">{accentColor}</span>
               </div>
             </div>
@@ -333,7 +509,19 @@ export const StorefrontPage: React.FC = () => {
             <div className="form-group">
               <label className="form-label">Secondary Color</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} style={{ width: '60px', height: '36px', padding: '0', borderRadius: 'var(--radius-xs)', border: '1px solid var(--color-border-strong)', cursor: 'pointer' }} />
+                <input
+                  type="color"
+                  value={secondaryColor}
+                  onChange={(e) => setSecondaryColor(e.target.value)}
+                  style={{
+                    width: '60px',
+                    height: '36px',
+                    padding: '0',
+                    borderRadius: 'var(--radius-xs)',
+                    border: '1px solid var(--color-border-strong)',
+                    cursor: 'pointer',
+                  }}
+                />
                 <span className="text-body-sm">{secondaryColor}</span>
               </div>
             </div>
@@ -341,7 +529,19 @@ export const StorefrontPage: React.FC = () => {
             <div className="form-group">
               <label className="form-label">Header & Footer Navbar Color</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <input type="color" value={navbarColor} onChange={(e) => setNavbarColor(e.target.value)} style={{ width: '60px', height: '36px', padding: '0', borderRadius: 'var(--radius-xs)', border: '1px solid var(--color-border-strong)', cursor: 'pointer' }} />
+                <input
+                  type="color"
+                  value={navbarColor}
+                  onChange={(e) => setNavbarColor(e.target.value)}
+                  style={{
+                    width: '60px',
+                    height: '36px',
+                    padding: '0',
+                    borderRadius: 'var(--radius-xs)',
+                    border: '1px solid var(--color-border-strong)',
+                    cursor: 'pointer',
+                  }}
+                />
                 <span className="text-body-sm">{navbarColor}</span>
               </div>
             </div>
@@ -377,15 +577,25 @@ export const StorefrontPage: React.FC = () => {
         {/* Tab 3: Fulfillment */}
         {activeTab === 'FULFILLMENT' && (
           <>
-            <h3 className="text-title-md" style={{ margin: 0 }}>Fulfillment & Shipping Rules</h3>
-            <ToggleSwitch checked={allowDelivery} onChange={setAllowDelivery} label="Enable Home Delivery Service" />
+            <h3 className="text-title-md" style={{ margin: 0 }}>
+              Fulfillment & Shipping Rules
+            </h3>
+            <ToggleSwitch
+              checked={allowDelivery}
+              onChange={setAllowDelivery}
+              label="Enable Home Delivery Service"
+            />
             <ToggleSwitch
               checked={whatsappDeliveryFallback}
               onChange={setWhatsappDeliveryFallback}
               label="WhatsApp delivery quotes"
               description="When no courier covers an order, accept it anyway — you confirm the delivery fee over WhatsApp and the customer pays once it's set."
             />
-            <ToggleSwitch checked={allowPickup} onChange={setAllowPickup} label="Enable In-Store Pickup" />
+            <ToggleSwitch
+              checked={allowPickup}
+              onChange={setAllowPickup}
+              label="Enable In-Store Pickup"
+            />
             <ToggleSwitch
               checked={allowDineIn}
               onChange={setAllowDineIn}
@@ -396,10 +606,15 @@ export const StorefrontPage: React.FC = () => {
             {allowDineIn && (
               <div className="dine-in-settings-panel">
                 <div className="dine-in-settings-copy">
-                  <div className="dine-in-icon"><AppIcon name="scanQr" size={22} /></div>
+                  <div className="dine-in-icon">
+                    <AppIcon name="scanQr" size={22} />
+                  </div>
                   <div>
                     <h4>Dine-in table QR codes</h4>
-                    <p>Enter how many tables you have. Dorzak will generate one QR code per table and attach the table number to every order.</p>
+                    <p>
+                      Enter how many tables you have. Dorzak will generate one QR code per table and
+                      attach the table number to every order.
+                    </p>
                   </div>
                 </div>
                 <TextInput
@@ -422,8 +637,14 @@ export const StorefrontPage: React.FC = () => {
                     <div className="dine-in-qr-grid">
                       {tableLinks.map((link) => (
                         <article className="dine-in-qr-card" key={link.table}>
-                          <span className="dine-in-table-label"><AppIcon name="table" size={16} /> Table {link.table}</span>
-                          <img src={link.qr} alt={`QR code for table ${link.table}`} loading="lazy" />
+                          <span className="dine-in-table-label">
+                            <AppIcon name="table" size={16} /> Table {link.table}
+                          </span>
+                          <img
+                            src={link.qr}
+                            alt={`QR code for table ${link.table}`}
+                            loading="lazy"
+                          />
                           <small>{link.url}</small>
                           <div>
                             <AppButton
@@ -436,7 +657,14 @@ export const StorefrontPage: React.FC = () => {
                             >
                               Copy Link
                             </AppButton>
-                            <a className="btn btn-secondary" href={link.qr} target="_blank" rel="noopener noreferrer">Open QR</a>
+                            <a
+                              className="btn btn-secondary"
+                              href={link.qr}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Open QR
+                            </a>
                           </div>
                         </article>
                       ))}
@@ -448,9 +676,27 @@ export const StorefrontPage: React.FC = () => {
 
             <div style={{ borderTop: '1px solid var(--color-border)', margin: '8px 0' }} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-              <TextInput label="Standard Delivery Fee ($)" type="number" step="0.5" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} />
-              <TextInput label="Free Delivery Threshold ($)" type="number" step="1" value={freeDeliveryThreshold} onChange={(e) => setFreeDeliveryThreshold(e.target.value)} />
-              <TextInput label="Minimum Order Value ($)" type="number" step="1" value={minOrderAmount} onChange={(e) => setMinOrderAmount(e.target.value)} />
+              <TextInput
+                label="Standard Delivery Fee ($)"
+                type="number"
+                step="0.5"
+                value={deliveryFee}
+                onChange={(e) => setDeliveryFee(e.target.value)}
+              />
+              <TextInput
+                label="Free Delivery Threshold ($)"
+                type="number"
+                step="1"
+                value={freeDeliveryThreshold}
+                onChange={(e) => setFreeDeliveryThreshold(e.target.value)}
+              />
+              <TextInput
+                label="Minimum Order Value ($)"
+                type="number"
+                step="1"
+                value={minOrderAmount}
+                onChange={(e) => setMinOrderAmount(e.target.value)}
+              />
             </div>
           </>
         )}
@@ -458,7 +704,9 @@ export const StorefrontPage: React.FC = () => {
         {/* Tab 4: Checkout */}
         {activeTab === 'PAYMENTS' && (
           <>
-            <h3 className="text-title-md" style={{ margin: 0 }}>Direct WhatsApp Ordering Integration</h3>
+            <h3 className="text-title-md" style={{ margin: 0 }}>
+              Direct WhatsApp Ordering Integration
+            </h3>
             <ToggleSwitch
               checked={whatsappOrdering}
               onChange={setWhatsappOrdering}
@@ -466,12 +714,40 @@ export const StorefrontPage: React.FC = () => {
               description="Automatically generate a pre-formatted order summary message sent directly to your WhatsApp Business number when a customer submits an online order"
             />
             <div style={{ borderTop: '1px solid var(--color-border)', margin: '8px 0' }} />
-            <ToggleSwitch checked={fawranEnabled} onChange={setFawranEnabled} label="Enable Fawran Transfer" description="Customers submit a transfer reference and optional payment receipt for verification." />
-            {fawranEnabled && <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '8px' }}>
-              <TextInput label="Fawran Alias" value={fawranAlias} onChange={(e) => setFawranAlias(e.target.value)} />
-              <TextInput label="Fawran Mobile" value={fawranMobile} onChange={(e) => setFawranMobile(e.target.value)} />
-              <TextInput label="Fawran IBAN" value={fawranIban} onChange={(e) => setFawranIban(e.target.value)} style={{ gridColumn: 'span 2' }} />
-            </div>}
+            <ToggleSwitch
+              checked={fawranEnabled}
+              onChange={setFawranEnabled}
+              label="Enable Fawran Transfer"
+              description="Customers submit a transfer reference and optional payment receipt for verification."
+            />
+            {fawranEnabled && (
+              <div
+                className="form-grid-2"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '16px',
+                  marginTop: '8px',
+                }}
+              >
+                <TextInput
+                  label="Fawran Alias"
+                  value={fawranAlias}
+                  onChange={(e) => setFawranAlias(e.target.value)}
+                />
+                <TextInput
+                  label="Fawran Mobile"
+                  value={fawranMobile}
+                  onChange={(e) => setFawranMobile(e.target.value)}
+                />
+                <TextInput
+                  label="Fawran IBAN"
+                  value={fawranIban}
+                  onChange={(e) => setFawranIban(e.target.value)}
+                  style={{ gridColumn: 'span 2' }}
+                />
+              </div>
+            )}
 
             <div style={{ borderTop: '1px solid var(--color-border)', margin: '8px 0' }} />
             <ToggleSwitch
@@ -483,8 +759,17 @@ export const StorefrontPage: React.FC = () => {
           </>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
-          <AppButton variant="primary" type="submit" loading={loading}>Save Storefront Options</AppButton>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            borderTop: '1px solid var(--color-border)',
+            paddingTop: '16px',
+          }}
+        >
+          <AppButton variant="primary" type="submit" loading={loading}>
+            Save Storefront Options
+          </AppButton>
         </div>
       </form>
     </div>

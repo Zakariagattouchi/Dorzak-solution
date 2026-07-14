@@ -55,21 +55,42 @@ export const PaymentProofModal: React.FC = () => {
       footer={
         <>
           {url && (
-            <a href={url} target="_blank" rel="noopener noreferrer" download style={{ textDecoration: 'none' }}>
-              <AppButton variant="secondary" icon="eye">Open full size</AppButton>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              download
+              style={{ textDecoration: 'none' }}
+            >
+              <AppButton variant="secondary" icon="eye">
+                Open full size
+              </AppButton>
             </a>
           )}
-          <AppButton variant="secondary" onClick={closeModal}>Close</AppButton>
+          <AppButton variant="secondary" onClick={closeModal}>
+            Close
+          </AppButton>
         </>
       }
     >
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '240px' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '240px',
+        }}
+      >
         {error ? (
           <div style={{ color: 'var(--dorzak-danger, #d32f2f)', textAlign: 'center' }}>{error}</div>
         ) : !url ? (
           <div style={{ color: 'var(--text-muted)' }}>Loading proof…</div>
         ) : (
-          <img src={url} alt="Payment receipt" style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: '8px' }} />
+          <img
+            src={url}
+            alt="Payment receipt"
+            style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: '8px' }}
+          />
         )}
       </div>
     </BaseModal>

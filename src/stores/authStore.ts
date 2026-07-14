@@ -2,15 +2,38 @@ import { create } from 'zustand';
 import { authApi, platformApi } from '../api/endpoints';
 import { ApiError, getToken, setToken } from '../api/apiClient';
 
-interface SessionUser { id: number; name: string; email: string; is_platform_admin: boolean; }
-interface SessionStore { id: number; name: string; currency: string; symbol_placement: string; language: string; country: string; }
+interface SessionUser {
+  id: number;
+  name: string;
+  email: string;
+  is_platform_admin: boolean;
+}
+interface SessionStore {
+  id: number;
+  name: string;
+  currency: string;
+  symbol_placement: string;
+  language: string;
+  country: string;
+}
 
 // Keys used to stash the operator's own session while impersonating a store.
 const ADMIN_TOKEN_KEY = 'dorzak-admin-token';
 const IMPERSONATING_KEY = 'dorzak-impersonating';
-const readLocal = (k: string): string | null => { try { return localStorage.getItem(k); } catch { return null; } };
+const readLocal = (k: string): string | null => {
+  try {
+    return localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+};
 const writeLocal = (k: string, v: string | null): void => {
-  try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* ignore */ }
+  try {
+    if (v === null) localStorage.removeItem(k);
+    else localStorage.setItem(k, v);
+  } catch {
+    /* ignore */
+  }
 };
 
 interface AuthState {
@@ -23,7 +46,13 @@ interface AuthState {
   impersonating: string | null;
   bootstrap: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  register: (payload: { name: string; email: string; password: string; password_confirmation: string; business_name: string }) => Promise<void>;
+  register: (payload: {
+    name: string;
+    email: string;
+    password: string;
+    password_confirmation: string;
+    business_name: string;
+  }) => Promise<void>;
   logout: () => Promise<void>;
   impersonate: (storeId: number) => Promise<void>;
   stopImpersonating: () => Promise<void>;
@@ -47,7 +76,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ status: 'loading' });
     try {
       const { data } = (await authApi.me()) as any;
-      set({ user: data.user, store: data.store, role: data.role, abilities: data.abilities, status: 'authenticated', error: null });
+      set({
+        user: data.user,
+        store: data.store,
+        role: data.role,
+        abilities: data.abilities,
+        status: 'authenticated',
+        error: null,
+      });
     } catch {
       setToken(null);
       set({ status: 'guest', user: null, store: null, role: null, abilities: [] });
@@ -59,7 +95,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data } = (await authApi.login(email, password)) as any;
       setToken(data.token);
-      set({ user: data.user, store: data.store, role: data.role, abilities: data.abilities, status: 'authenticated' });
+      set({
+        user: data.user,
+        store: data.store,
+        role: data.role,
+        abilities: data.abilities,
+        status: 'authenticated',
+      });
     } catch (e) {
       const err = e as ApiError;
       set({ error: err.errors?.email?.[0] ?? err.message ?? 'Login failed' });
@@ -72,7 +114,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data } = (await authApi.register(payload)) as any;
       setToken(data.token);
-      set({ user: data.user, store: data.store, role: data.role, abilities: data.abilities, status: 'authenticated' });
+      set({
+        user: data.user,
+        store: data.store,
+        role: data.role,
+        abilities: data.abilities,
+        status: 'authenticated',
+      });
     } catch (e) {
       const err = e as ApiError;
       const firstError = err.errors ? Object.values(err.errors)[0]?.[0] : undefined;
@@ -82,11 +130,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    try { await authApi.logout(); } catch { /* ignore */ }
+    try {
+      await authApi.logout();
+    } catch {
+      /* ignore */
+    }
     setToken(null);
     writeLocal(ADMIN_TOKEN_KEY, null);
     writeLocal(IMPERSONATING_KEY, null);
-    set({ user: null, store: null, role: null, abilities: [], status: 'guest', impersonating: null });
+    set({
+      user: null,
+      store: null,
+      role: null,
+      abilities: [],
+      status: 'guest',
+      impersonating: null,
+    });
   },
 
   // Enter a store's back office as its owner. Stash the operator's own token so

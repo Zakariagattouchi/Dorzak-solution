@@ -6,7 +6,9 @@ export interface PendingOrder {
 }
 
 export const savePendingOrder = (order: PendingOrder): void => {
-  try { localStorage.setItem(KEY, JSON.stringify(order)); } catch {}
+  try {
+    localStorage.setItem(KEY, JSON.stringify(order));
+  } catch {}
 };
 
 export const getPendingOrder = (): PendingOrder | null => {
@@ -16,9 +18,13 @@ export const getPendingOrder = (): PendingOrder | null => {
     const parsed = JSON.parse(raw);
     if (parsed?.orderNumber && parsed?.slug) return parsed;
     return null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 };
 
 export const clearPendingOrder = (): void => {
-  try { localStorage.removeItem(KEY); } catch {}
+  try {
+    localStorage.removeItem(KEY);
+  } catch {}
 };

@@ -17,7 +17,10 @@ export const CategoryModal: React.FC = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const editing = activeModal === 'CATEGORY_EDIT';
   const category = payload?.category;
-  const preview = useMemo(() => imageFile ? URL.createObjectURL(imageFile) : category?.imageUrl, [imageFile, category?.imageUrl]);
+  const preview = useMemo(
+    () => (imageFile ? URL.createObjectURL(imageFile) : category?.imageUrl),
+    [imageFile, category?.imageUrl],
+  );
 
   useEffect(() => {
     if (editing && category) {
@@ -58,30 +61,68 @@ export const CategoryModal: React.FC = () => {
       title={editing ? 'Edit Category' : 'Create Category'}
       footer={
         <>
-          <AppButton variant="secondary" onClick={closeModal}>Cancel</AppButton>
-          <AppButton variant="primary" onClick={handleSubmit}>Save Category</AppButton>
+          <AppButton variant="secondary" onClick={closeModal}>
+            Cancel
+          </AppButton>
+          <AppButton variant="primary" onClick={handleSubmit}>
+            Save Category
+          </AppButton>
         </>
       }
     >
       <form onSubmit={handleSubmit}>
-        <TextInput label="Category Name *" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Footwear" />
+        <TextInput
+          label="Category Name *"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Footwear"
+        />
         <div className="form-group">
           <label className="form-label">Description</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Describe the category products..."
-            style={{ width: '100%', minHeight: '80px', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', outline: 'none' }}
+            style={{
+              width: '100%',
+              minHeight: '80px',
+              padding: '8px 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '0.9rem',
+              outline: 'none',
+            }}
           />
         </div>
         <label className="category-image-picker">
           <span className="form-label">Category Photo *</span>
-          <div>{preview ? <img src={preview} alt="Category preview" /> : <span>Choose a category photo</span>}</div>
-          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setImageFile(event.target.files?.[0] ?? null)} />
+          <div>
+            {preview ? (
+              <img src={preview} alt="Category preview" />
+            ) : (
+              <span>Choose a category photo</span>
+            )}
+          </div>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+          />
         </label>
         <div className="form-group">
           <label className="form-label">Accent Color</label>
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: '60px', height: '36px', padding: '0', borderRadius: '4px', cursor: 'pointer' }} />
+          <input
+            type="color"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+            style={{
+              width: '60px',
+              height: '36px',
+              padding: '0',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          />
         </div>
       </form>
     </BaseModal>

@@ -33,9 +33,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     if (existing) {
       set({
         items: items.map((item) =>
-          item.lineKey === lineKey
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+          item.lineKey === lineKey ? { ...item, quantity: item.quantity + 1 } : item,
         ),
       });
     } else {
@@ -53,16 +51,17 @@ export const useCartStore = create<CartState>((set, get) => ({
       return;
     }
     set((state) => ({
-      items: state.items.map((item) =>
-        item.lineKey === lineKey ? { ...item, quantity } : item
-      ),
+      items: state.items.map((item) => (item.lineKey === lineKey ? { ...item, quantity } : item)),
     }));
   },
   setSelectedCustomer: (selectedCustomer) => set({ selectedCustomer }),
   setDiscount: (discount) => set({ discount }),
   clearCart: () => set({ items: [], selectedCustomer: null, discount: 0 }),
   getSubtotal: () => {
-    return get().items.reduce((sum, item) => sum + (item.variant?.price ?? item.product.price) * item.quantity, 0);
+    return get().items.reduce(
+      (sum, item) => sum + (item.variant?.price ?? item.product.price) * item.quantity,
+      0,
+    );
   },
   getTotal: () => {
     const subtotal = get().getSubtotal();

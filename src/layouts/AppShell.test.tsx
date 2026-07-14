@@ -38,7 +38,9 @@ vi.mock('../stores/settingsStore', () => ({
 vi.mock('../hooks/useOrderPolling', () => ({ useOrderPolling: vi.fn() }));
 vi.mock('../components/navigation/Sidebar', () => ({ Sidebar: () => null }));
 vi.mock('../components/navigation/Topbar', () => ({ Topbar: () => null }));
-vi.mock('../components/navigation/ImpersonationBanner', () => ({ ImpersonationBanner: () => null }));
+vi.mock('../components/navigation/ImpersonationBanner', () => ({
+  ImpersonationBanner: () => null,
+}));
 vi.mock('../components/modals/ModalHost', () => ({ ModalHost: () => null }));
 vi.mock('../components/feedback/ToastHost', () => ({ ToastHost: () => null }));
 

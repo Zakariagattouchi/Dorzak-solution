@@ -30,25 +30,66 @@ export const ReceiptModal: React.FC = () => {
       title={`Sales Receipt — ${order.id}`}
       footer={
         <>
-          <AppButton variant="secondary" onClick={closeModal}>Close</AppButton>
-          <AppButton variant="primary" onClick={handlePrint} icon="orders">Print Receipt</AppButton>
+          <AppButton variant="secondary" onClick={closeModal}>
+            Close
+          </AppButton>
+          <AppButton variant="primary" onClick={handlePrint} icon="orders">
+            Print Receipt
+          </AppButton>
         </>
       }
     >
-      <div style={{ padding: '16px', backgroundColor: 'var(--color-bg)', borderRadius: '8px', border: '1px solid var(--color-border)', fontFamily: 'monospace' }}>
-        <div style={{ textAlign: 'center', marginBottom: '16px', borderBottom: '1px dashed var(--color-border)', paddingBottom: '12px' }}>
-          <h3 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: '1.2rem' }}>{accountInfo.businessName}</h3>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{accountInfo.ownerName} • {accountInfo.phone}</span>
+      <div
+        style={{
+          padding: '16px',
+          backgroundColor: 'var(--color-bg)',
+          borderRadius: '8px',
+          border: '1px solid var(--color-border)',
+          fontFamily: 'monospace',
+        }}
+      >
+        <div
+          style={{
+            textAlign: 'center',
+            marginBottom: '16px',
+            borderBottom: '1px dashed var(--color-border)',
+            paddingBottom: '12px',
+          }}
+        >
+          <h3 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: '1.2rem' }}>
+            {accountInfo.businessName}
+          </h3>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            {accountInfo.ownerName} • {accountInfo.phone}
+          </span>
           <br />
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Date: {order.date}</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Date: {order.date}
+          </span>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '0.85rem' }}>
-          <span>Customer: <strong>{order.customerName}</strong></span>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginBottom: '12px',
+            fontSize: '0.85rem',
+          }}
+        >
+          <span>
+            Customer: <strong>{order.customerName}</strong>
+          </span>
           <StatusPill status={order.status} />
         </div>
 
-        <table style={{ width: '100%', fontSize: '0.85rem', marginBottom: '12px', borderCollapse: 'collapse' }}>
+        <table
+          style={{
+            width: '100%',
+            fontSize: '0.85rem',
+            marginBottom: '12px',
+            borderCollapse: 'collapse',
+          }}
+        >
           <thead>
             <tr style={{ borderBottom: '1px solid var(--color-border)', textAlign: 'left' }}>
               <th style={{ padding: '4px 0' }}>Item</th>
@@ -59,32 +100,71 @@ export const ReceiptModal: React.FC = () => {
           <tbody>
             {order.items.map((item, idx) => (
               <tr key={idx} style={{ borderBottom: '1px dashed var(--color-border)' }}>
-                <td style={{ padding: '6px 0' }}>{item.productName}{item.variantName && <small style={{ display: 'block' }}>{item.variantName}</small>}</td>
+                <td style={{ padding: '6px 0' }}>
+                  {item.productName}
+                  {item.variantName && (
+                    <small style={{ display: 'block' }}>{item.variantName}</small>
+                  )}
+                </td>
                 <td style={{ textAlign: 'center', padding: '6px 0' }}>{item.quantity}</td>
-                <td style={{ textAlign: 'right', padding: '6px 0' }}>{money(item.unitPrice * item.quantity, 2, order.currencyCode)}</td>
+                <td style={{ textAlign: 'right', padding: '6px 0' }}>
+                  {money(item.unitPrice * item.quantity, 2, order.currencyCode)}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '8px', fontSize: '0.9rem' }}>
+        <div
+          style={{
+            borderTop: '1px solid var(--color-border)',
+            paddingTop: '8px',
+            fontSize: '0.9rem',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
             <span>Subtotal:</span>
             <span>{money(order.subtotal, 2, order.currencyCode)}</span>
           </div>
           {order.discount > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: 'var(--dorzak-success)' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '4px',
+                color: 'var(--dorzak-success)',
+              }}
+            >
               <span>Discount:</span>
               <span>-{money(order.discount, 2, order.currencyCode)}</span>
             </div>
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.05rem', marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed var(--color-border)' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontWeight: 700,
+              fontSize: '1.05rem',
+              marginTop: '6px',
+              paddingTop: '6px',
+              borderTop: '1px dashed var(--color-border)',
+            }}
+          >
             <span>TOTAL PAID ({order.paymentMethod}):</span>
-            <span style={{ color: 'var(--dorzak-primary)' }}>{money(order.total, 2, order.currencyCode)}</span>
+            <span style={{ color: 'var(--dorzak-primary)' }}>
+              {money(order.total, 2, order.currencyCode)}
+            </span>
           </div>
         </div>
 
-        <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+        <div
+          style={{
+            textAlign: 'center',
+            marginTop: '16px',
+            fontSize: '0.75rem',
+            color: 'var(--text-muted)',
+          }}
+        >
           Thank you for shopping with {accountInfo.businessName}!
         </div>
       </div>

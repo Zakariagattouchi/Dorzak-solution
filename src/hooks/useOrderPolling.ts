@@ -1,7 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { useOrderStore } from '../stores/orderStore';
 import { useToastStore } from '../stores/toastStore';
-import { playOrderNotificationSound, requestNotificationPermission, showOrderNotification } from '../utils/notificationSound';
+import {
+  playOrderNotificationSound,
+  requestNotificationPermission,
+  showOrderNotification,
+} from '../utils/notificationSound';
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -40,7 +44,10 @@ export const useOrderPolling = (enabled: boolean): void => {
           showOrderNotification('New order received', `${order.id} — ${order.customerName}`);
         } else {
           addToast(`${newOrders.length} new orders received`, 'info');
-          showOrderNotification('New orders received', `${newOrders.length} new orders are waiting.`);
+          showOrderNotification(
+            'New orders received',
+            `${newOrders.length} new orders are waiting.`,
+          );
         }
       }
 

@@ -11,7 +11,9 @@ export const ToastHost: React.FC = () => {
     <div className="toast-host">
       {toasts.map((t) => (
         <div key={t.id} className={`toast ${t.type}`}>
-          {t.type === 'success' && <AppIcon name="checkCircle" size={18} color="var(--dorzak-success)" />}
+          {t.type === 'success' && (
+            <AppIcon name="checkCircle" size={18} color="var(--dorzak-success)" />
+          )}
           {t.type === 'warning' && <AppIcon name="alert" size={18} color="var(--dorzak-warning)" />}
           {t.type === 'danger' && <AppIcon name="alert" size={18} color="var(--dorzak-danger)" />}
           {t.type === 'info' && <AppIcon name="info" size={18} color="var(--dorzak-primary)" />}

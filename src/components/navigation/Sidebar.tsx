@@ -33,7 +33,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onNavigate }) 
     <aside className={`app-sidebar ${isOpen ? 'is-open' : ''}`} aria-label="Primary navigation">
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <div className="sidebar-brand-mark" aria-hidden="true">D</div>
+          <div className="sidebar-brand-mark" aria-hidden="true">
+            D
+          </div>
           <span>Dorzak Merchant</span>
         </div>
       </div>
@@ -62,7 +64,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onNavigate }) 
         ))}
       </nav>
 
-      <div className="sidebar-footer" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div
+        className="sidebar-footer"
+        style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+      >
         {user && (
           <div style={{ fontSize: '0.78rem' }}>
             <div style={{ fontWeight: 600, color: 'var(--kyte-sidebar-active)' }}>{user.name}</div>
@@ -72,7 +77,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onNavigate }) 
         <button
           type="button"
           onClick={handleLogout}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--kyte-sidebar-text)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '0.82rem',
+            color: 'var(--kyte-sidebar-text)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '4px 0',
+          }}
         >
           <AppIcon name="close" size={16} /> Sign out
         </button>

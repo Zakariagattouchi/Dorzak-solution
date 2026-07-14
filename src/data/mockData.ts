@@ -85,7 +85,13 @@ export interface OrderItem {
   variantId?: string;
 }
 
-export type OrderStatus = 'CONFIRMING' | 'ACCEPTED' | 'PREPARING' | 'OUT_FOR_DELIVERY' | 'COMPLETE' | 'CANCELLED';
+export type OrderStatus =
+  | 'CONFIRMING'
+  | 'ACCEPTED'
+  | 'PREPARING'
+  | 'OUT_FOR_DELIVERY'
+  | 'COMPLETE'
+  | 'CANCELLED';
 export type PaymentStatus = 'UNPAID' | 'PENDING_VERIFICATION' | 'PAID' | 'FAILED' | 'REFUNDED';
 
 export interface Order {
@@ -193,20 +199,51 @@ export const initialAccountInfo = {
 };
 
 export const initialCategories: Category[] = [
-  { id: 'cat_1', name: 'Apparel & Fashion', productCount: 14, color: '#3b82f6', imageUrl: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=600' },
-  { id: 'cat_2', name: 'Electronics & Tech', productCount: 8, color: '#10b981', imageUrl: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=600' },
-  { id: 'cat_3', name: 'Coffee & Beverages', productCount: 12, color: '#f59e0b', imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600' },
-  { id: 'cat_4', name: 'Accessories', productCount: 6, color: '#ec4899', imageUrl: 'https://images.unsplash.com/photo-1523779917675-b6ed3a42a561?w=600' },
-  { id: 'cat_5', name: 'Home & Office', productCount: 8, color: '#8b5cf6', imageUrl: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=600' },
+  {
+    id: 'cat_1',
+    name: 'Apparel & Fashion',
+    productCount: 14,
+    color: '#3b82f6',
+    imageUrl: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=600',
+  },
+  {
+    id: 'cat_2',
+    name: 'Electronics & Tech',
+    productCount: 8,
+    color: '#10b981',
+    imageUrl: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=600',
+  },
+  {
+    id: 'cat_3',
+    name: 'Coffee & Beverages',
+    productCount: 12,
+    color: '#f59e0b',
+    imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600',
+  },
+  {
+    id: 'cat_4',
+    name: 'Accessories',
+    productCount: 6,
+    color: '#ec4899',
+    imageUrl: 'https://images.unsplash.com/photo-1523779917675-b6ed3a42a561?w=600',
+  },
+  {
+    id: 'cat_5',
+    name: 'Home & Office',
+    productCount: 8,
+    color: '#8b5cf6',
+    imageUrl: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=600',
+  },
 ];
 
 export const initialProducts: Product[] = [
   {
     id: 'prod_101',
     name: 'Dorzak Signature Cotton Hoodie',
-    description: 'Ultra-soft heavyweight fleece hoodie made from 100% organic combed cotton with double-stitched hood and ribbed cuffs.',
+    description:
+      'Ultra-soft heavyweight fleece hoodie made from 100% organic combed cotton with double-stitched hood and ribbed cuffs.',
     price: 49.99,
-    cost: 18.00,
+    cost: 18.0,
     stock: 45,
     minStock: 10,
     trackStock: true,
@@ -218,21 +255,55 @@ export const initialProducts: Product[] = [
     showInOnlineStore: true,
     isFeatured: true,
     variants: [
-      { id: 'v_1', name: 'Small / Black', optionValues: { size: 'small', color: 'black' }, price: 49.99, stock: 15, code: 'HOOD-S-BLK', isActive: true },
-      { id: 'v_2', name: 'Medium / Black', optionValues: { size: 'medium', color: 'black' }, price: 49.99, stock: 20, code: 'HOOD-M-BLK', isActive: true },
-      { id: 'v_3', name: 'Large / Black', optionValues: { size: 'large', color: 'black' }, price: 49.99, stock: 10, code: 'HOOD-L-BLK', isActive: true }
+      {
+        id: 'v_1',
+        name: 'Small / Black',
+        optionValues: { size: 'small', color: 'black' },
+        price: 49.99,
+        stock: 15,
+        code: 'HOOD-S-BLK',
+        isActive: true,
+      },
+      {
+        id: 'v_2',
+        name: 'Medium / Black',
+        optionValues: { size: 'medium', color: 'black' },
+        price: 49.99,
+        stock: 20,
+        code: 'HOOD-M-BLK',
+        isActive: true,
+      },
+      {
+        id: 'v_3',
+        name: 'Large / Black',
+        optionValues: { size: 'large', color: 'black' },
+        price: 49.99,
+        stock: 10,
+        code: 'HOOD-L-BLK',
+        isActive: true,
+      },
     ],
     variantGroups: [
-      { id: 'size', name: 'Size', required: true, options: [{ id: 'small', name: 'Small' }, { id: 'medium', name: 'Medium' }, { id: 'large', name: 'Large' }] },
+      {
+        id: 'size',
+        name: 'Size',
+        required: true,
+        options: [
+          { id: 'small', name: 'Small' },
+          { id: 'medium', name: 'Medium' },
+          { id: 'large', name: 'Large' },
+        ],
+      },
       { id: 'color', name: 'Color', required: true, options: [{ id: 'black', name: 'Black' }] },
     ],
   },
   {
     id: 'prod_102',
     name: 'Wireless Noise-Canceling Earbuds',
-    description: 'Active noise cancellation with 32-hour total battery life, IPX5 water resistance, and crystal-clear microphone.',
+    description:
+      'Active noise cancellation with 32-hour total battery life, IPX5 water resistance, and crystal-clear microphone.',
     price: 89.95,
-    cost: 35.00,
+    cost: 35.0,
     stock: 22,
     minStock: 5,
     trackStock: true,
@@ -244,14 +315,15 @@ export const initialProducts: Product[] = [
     showInOnlineStore: true,
     isFeatured: true,
     variants: [],
-    variantGroups: []
+    variantGroups: [],
   },
   {
     id: 'prod_103',
     name: 'Artisan Cold Brew Coffee (750ml)',
-    description: 'Slow-steeped for 24 hours using single-origin Colombian beans. Smooth, rich, with dark chocolate notes.',
-    price: 8.50,
-    cost: 2.20,
+    description:
+      'Slow-steeped for 24 hours using single-origin Colombian beans. Smooth, rich, with dark chocolate notes.',
+    price: 8.5,
+    cost: 2.2,
     stock: 120,
     minStock: 20,
     trackStock: true,
@@ -263,14 +335,15 @@ export const initialProducts: Product[] = [
     showInOnlineStore: true,
     isFeatured: false,
     variants: [],
-    variantGroups: []
+    variantGroups: [],
   },
   {
     id: 'prod_104',
     name: 'Minimalist Leather Cardholder',
-    description: 'Handcrafted full-grain Italian leather slim wallet holding up to 8 cards plus cash.',
-    price: 29.00,
-    cost: 8.50,
+    description:
+      'Handcrafted full-grain Italian leather slim wallet holding up to 8 cards plus cash.',
+    price: 29.0,
+    cost: 8.5,
     stock: 35,
     minStock: 8,
     trackStock: true,
@@ -282,14 +355,15 @@ export const initialProducts: Product[] = [
     showInOnlineStore: true,
     isFeatured: true,
     variants: [],
-    variantGroups: []
+    variantGroups: [],
   },
   {
     id: 'prod_105',
     name: 'Ergonomic Desk Mat',
-    description: 'Waterproof felt & vegan leather dual-sided desk pad for smooth mouse tracking and desk protection.',
-    price: 34.50,
-    cost: 11.00,
+    description:
+      'Waterproof felt & vegan leather dual-sided desk pad for smooth mouse tracking and desk protection.',
+    price: 34.5,
+    cost: 11.0,
     stock: 18,
     minStock: 5,
     trackStock: true,
@@ -301,14 +375,15 @@ export const initialProducts: Product[] = [
     showInOnlineStore: true,
     isFeatured: false,
     variants: [],
-    variantGroups: []
+    variantGroups: [],
   },
   {
     id: 'prod_106',
     name: 'Stainless Steel Water Bottle (1L)',
-    description: 'Double-wall vacuum insulated flask keeping drinks cold for 24 hours or hot for 12 hours.',
+    description:
+      'Double-wall vacuum insulated flask keeping drinks cold for 24 hours or hot for 12 hours.',
     price: 24.99,
-    cost: 6.00,
+    cost: 6.0,
     stock: 60,
     minStock: 15,
     trackStock: true,
@@ -320,15 +395,51 @@ export const initialProducts: Product[] = [
     showInOnlineStore: true,
     isFeatured: false,
     variants: [],
-    variantGroups: []
-  }
+    variantGroups: [],
+  },
 ];
 
 export const initialCustomers: Customer[] = [
-  { id: 'cust_1', name: 'Sarah Jenkins', email: 'sarah.j@example.com', phone: '+1 555-0144', address: '123 Market St', city: 'San Francisco', totalOrders: 12, totalSpent: 480.50 },
-  { id: 'cust_2', name: 'David Miller', email: 'dmiller@techcorp.io', phone: '+1 555-0812', address: '456 Tech Way', city: 'San Jose', totalOrders: 5, totalSpent: 210.00 },
-  { id: 'cust_3', name: 'Elena Rostova', email: 'elena@designstudio.com', phone: '+1 555-0923', address: '789 Design Blvd', city: 'Oakland', totalOrders: 8, totalSpent: 345.90 },
-  { id: 'cust_4', name: 'Michael Vance', email: 'mvance@startup.co', phone: '+1 555-0377', address: '101 Startup Alley', city: 'San Francisco', totalOrders: 3, totalSpent: 115.00 },
+  {
+    id: 'cust_1',
+    name: 'Sarah Jenkins',
+    email: 'sarah.j@example.com',
+    phone: '+1 555-0144',
+    address: '123 Market St',
+    city: 'San Francisco',
+    totalOrders: 12,
+    totalSpent: 480.5,
+  },
+  {
+    id: 'cust_2',
+    name: 'David Miller',
+    email: 'dmiller@techcorp.io',
+    phone: '+1 555-0812',
+    address: '456 Tech Way',
+    city: 'San Jose',
+    totalOrders: 5,
+    totalSpent: 210.0,
+  },
+  {
+    id: 'cust_3',
+    name: 'Elena Rostova',
+    email: 'elena@designstudio.com',
+    phone: '+1 555-0923',
+    address: '789 Design Blvd',
+    city: 'Oakland',
+    totalOrders: 8,
+    totalSpent: 345.9,
+  },
+  {
+    id: 'cust_4',
+    name: 'Michael Vance',
+    email: 'mvance@startup.co',
+    phone: '+1 555-0377',
+    address: '101 Startup Alley',
+    city: 'San Francisco',
+    totalOrders: 3,
+    totalSpent: 115.0,
+  },
 ];
 
 export const initialOrders: Order[] = [
@@ -338,18 +449,29 @@ export const initialOrders: Order[] = [
     customerPhone: '+1 555-0144',
     date: '2026-07-05 14:32',
     items: [
-      { productId: 'prod_101', productName: 'Dorzak Signature Cotton Hoodie', quantity: 2, unitPrice: 49.99, variantName: 'Medium / Black' },
-      { productId: 'prod_103', productName: 'Artisan Cold Brew Coffee', quantity: 1, unitPrice: 8.50 }
+      {
+        productId: 'prod_101',
+        productName: 'Dorzak Signature Cotton Hoodie',
+        quantity: 2,
+        unitPrice: 49.99,
+        variantName: 'Medium / Black',
+      },
+      {
+        productId: 'prod_103',
+        productName: 'Artisan Cold Brew Coffee',
+        quantity: 1,
+        unitPrice: 8.5,
+      },
     ],
     subtotal: 108.48,
-    discount: 5.00,
+    discount: 5.0,
     taxAmount: 8.79,
     total: 112.27,
     status: 'COMPLETE',
     paymentStatus: 'PAID',
     paymentMethod: 'CARD',
     currencyCode: 'USD',
-    notes: 'Customer requested gift receipt'
+    notes: 'Customer requested gift receipt',
   },
   {
     id: 'ORD-9820',
@@ -357,16 +479,21 @@ export const initialOrders: Order[] = [
     customerPhone: '+1 555-0812',
     date: '2026-07-05 11:15',
     items: [
-      { productId: 'prod_102', productName: 'Wireless Noise-Canceling Earbuds', quantity: 1, unitPrice: 89.95 }
+      {
+        productId: 'prod_102',
+        productName: 'Wireless Noise-Canceling Earbuds',
+        quantity: 1,
+        unitPrice: 89.95,
+      },
     ],
     subtotal: 89.95,
     discount: 0,
     taxAmount: 7.65,
-    total: 97.60,
+    total: 97.6,
     status: 'COMPLETE',
     paymentStatus: 'PAID',
-    paymentMethod: 'CASH'
-    ,currencyCode: 'USD'
+    paymentMethod: 'CASH',
+    currencyCode: 'USD',
   },
   {
     id: 'ORD-9819',
@@ -374,16 +501,21 @@ export const initialOrders: Order[] = [
     customerPhone: '+1 555-0923',
     date: '2026-07-04 16:45',
     items: [
-      { productId: 'prod_104', productName: 'Minimalist Leather Cardholder', quantity: 1, unitPrice: 29.00 },
-      { productId: 'prod_105', productName: 'Ergonomic Desk Mat', quantity: 1, unitPrice: 34.50 }
+      {
+        productId: 'prod_104',
+        productName: 'Minimalist Leather Cardholder',
+        quantity: 1,
+        unitPrice: 29.0,
+      },
+      { productId: 'prod_105', productName: 'Ergonomic Desk Mat', quantity: 1, unitPrice: 34.5 },
     ],
-    subtotal: 63.50,
+    subtotal: 63.5,
     discount: 0,
-    taxAmount: 5.40,
-    total: 68.90,
+    taxAmount: 5.4,
+    total: 68.9,
     status: 'CONFIRMING',
     paymentStatus: 'UNPAID',
     paymentMethod: 'TRANSFER',
-    currencyCode: 'USD'
-  }
+    currencyCode: 'USD',
+  },
 ];

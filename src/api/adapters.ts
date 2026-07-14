@@ -2,7 +2,15 @@
 // (data/mockData.ts). Keeping the frontend shapes lets the components stay unchanged
 // while the stores talk to the real backend. See docs/backend-planning/09-*.
 
-import { Product, ProductVariant, Category, Customer, Order, OrderItem, initialAccountInfo } from '../data/mockData';
+import {
+  Product,
+  ProductVariant,
+  Category,
+  Customer,
+  Order,
+  OrderItem,
+  initialAccountInfo,
+} from '../data/mockData';
 
 type Account = typeof initialAccountInfo;
 
@@ -43,7 +51,7 @@ function toVariant(api: any): ProductVariant {
     name: api.name,
     optionValues: api.option_values ?? {},
     price: num(api.price),
-    stock: api.stock !== undefined ? num(api.stock) : (api.in_stock ? 9999 : 0),
+    stock: api.stock !== undefined ? num(api.stock) : api.in_stock ? 9999 : 0,
     code: api.sku ?? undefined,
     isActive: api.is_active ?? true,
   };
@@ -104,7 +112,8 @@ export function toOrder(api: any): Order {
     deliveryFee: num(api.delivery_fee),
     deliveryFeeStatus: api.delivery_fee_status ?? undefined,
     deliveryProviderName: api.delivery_provider_name ?? undefined,
-    deliveryDistanceKm: api.delivery_distance_km != null ? Number(api.delivery_distance_km) : undefined,
+    deliveryDistanceKm:
+      api.delivery_distance_km != null ? Number(api.delivery_distance_km) : undefined,
     pickupLatitude: api.pickup_latitude != null ? Number(api.pickup_latitude) : undefined,
     pickupLongitude: api.pickup_longitude != null ? Number(api.pickup_longitude) : undefined,
     pickupAddress: api.pickup_address ?? undefined,
@@ -131,32 +140,63 @@ function toOrderItem(api: any): OrderItem {
 /* ---------- settings envelope <-> flat accountInfo ---------- */
 
 export function toAccountInfo(env: any, storeId?: string): Partial<Account> {
-  const g = env.general ?? {}, b = env.business ?? {}, c = env.currency ?? {},
-    t = env.taxes ?? {}, r = env.receipts ?? {}, s = env.storefront ?? {};
+  const g = env.general ?? {},
+    b = env.business ?? {},
+    c = env.currency ?? {},
+    t = env.taxes ?? {},
+    r = env.receipts ?? {},
+    s = env.storefront ?? {};
   return {
     ...(storeId ? { id: storeId } : {}),
-    businessName: g.business_name, tagline: g.tagline ?? '', phone: g.phone ?? '', whatsapp: g.whatsapp ?? '',
+    businessName: g.business_name,
+    tagline: g.tagline ?? '',
+    phone: g.phone ?? '',
+    whatsapp: g.whatsapp ?? '',
     language: g.language,
-    ownerName: b.owner_name ?? '', email: b.email ?? '', address: b.address ?? '', city: b.city ?? '',
-    state: b.state ?? '', zipCode: b.zip_code ?? '', country: b.country,
-    latitude: b.latitude ?? null, longitude: b.longitude ?? null,
-    currency: c.currency, currencySymbol: c.currency_symbol, symbolPlacement: c.symbol_placement,
-    taxRate: num(t.tax_rate), taxId: t.tax_id ?? '', taxIncludedInPrice: !!t.tax_included_in_price,
+    ownerName: b.owner_name ?? '',
+    email: b.email ?? '',
+    address: b.address ?? '',
+    city: b.city ?? '',
+    state: b.state ?? '',
+    zipCode: b.zip_code ?? '',
+    country: b.country,
+    latitude: b.latitude ?? null,
+    longitude: b.longitude ?? null,
+    currency: c.currency,
+    currencySymbol: c.currency_symbol,
+    symbolPlacement: c.symbol_placement,
+    taxRate: num(t.tax_rate),
+    taxId: t.tax_id ?? '',
+    taxIncludedInPrice: !!t.tax_included_in_price,
     chargeSalesTax: t.charge_sales_tax ?? true,
-    receiptHeader: r.header ?? '', receiptFooter: r.footer ?? '',
-    receiptShowLogo: !!r.show_logo, receiptShowAddress: !!r.show_address, receiptShowTax: !!r.show_tax,
+    receiptHeader: r.header ?? '',
+    receiptFooter: r.footer ?? '',
+    receiptShowLogo: !!r.show_logo,
+    receiptShowAddress: !!r.show_address,
+    receiptShowTax: !!r.show_tax,
     autoPrintReceipt: !!r.auto_print,
-    onlineStoreEnabled: !!s.online_store_enabled, storeSlug: s.slug ?? '', publicUrl: s.public_url ?? '',
+    onlineStoreEnabled: !!s.online_store_enabled,
+    storeSlug: s.slug ?? '',
+    publicUrl: s.public_url ?? '',
     storeBio: s.bio ?? '',
-    bannerUrl: s.banner_url ?? '', logoUrl: s.logo_url ?? '', storeAccentColor: s.accent_color ?? '#1890ff',
+    bannerUrl: s.banner_url ?? '',
+    logoUrl: s.logo_url ?? '',
+    storeAccentColor: s.accent_color ?? '#1890ff',
     storeSecondaryColor: s.secondary_color ?? '#373f4e',
-    allowDelivery: !!s.allow_delivery, allowPickup: !!s.allow_pickup,
-    allowDineIn: !!s.allow_dine_in, dineInTableCount: num(s.dine_in_table_count),
-    deliveryFee: num(s.delivery_fee), freeDeliveryThreshold: num(s.free_delivery_threshold),
+    allowDelivery: !!s.allow_delivery,
+    allowPickup: !!s.allow_pickup,
+    allowDineIn: !!s.allow_dine_in,
+    dineInTableCount: num(s.dine_in_table_count),
+    deliveryFee: num(s.delivery_fee),
+    freeDeliveryThreshold: num(s.free_delivery_threshold),
     minOrderAmount: num(s.min_order_amount),
-    whatsappOrderingEnabled: !!s.whatsapp_ordering_enabled, whatsappDeliveryFallback: !!s.whatsapp_delivery_fallback, showOutOfStockOnline: !!s.show_out_of_stock_online,
-    fawranEnabled: !!s.fawran_enabled, fawranAlias: s.fawran_alias ?? '',
-    fawranMobile: s.fawran_mobile ?? '', fawranIban: s.fawran_iban ?? '',
+    whatsappOrderingEnabled: !!s.whatsapp_ordering_enabled,
+    whatsappDeliveryFallback: !!s.whatsapp_delivery_fallback,
+    showOutOfStockOnline: !!s.show_out_of_stock_online,
+    fawranEnabled: !!s.fawran_enabled,
+    fawranAlias: s.fawran_alias ?? '',
+    fawranMobile: s.fawran_mobile ?? '',
+    fawranIban: s.fawran_iban ?? '',
     productCardLayout: (s.product_card_layout as 'vertical' | 'horizontal') || 'vertical',
     showStoreHeader: s.show_store_header ?? true,
     showStoreGradient: s.show_store_gradient ?? true,
@@ -167,15 +207,59 @@ export function toAccountInfo(env: any, storeId?: string): Partial<Account> {
 /** Which flat accountInfo keys belong to each settings group. */
 const GROUP_KEYS: Record<string, (keyof Account)[]> = {
   general: ['businessName', 'tagline', 'phone', 'whatsapp', 'language'],
-  business: ['ownerName', 'email', 'address', 'city', 'state', 'zipCode', 'country', 'latitude', 'longitude'],
+  business: [
+    'ownerName',
+    'email',
+    'address',
+    'city',
+    'state',
+    'zipCode',
+    'country',
+    'latitude',
+    'longitude',
+  ],
   currency: ['currency', 'symbolPlacement'],
   taxes: ['taxRate', 'taxId', 'taxIncludedInPrice'],
-  receipts: ['receiptHeader', 'receiptFooter', 'receiptShowLogo', 'receiptShowAddress', 'receiptShowTax', 'autoPrintReceipt'],
-  storefront: ['onlineStoreEnabled', 'storeSlug', 'publicUrl', 'storeBio', 'storeAccentColor', 'allowDelivery', 'allowPickup', 'allowDineIn', 'dineInTableCount', 'deliveryFee', 'freeDeliveryThreshold', 'minOrderAmount', 'whatsappOrderingEnabled', 'whatsappDeliveryFallback', 'fawranEnabled', 'fawranAlias', 'fawranMobile', 'fawranIban', 'showOutOfStockOnline', 'productCardLayout', 'showStoreHeader', 'showStoreGradient', 'storeNavbarColor'],
+  receipts: [
+    'receiptHeader',
+    'receiptFooter',
+    'receiptShowLogo',
+    'receiptShowAddress',
+    'receiptShowTax',
+    'autoPrintReceipt',
+  ],
+  storefront: [
+    'onlineStoreEnabled',
+    'storeSlug',
+    'publicUrl',
+    'storeBio',
+    'storeAccentColor',
+    'allowDelivery',
+    'allowPickup',
+    'allowDineIn',
+    'dineInTableCount',
+    'deliveryFee',
+    'freeDeliveryThreshold',
+    'minOrderAmount',
+    'whatsappOrderingEnabled',
+    'whatsappDeliveryFallback',
+    'fawranEnabled',
+    'fawranAlias',
+    'fawranMobile',
+    'fawranIban',
+    'showOutOfStockOnline',
+    'productCardLayout',
+    'showStoreHeader',
+    'showStoreGradient',
+    'storeNavbarColor',
+  ],
 };
 
 /** Given a merged accountInfo + the changed partial, return [group, payload] pairs to PUT. */
-export function settingsGroupPayloads(merged: Account, changed: Partial<Account>): Array<[string, Record<string, unknown>]> {
+export function settingsGroupPayloads(
+  merged: Account,
+  changed: Partial<Account>,
+): Array<[string, Record<string, unknown>]> {
   const changedKeys = Object.keys(changed) as (keyof Account)[];
   const out: Array<[string, Record<string, unknown>]> = [];
 
@@ -189,27 +273,63 @@ export function settingsGroupPayloads(merged: Account, changed: Partial<Account>
 function buildGroupPayload(group: string, a: Account): Record<string, unknown> {
   switch (group) {
     case 'general':
-      return { business_name: a.businessName, tagline: a.tagline, phone: a.phone, whatsapp: a.whatsapp, language: a.language };
+      return {
+        business_name: a.businessName,
+        tagline: a.tagline,
+        phone: a.phone,
+        whatsapp: a.whatsapp,
+        language: a.language,
+      };
     case 'business':
-      return { owner_name: a.ownerName, email: a.email, address: a.address, city: a.city, state: a.state, zip_code: a.zipCode, country: a.country, latitude: (a as any).latitude ?? null, longitude: (a as any).longitude ?? null };
+      return {
+        owner_name: a.ownerName,
+        email: a.email,
+        address: a.address,
+        city: a.city,
+        state: a.state,
+        zip_code: a.zipCode,
+        country: a.country,
+        latitude: (a as any).latitude ?? null,
+        longitude: (a as any).longitude ?? null,
+      };
     case 'currency':
       return { currency: a.currency, symbol_placement: a.symbolPlacement };
     case 'taxes':
-      return { charge_sales_tax: (a as any).chargeSalesTax ?? true, tax_rate: Number(a.taxRate), tax_id: a.taxId, tax_included_in_price: !!a.taxIncludedInPrice };
+      return {
+        charge_sales_tax: (a as any).chargeSalesTax ?? true,
+        tax_rate: Number(a.taxRate),
+        tax_id: a.taxId,
+        tax_included_in_price: !!a.taxIncludedInPrice,
+      };
     case 'receipts':
-      return { header: a.receiptHeader, footer: a.receiptFooter, show_logo: !!a.receiptShowLogo, show_address: !!a.receiptShowAddress, show_tax: !!a.receiptShowTax, auto_print: !!a.autoPrintReceipt };
+      return {
+        header: a.receiptHeader,
+        footer: a.receiptFooter,
+        show_logo: !!a.receiptShowLogo,
+        show_address: !!a.receiptShowAddress,
+        show_tax: !!a.receiptShowTax,
+        auto_print: !!a.autoPrintReceipt,
+      };
     case 'storefront':
       return {
-        online_store_enabled: !!a.onlineStoreEnabled, store_slug: a.storeSlug, public_url: a.publicUrl || null, store_bio: a.storeBio,
+        online_store_enabled: !!a.onlineStoreEnabled,
+        store_slug: a.storeSlug,
+        public_url: a.publicUrl || null,
+        store_bio: a.storeBio,
         accent_color: a.storeAccentColor,
-        allow_delivery: !!a.allowDelivery, allow_pickup: !!a.allowPickup,
-        allow_dine_in: !!(a as any).allowDineIn, dine_in_table_count: Number((a as any).dineInTableCount ?? 0),
-        delivery_fee: Number(a.deliveryFee), free_delivery_threshold: Number(a.freeDeliveryThreshold),
+        allow_delivery: !!a.allowDelivery,
+        allow_pickup: !!a.allowPickup,
+        allow_dine_in: !!(a as any).allowDineIn,
+        dine_in_table_count: Number((a as any).dineInTableCount ?? 0),
+        delivery_fee: Number(a.deliveryFee),
+        free_delivery_threshold: Number(a.freeDeliveryThreshold),
         min_order_amount: Number(a.minOrderAmount),
         whatsapp_ordering_enabled: !!a.whatsappOrderingEnabled,
         whatsapp_delivery_fallback: !!(a as any).whatsappDeliveryFallback,
-        fawran_enabled: !!a.fawranEnabled, fawran_alias: a.fawranAlias || null,
-        fawran_mobile: a.fawranMobile || null, fawran_iban: a.fawranIban || null,
+        fawran_enabled: !!a.fawranEnabled,
+        fawran_alias: a.fawranAlias || null,
+        fawran_mobile: a.fawranMobile || null,
+        fawran_iban: a.fawranIban || null,
         show_out_of_stock_online: !!a.showOutOfStockOnline,
         product_card_layout: a.productCardLayout === 'horizontal' ? 'horizontal' : 'vertical',
         show_store_header: a.showStoreHeader ?? true,
@@ -223,7 +343,10 @@ function buildGroupPayload(group: string, a: Account): Record<string, unknown> {
 
 /* ---------- frontend -> API payloads ---------- */
 
-export function productPayload(p: Partial<Product>, categories: Category[]): Record<string, unknown> {
+export function productPayload(
+  p: Partial<Product>,
+  categories: Category[],
+): Record<string, unknown> {
   const categoryId = categories.find((c) => c.name === p.category)?.id;
   return {
     name: p.name,
@@ -246,16 +369,27 @@ export function productPayload(p: Partial<Product>, categories: Category[]): Rec
     image_focus: p.imageFocus ?? null,
     variants: (p.variants ?? []).map((v) => ({
       ...(Number.isFinite(Number(v.id)) ? { id: Number(v.id) } : {}),
-      name: v.name, option_values: v.optionValues, price: v.price, stock: v.stock,
-      sku: v.code || null, is_active: v.isActive,
+      name: v.name,
+      option_values: v.optionValues,
+      price: v.price,
+      stock: v.stock,
+      sku: v.code || null,
+      is_active: v.isActive,
     })),
   };
 }
 
 export function customerPayload(c: Partial<Customer>): Record<string, unknown> {
   return {
-    name: c.name, phone: c.phone, email: c.email || null, address: c.address || null,
-    address_details: c.addressDetails || null, city: c.city || null, latitude: c.latitude ?? null, longitude: c.longitude ?? null,
-    tax_id: c.taxId || null, notes: c.notes || null,
+    name: c.name,
+    phone: c.phone,
+    email: c.email || null,
+    address: c.address || null,
+    address_details: c.addressDetails || null,
+    city: c.city || null,
+    latitude: c.latitude ?? null,
+    longitude: c.longitude ?? null,
+    tax_id: c.taxId || null,
+    notes: c.notes || null,
   };
 }

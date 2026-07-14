@@ -1,9 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import {
-  backendUrl,
-  frontendUrl,
-  storageStatePath,
-} from './tests/e2e/support/e2e';
+import { backendUrl, frontendUrl, storageStatePath } from './tests/e2e/support/e2e';
 
 const required = (name: string): string => {
   const value = process.env[name];
@@ -11,14 +7,16 @@ const required = (name: string): string => {
   return value;
 };
 
-const e2eSupervisorEnv = Object.fromEntries([
-  'P00_E2E_SUPERVISOR_DB_URL',
-  'P00_E2E_SERVICE_LIFECYCLE_ID',
-  'P00_E2E_SERVICE_ATTESTATION_PATH',
-  'P00_E2E_SERVICE_ATTESTATION_SHA256',
-  'P00_PG_IDENTITY',
-  'P00_PG_INSTANCE_NONCE_SHA256',
-].map((name) => [name, required(name)]));
+const e2eSupervisorEnv = Object.fromEntries(
+  [
+    'P00_E2E_SUPERVISOR_DB_URL',
+    'P00_E2E_SERVICE_LIFECYCLE_ID',
+    'P00_E2E_SERVICE_ATTESTATION_PATH',
+    'P00_E2E_SERVICE_ATTESTATION_SHA256',
+    'P00_PG_IDENTITY',
+    'P00_PG_INSTANCE_NONCE_SHA256',
+  ].map((name) => [name, required(name)]),
+);
 
 export default defineConfig({
   testDir: './tests/e2e',

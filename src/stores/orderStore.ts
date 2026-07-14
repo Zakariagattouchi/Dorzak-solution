@@ -9,7 +9,10 @@ interface OrderState {
   error: string | null;
   unseenOrderIds: string[];
   fetchOrders: () => Promise<void>;
-  createOrder: (orderData: Omit<Order, 'id' | 'date'>, customerId?: string | null) => Promise<Order>;
+  createOrder: (
+    orderData: Omit<Order, 'id' | 'date'>,
+    customerId?: string | null,
+  ) => Promise<Order>;
   updateStatus: (order: Order, status: OrderStatus) => Promise<Order>;
   updatePaymentStatus: (order: Order, status: PaymentStatus) => Promise<Order>;
   markOrderSeen: (id: string) => void;
@@ -57,7 +60,7 @@ export const useOrderStore = create<OrderState>((set) => ({
     if (!order.apiId) throw new Error('Order identifier is missing.');
     const res: any = await orderApi.updateStatus(Number(order.apiId), status);
     const updated = toOrder(res.data);
-    set((s) => ({ orders: s.orders.map((item) => item.id === order.id ? updated : item) }));
+    set((s) => ({ orders: s.orders.map((item) => (item.id === order.id ? updated : item)) }));
     return updated;
   },
 
@@ -65,11 +68,15 @@ export const useOrderStore = create<OrderState>((set) => ({
     if (!order.apiId) throw new Error('Order identifier is missing.');
     const res: any = await orderApi.updatePaymentStatus(Number(order.apiId), status);
     const updated = toOrder(res.data);
-    set((s) => ({ orders: s.orders.map((item) => item.id === order.id ? updated : item) }));
+    set((s) => ({ orders: s.orders.map((item) => (item.id === order.id ? updated : item)) }));
     return updated;
   },
 
-  markOrderSeen: (id) => set((s) => ({ unseenOrderIds: s.unseenOrderIds.filter((oid) => oid !== id) })),
+  markOrderSeen: (id) =>
+    set((s) => ({ unseenOrderIds: s.unseenOrderIds.filter((oid) => oid !== id) })),
   markOrdersSeen: () => set({ unseenOrderIds: [] }),
-  addUnseenOrder: (id) => set((s) => ({ unseenOrderIds: s.unseenOrderIds.includes(id) ? s.unseenOrderIds : [...s.unseenOrderIds, id] })),
+  addUnseenOrder: (id) =>
+    set((s) => ({
+      unseenOrderIds: s.unseenOrderIds.includes(id) ? s.unseenOrderIds : [...s.unseenOrderIds, id],
+    })),
 }));

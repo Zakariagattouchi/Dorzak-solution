@@ -6,7 +6,13 @@ import { AppIcon } from '../../components/icons/AppIcon';
 import { Order, OrderStatus } from '../../data/mockData';
 import { AppButton } from '../../components/buttons/AppButton';
 
-const statusFlow: OrderStatus[] = ['CONFIRMING', 'ACCEPTED', 'PREPARING', 'OUT_FOR_DELIVERY', 'COMPLETE'];
+const statusFlow: OrderStatus[] = [
+  'CONFIRMING',
+  'ACCEPTED',
+  'PREPARING',
+  'OUT_FOR_DELIVERY',
+  'COMPLETE',
+];
 
 const labels = {
   en: {
@@ -150,7 +156,8 @@ export const OrderStatusPage: React.FC = () => {
   useEffect(() => {
     if (!slug || !orderNumber) return;
     const id = setInterval(() => {
-      publicApi.getOrder(slug, orderNumber)
+      publicApi
+        .getOrder(slug, orderNumber)
         .then((res: any) => {
           const updated = toOrder(res.data);
           const newStatus = updated.status;
@@ -200,7 +207,9 @@ export const OrderStatusPage: React.FC = () => {
         <div className="order-status-error">
           <AppIcon name="alert" size={40} />
           <p>{error || t.notFound}</p>
-          <AppButton variant="secondary" onClick={() => navigate(`/store/${slug}`)}>{t.back}</AppButton>
+          <AppButton variant="secondary" onClick={() => navigate(`/store/${slug}`)}>
+            {t.back}
+          </AppButton>
         </div>
       </div>
     );
@@ -210,24 +219,42 @@ export const OrderStatusPage: React.FC = () => {
   const phoneUrl = store.phone ? `tel:${store.phone}` : null;
 
   return (
-    <div className="order-status-page" dir={language === 'ar' ? 'rtl' : 'ltr'} style={{
-      '--store-accent': store.accent_color ?? '#0f766e',
-      '--store-secondary': store.secondary_color ?? '#373f4e',
-      '--store-navbar': store.navbar_color ?? '#17201e',
-    } as React.CSSProperties}>
+    <div
+      className="order-status-page"
+      dir={language === 'ar' ? 'rtl' : 'ltr'}
+      style={
+        {
+          '--store-accent': store.accent_color ?? '#0f766e',
+          '--store-secondary': store.secondary_color ?? '#373f4e',
+          '--store-navbar': store.navbar_color ?? '#17201e',
+        } as React.CSSProperties
+      }
+    >
       <header className="mobile-shopbar">
         <div className="store-identity">
-          {store.logo_url ? <img src={store.logo_url} alt="" /> : <span>{store.business_name?.[0]}</span>}
+          {store.logo_url ? (
+            <img src={store.logo_url} alt="" />
+          ) : (
+            <span>{store.business_name?.[0]}</span>
+          )}
           <div>
             <h1>{store.business_name}</h1>
             <p>{t.title}</p>
           </div>
         </div>
         <div className="shopbar-actions">
-          <button className="bag-icon-button" onClick={() => navigate(`/store/${slug}`)} aria-label={t.back}>
+          <button
+            className="bag-icon-button"
+            onClick={() => navigate(`/store/${slug}`)}
+            aria-label={t.back}
+          >
             <AppIcon name="home" size={20} />
           </button>
-          <button className="language-toggle" onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')} aria-label="Change language">
+          <button
+            className="language-toggle"
+            onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+            aria-label="Change language"
+          >
             {language === 'en' ? 'ع' : 'EN'}
           </button>
         </div>
@@ -255,7 +282,10 @@ export const OrderStatusPage: React.FC = () => {
                 const completed = idx <= currentIndex;
                 const active = idx === currentIndex;
                 return (
-                  <div key={step} className={`order-timeline-step ${completed ? 'completed' : ''} ${active ? 'active' : ''}`}>
+                  <div
+                    key={step}
+                    className={`order-timeline-step ${completed ? 'completed' : ''} ${active ? 'active' : ''}`}
+                  >
                     <div className="order-timeline-dot">
                       {completed && <AppIcon name="check" size={14} />}
                     </div>
@@ -282,51 +312,129 @@ export const OrderStatusPage: React.FC = () => {
             ))}
           </ul>
           <div className="order-status-totals">
-            <div><span>{t.subtotal}</span><span>{money(order.subtotal)}</span></div>
+            <div>
+              <span>{t.subtotal}</span>
+              <span>{money(order.subtotal)}</span>
+            </div>
             {order.fulfillment === 'DELIVERY' && (
               <div>
-                <span>{t.deliveryFee}{order.deliveryProviderName ? ` · ${order.deliveryProviderName}` : ''}</span>
-                {order.deliveryFeeStatus === 'PENDING'
-                  ? <span style={{ color: '#b45309', fontWeight: 700 }}>{t.feePending}</span>
-                  : <span>{money(order.deliveryFee ?? 0)}</span>}
+                <span>
+                  {t.deliveryFee}
+                  {order.deliveryProviderName ? ` · ${order.deliveryProviderName}` : ''}
+                </span>
+                {order.deliveryFeeStatus === 'PENDING' ? (
+                  <span style={{ color: '#b45309', fontWeight: 700 }}>{t.feePending}</span>
+                ) : (
+                  <span>{money(order.deliveryFee ?? 0)}</span>
+                )}
               </div>
             )}
-            {Number(order.taxAmount) > 0 && <div><span>{t.tax}</span><span>{money(order.taxAmount)}</span></div>}
-            {Number(order.discount) > 0 && <div className="discount"><span>{t.discount}</span><span>-{money(order.discount)}</span></div>}
-            <div className="grand-total"><span>{t.total}</span><span>{money(order.total)}</span></div>
+            {Number(order.taxAmount) > 0 && (
+              <div>
+                <span>{t.tax}</span>
+                <span>{money(order.taxAmount)}</span>
+              </div>
+            )}
+            {Number(order.discount) > 0 && (
+              <div className="discount">
+                <span>{t.discount}</span>
+                <span>-{money(order.discount)}</span>
+              </div>
+            )}
+            <div className="grand-total">
+              <span>{t.total}</span>
+              <span>{money(order.total)}</span>
+            </div>
           </div>
           {order.deliveryFeeStatus === 'PENDING' && (
-            <p style={{ fontSize: '0.82rem', color: '#b45309', margin: '8px 0 0' }}>{t.feePendingHelp}</p>
+            <p style={{ fontSize: '0.82rem', color: '#b45309', margin: '8px 0 0' }}>
+              {t.feePendingHelp}
+            </p>
           )}
         </section>
 
         {/* Pay after the merchant sets the fee (WhatsApp manual-quote loop). */}
-        {order.fulfillment === 'DELIVERY' && order.status !== 'CANCELLED' && order.paymentStatus === 'UNPAID'
-          && order.deliveryFeeStatus === 'SET' && store.fawran_enabled && (
-          <section className="order-status-card">
-            <h3 className="order-status-section-title">{t.payNow}</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)', margin: '0 0 10px' }}>{t.fawranPayHelp}</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem' }}>
-              {store.fawran_mobile && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#f8fafc', borderRadius: '8px' }}>
-                  <span>{t.fawranAlias}</span><strong>{store.fawran_mobile}</strong>
+        {order.fulfillment === 'DELIVERY' &&
+          order.status !== 'CANCELLED' &&
+          order.paymentStatus === 'UNPAID' &&
+          order.deliveryFeeStatus === 'SET' &&
+          store.fawran_enabled && (
+            <section className="order-status-card">
+              <h3 className="order-status-section-title">{t.payNow}</h3>
+              <p
+                style={{
+                  fontSize: '0.85rem',
+                  color: 'var(--text-muted, #64748b)',
+                  margin: '0 0 10px',
+                }}
+              >
+                {t.fawranPayHelp}
+              </p>
+              <div
+                style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem' }}
+              >
+                {store.fawran_mobile && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    <span>{t.fawranAlias}</span>
+                    <strong>{store.fawran_mobile}</strong>
+                  </div>
+                )}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    background: '#f8fafc',
+                    borderRadius: '8px',
+                  }}
+                >
+                  <span>{t.reference}</span>
+                  <strong>{order.customerName}</strong>
                 </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    background: '#f8fafc',
+                    borderRadius: '8px',
+                  }}
+                >
+                  <span>{t.total}</span>
+                  <strong>{money(order.total)}</strong>
+                </div>
+              </div>
+              <label
+                className="file-picker"
+                style={{ display: 'block', marginTop: '12px', fontWeight: 600 }}
+              >
+                {uploading ? '…' : t.uploadProof}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={uploading}
+                  onChange={(event) => {
+                    const f = event.target.files?.[0];
+                    if (f) handleProofUpload(f);
+                    event.target.value = '';
+                  }}
+                />
+              </label>
+              {uploadError && (
+                <p style={{ color: '#b91c1c', fontSize: '0.82rem', marginTop: '6px' }}>
+                  {t.uploadFailed}
+                </p>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#f8fafc', borderRadius: '8px' }}>
-                <span>{t.reference}</span><strong>{order.customerName}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#f8fafc', borderRadius: '8px' }}>
-                <span>{t.total}</span><strong>{money(order.total)}</strong>
-              </div>
-            </div>
-            <label className="file-picker" style={{ display: 'block', marginTop: '12px', fontWeight: 600 }}>
-              {uploading ? '…' : t.uploadProof}
-              <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading}
-                onChange={(event) => { const f = event.target.files?.[0]; if (f) handleProofUpload(f); event.target.value = ''; }} />
-            </label>
-            {uploadError && <p style={{ color: '#b91c1c', fontSize: '0.82rem', marginTop: '6px' }}>{t.uploadFailed}</p>}
-          </section>
-        )}
+            </section>
+          )}
         {order.paymentStatus === 'PENDING_VERIFICATION' && (
           <section className="order-status-card" style={{ borderInlineStart: '4px solid #f59e0b' }}>
             <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600 }}>{t.proofSent}</p>
@@ -334,14 +442,26 @@ export const OrderStatusPage: React.FC = () => {
         )}
 
         <section className="order-status-card order-status-info">
-          <h3 className="order-status-section-title">{t.fulfillment[order.fulfillment ?? 'PICKUP']}</h3>
+          <h3 className="order-status-section-title">
+            {t.fulfillment[order.fulfillment ?? 'PICKUP']}
+          </h3>
           {order.fulfillment === 'DINE_IN' && order.tableNumber && (
-            <p><AppIcon name="table" size={16} /> {t.fulfillment.DINE_IN} — {t.table} {order.tableNumber}</p>
+            <p>
+              <AppIcon name="table" size={16} /> {t.fulfillment.DINE_IN} — {t.table}{' '}
+              {order.tableNumber}
+            </p>
           )}
           {order.fulfillment === 'DELIVERY' && (
-            <p><AppIcon name="mapPin" size={16} /> {order.deliveryAddress}{order.deliveryCity ? `, ${order.deliveryCity}` : ''}</p>
+            <p>
+              <AppIcon name="mapPin" size={16} /> {order.deliveryAddress}
+              {order.deliveryCity ? `, ${order.deliveryCity}` : ''}
+            </p>
           )}
-          {order.fulfillment === 'PICKUP' && <p><AppIcon name="storefront" size={16} /> {t.fulfillment.PICKUP}</p>}
+          {order.fulfillment === 'PICKUP' && (
+            <p>
+              <AppIcon name="storefront" size={16} /> {t.fulfillment.PICKUP}
+            </p>
+          )}
           {order.notes && <p className="order-status-notes">{order.notes}</p>}
         </section>
 
@@ -354,7 +474,12 @@ export const OrderStatusPage: React.FC = () => {
               </a>
             )}
             {whatsappUrl && (
-              <a className="order-status-contact-button whatsapp" href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+              <a
+                className="order-status-contact-button whatsapp"
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <AppIcon name="whatsapp" size={18} /> {t.whatsapp}
               </a>
             )}
@@ -362,8 +487,12 @@ export const OrderStatusPage: React.FC = () => {
         </section>
 
         <div className="order-status-actions">
-          <AppButton variant="secondary" onClick={() => navigate(`/store/${slug}`)}>{t.back}</AppButton>
-          <AppButton variant="primary" onClick={fetchOrder}>{t.refresh}</AppButton>
+          <AppButton variant="secondary" onClick={() => navigate(`/store/${slug}`)}>
+            {t.back}
+          </AppButton>
+          <AppButton variant="primary" onClick={fetchOrder}>
+            {t.refresh}
+          </AppButton>
         </div>
       </main>
     </div>

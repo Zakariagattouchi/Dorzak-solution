@@ -12,10 +12,31 @@ interface ProductState {
   fetchCategories: () => Promise<void>;
   addProduct: (product: Omit<Product, 'id'>) => Promise<Product>;
   getProduct: (id: string) => Promise<Product>;
-  updateProduct: (id: string, product: Partial<Product>, imageFile?: File | null, additionalImageFiles?: File[], removePaths?: string[]) => Promise<Product>;
-  createProduct: (product: Omit<Product, 'id'>, imageFile?: File | null, additionalImageFiles?: File[]) => Promise<Product>;
-  addCategory: (name: string, color?: string, imageFile?: File | null, description?: string) => Promise<Category>;
-  updateCategory: (id: string, name: string, color?: string, imageFile?: File | null, description?: string) => Promise<Category>;
+  updateProduct: (
+    id: string,
+    product: Partial<Product>,
+    imageFile?: File | null,
+    additionalImageFiles?: File[],
+    removePaths?: string[],
+  ) => Promise<Product>;
+  createProduct: (
+    product: Omit<Product, 'id'>,
+    imageFile?: File | null,
+    additionalImageFiles?: File[],
+  ) => Promise<Product>;
+  addCategory: (
+    name: string,
+    color?: string,
+    imageFile?: File | null,
+    description?: string,
+  ) => Promise<Category>;
+  updateCategory: (
+    id: string,
+    name: string,
+    color?: string,
+    imageFile?: File | null,
+    description?: string,
+  ) => Promise<Category>;
   deleteProduct: (id: string) => Promise<void>;
 }
 
@@ -80,7 +101,10 @@ export const useProductStore = create<ProductState>((set, get) => ({
         await catalogApi.deleteProductAdditionalImage(Number(id), path);
       }
     }
-    const res: any = await catalogApi.updateProduct(Number(id), productPayload(product, get().categories));
+    const res: any = await catalogApi.updateProduct(
+      Number(id),
+      productPayload(product, get().categories),
+    );
     let updated = toProduct(res.data);
     if (imageFile) {
       await catalogApi.uploadProductImage(Number(id), imageFile);
@@ -116,7 +140,11 @@ export const useProductStore = create<ProductState>((set, get) => ({
       const all: any = await catalogApi.categories();
       updated = toCategory(all.data.find((item: any) => String(item.id) === id));
     }
-    set((s) => ({ categories: s.categories.map((category) => category.id === id ? { ...updated, productCount: category.productCount } : category) }));
+    set((s) => ({
+      categories: s.categories.map((category) =>
+        category.id === id ? { ...updated, productCount: category.productCount } : category,
+      ),
+    }));
     return updated;
   },
 

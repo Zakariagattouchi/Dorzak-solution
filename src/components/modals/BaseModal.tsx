@@ -30,9 +30,17 @@ export const BaseModal: React.FC<BaseModalProps> = ({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-container" role="dialog" aria-modal="true" aria-labelledby="modal-title" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-container"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
-          <h3 className="modal-title" id="modal-title">{title}</h3>
+          <h3 className="modal-title" id="modal-title">
+            {title}
+          </h3>
           <button className="btn-icon" aria-label="Close dialog" onClick={onClose}>
             <AppIcon name="close" size={18} />
           </button>

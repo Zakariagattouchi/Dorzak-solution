@@ -7,7 +7,12 @@ interface StatusPillProps {
 
 export const StatusPill: React.FC<StatusPillProps> = ({ status, label }) => {
   let variant: 'success' | 'warning' | 'danger' | 'primary' = 'primary';
-  const text = label || status.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+  const text =
+    label ||
+    status
+      .toLowerCase()
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
 
   switch (status.toUpperCase()) {
     case 'COMPLETE':

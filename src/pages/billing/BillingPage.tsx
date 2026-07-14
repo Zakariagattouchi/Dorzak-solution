@@ -6,7 +6,10 @@ import { AppIcon } from '../../components/icons/AppIcon';
 import { AppButton } from '../../components/buttons/AppButton';
 import { StatusPill } from '../../components/feedback/StatusPill';
 
-interface PlanFeatureRow { feature: string; limit: number | null; }
+interface PlanFeatureRow {
+  feature: string;
+  limit: number | null;
+}
 
 interface CatalogPlan {
   id: number;
@@ -35,7 +38,10 @@ interface SubscriptionData {
 }
 
 const featureLabel = (f: PlanFeatureRow): string => {
-  const label = f.feature.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  const label = f.feature
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
   return f.limit != null ? `${label} (${f.limit})` : label;
 };
 
@@ -65,7 +71,9 @@ export const BillingPage: React.FC = () => {
     }
   }, [addToast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const startTrial = async (plan: CatalogPlan) => {
     setStartingTrial(plan.id);
@@ -81,7 +89,11 @@ export const BillingPage: React.FC = () => {
   };
 
   if (loading) {
-    return <div style={{ color: 'var(--text-muted)', padding: '40px', textAlign: 'center' }}>Loading your plan…</div>;
+    return (
+      <div style={{ color: 'var(--text-muted)', padding: '40px', textAlign: 'center' }}>
+        Loading your plan…
+      </div>
+    );
   }
 
   const trialActive = sub?.status === 'TRIALING';
@@ -93,15 +105,27 @@ export const BillingPage: React.FC = () => {
     <div style={{ maxWidth: '1000px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div>
         <h2 style={{ margin: 0 }}>Plans & Subscription</h2>
-        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Manage your Dorzak Merchant plan and feature modules</span>
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          Manage your Dorzak Merchant plan and feature modules
+        </span>
       </div>
 
       {/* Current plan */}
       {sub && (
         <div className="card" style={{ borderLeft: '4px solid var(--dorzak-primary)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}
+          >
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}
+              >
                 <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{sub.plan_name ?? sub.plan}</h3>
                 <StatusPill status={trialActive ? 'CONFIRMING' : 'ACTIVE'} label={sub.status} />
               </div>
@@ -120,7 +144,19 @@ export const BillingPage: React.FC = () => {
           {sub.features.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '14px' }}>
               {sub.features.map((f, i) => (
-                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '4px 10px', borderRadius: '14px', background: 'var(--color-bg)', fontWeight: 500 }}>
+                <span
+                  key={i}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.8rem',
+                    padding: '4px 10px',
+                    borderRadius: '14px',
+                    background: 'var(--color-bg)',
+                    fontWeight: 500,
+                  }}
+                >
                   <AppIcon name="checkCircle" size={14} color="var(--dorzak-success)" />
                   {featureLabel(f)}
                 </span>
@@ -131,29 +167,77 @@ export const BillingPage: React.FC = () => {
       )}
 
       {/* Plan catalog */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(plans.length, 3)}, 1fr)`, gap: '16px' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${Math.min(plans.length, 3)}, 1fr)`,
+          gap: '16px',
+        }}
+      >
         {plans.map((plan) => {
           const isCurrent = sub?.plan === plan.code;
-          const canTrial = canManage && !plan.is_default && plan.trial_days > 0 && !sub?.trial_used && sub?.plan_is_default;
+          const canTrial =
+            canManage &&
+            !plan.is_default &&
+            plan.trial_days > 0 &&
+            !sub?.trial_used &&
+            sub?.plan_is_default;
 
           return (
-            <div key={plan.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', border: isCurrent ? '2px solid var(--dorzak-primary)' : undefined }}>
+            <div
+              key={plan.id}
+              className="card"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                border: isCurrent ? '2px solid var(--dorzak-primary)' : undefined,
+              }}
+            >
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <h4 style={{ margin: 0, fontSize: '1.05rem' }}>{plan.name_en}</h4>
-                  {isCurrent && <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--dorzak-primary)' }}>CURRENT</span>}
+                  {isCurrent && (
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        color: 'var(--dorzak-primary)',
+                      }}
+                    >
+                      CURRENT
+                    </span>
+                  )}
                 </div>
                 {plan.description_en && (
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{plan.description_en}</span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {plan.description_en}
+                  </span>
                 )}
               </div>
 
               <div style={{ fontSize: '1.6rem', fontWeight: 800 }}>
                 {plan.price === 0 ? 'Free' : `${plan.price} ${sub?.currency ?? 'QAR'}`}
-                {plan.price > 0 && <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)' }}> / {plan.billing_cycle}</span>}
+                {plan.price > 0 && (
+                  <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)' }}>
+                    {' '}
+                    / {plan.billing_cycle}
+                  </span>
+                )}
               </div>
 
-              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem', flex: 1, padding: 0, margin: 0 }}>
+              <ul
+                style={{
+                  listStyle: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  fontSize: '0.85rem',
+                  flex: 1,
+                  padding: 0,
+                  margin: 0,
+                }}
+              >
                 {plan.features.map((f, i) => (
                   <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <AppIcon name="check" size={14} color="var(--dorzak-success)" />
@@ -175,7 +259,12 @@ export const BillingPage: React.FC = () => {
                   )}
                   <AppButton
                     variant={canTrial ? 'secondary' : 'primary'}
-                    onClick={() => addToast('Online payments are launching soon — contact us to upgrade today', 'info')}
+                    onClick={() =>
+                      addToast(
+                        'Online payments are launching soon — contact us to upgrade today',
+                        'info',
+                      )
+                    }
                   >
                     Upgrade to {plan.name_en}
                   </AppButton>
@@ -187,7 +276,8 @@ export const BillingPage: React.FC = () => {
       </div>
 
       <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-        Free trials are one-time per store. When a trial ends your store returns to the Free plan automatically — your products, orders and customers are never touched.
+        Free trials are one-time per store. When a trial ends your store returns to the Free plan
+        automatically — your products, orders and customers are never touched.
       </span>
     </div>
   );

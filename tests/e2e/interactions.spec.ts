@@ -4,7 +4,9 @@ test.beforeEach(async ({ page }) => page.goto('/checkout'));
 
 test('selects a hoodie variant and charges in QAR', async ({ page }) => {
   await page.getByRole('button', { name: 'Choose Dorzak Signature Cotton Hoodie' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Choose Dorzak Signature Cotton Hoodie options' });
+  const dialog = page.getByRole('dialog', {
+    name: 'Choose Dorzak Signature Cotton Hoodie options',
+  });
   await dialog.getByRole('button', { name: 'Small', exact: true }).click();
   await dialog.getByRole('button', { name: 'Black', exact: true }).click();
   await dialog.getByRole('button', { name: 'Add to Cart • QAR 49.99' }).click();

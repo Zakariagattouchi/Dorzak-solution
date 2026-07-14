@@ -17,15 +17,29 @@ export const PaymentSuccessModal: React.FC = () => {
       isOpen={activeModal === 'PAYMENT_SUCCESS'}
       onClose={closeModal}
       title="Payment Confirmed"
-      footer={<>
-        <AppButton variant="secondary" onClick={closeModal}>New Sale</AppButton>
-        <AppButton variant="primary" icon="receipt" onClick={() => openModal('RECEIPT', { order })}>View & Print Receipt</AppButton>
-      </>}
+      footer={
+        <>
+          <AppButton variant="secondary" onClick={closeModal}>
+            New Sale
+          </AppButton>
+          <AppButton
+            variant="primary"
+            icon="receipt"
+            onClick={() => openModal('RECEIPT', { order })}
+          >
+            View & Print Receipt
+          </AppButton>
+        </>
+      }
     >
       <div className="payment-success">
-        <div className="success-mark"><AppIcon name="check" size={34} /></div>
+        <div className="success-mark">
+          <AppIcon name="check" size={34} />
+        </div>
         <h3>{money(order.total, 2, order.currencyCode)} paid successfully</h3>
-        <p>Order <strong>{order.id}</strong> is complete. The receipt is ready to print.</p>
+        <p>
+          Order <strong>{order.id}</strong> is complete. The receipt is ready to print.
+        </p>
         <div className="receipt-ready">
           <span>{order.items.reduce((sum, item) => sum + item.quantity, 0)} items</span>
           <span>{order.paymentMethod}</span>

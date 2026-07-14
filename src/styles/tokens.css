@@ -39,93 +39,92 @@
 
 :root {
   /* ── Brand / Primary ── */
-  --color-primary: #BE000C;
-  --color-primary-strong: #E81C1C;
-  --color-primary-soft: #FFEFED;
-  --color-primary-border: #FFB4AA;
+  --color-primary: #be000c;
+  --color-primary-strong: #e81c1c;
+  --color-primary-soft: #ffefed;
+  --color-primary-border: #ffb4aa;
 
   /* ── Ink / Text ── */
   --color-black: #000000;
-  --color-ink: #1A1C1C;
+  --color-ink: #1a1c1c;
   --color-ink-muted: #666666;
-  --color-white: #FFFFFF;
+  --color-white: #ffffff;
 
   /* ── Surfaces ── */
-  --color-surface: #F9F9F9;
-  --color-surface-subtle: #F5F5F5;
-  --color-surface-container: #EEEEEE;
-  --color-surface-raised: #FFFFFF;
-  --color-bg: #F9F9F9;
-  --color-surface-hover: #F5F5F5;
+  --color-surface: #f9f9f9;
+  --color-surface-subtle: #f5f5f5;
+  --color-surface-container: #eeeeee;
+  --color-surface-raised: #ffffff;
+  --color-bg: #f9f9f9;
+  --color-surface-hover: #f5f5f5;
 
   /* ── Borders ── */
-  --color-border: #E5E5E5;
-  --color-border-strong: #D0D0D0;
-  --color-border-hover: #D0D0D0;
+  --color-border: #e5e5e5;
+  --color-border-strong: #d0d0d0;
+  --color-border-hover: #d0d0d0;
 
   /* ── Semantic Colors ── */
-  --color-success: #0F8A4B;
-  --color-success-soft: #EAF7EF;
-  --color-warning: #B7791F;
-  --color-warning-soft: #FFF6E5;
-  --color-error: #BA1A1A;
-  --color-error-soft: #FFDAD6;
-  --color-info: #0060A2;
-  --color-info-soft: #E8F3FF;
+  --color-success: #0f8a4b;
+  --color-success-soft: #eaf7ef;
+  --color-warning: #b7791f;
+  --color-warning-soft: #fff6e5;
+  --color-error: #ba1a1a;
+  --color-error-soft: #ffdad6;
+  --color-info: #0060a2;
+  --color-info-soft: #e8f3ff;
 
   /* ── F&B Specific ── */
-  --color-kitchen-hot: #E8590C;
-  --color-kitchen-cold: #0079CB;
-  --color-loyalty-gold: #B88900;
-  --color-loyalty-soft: #FFF8E1;
+  --color-kitchen-hot: #e8590c;
+  --color-kitchen-cold: #0079cb;
+  --color-loyalty-gold: #b88900;
+  --color-loyalty-soft: #fff8e1;
 
   /* ── Sidebar ── */
   --dorzak-sidebar-bg: #000000;
-  --dorzak-sidebar-text: #A0A0A0;
-  --dorzak-sidebar-active: #FFFFFF;
-  --dorzak-sidebar-hover-bg: #1A1A1A;
-  --dorzak-sidebar-active-indicator: #E81C1C;
+  --dorzak-sidebar-text: #a0a0a0;
+  --dorzak-sidebar-active: #ffffff;
+  --dorzak-sidebar-hover-bg: #1a1a1a;
+  --dorzak-sidebar-active-indicator: #e81c1c;
 
   --kyte-sidebar-bg: #000000;
-  --kyte-sidebar-text: #A0A0A0;
-  --kyte-sidebar-active: #FFFFFF;
-  --kyte-sidebar-hover-bg: #1A1A1A;
-  --kyte-sidebar-active-indicator: #E81C1C;
+  --kyte-sidebar-text: #a0a0a0;
+  --kyte-sidebar-active: #ffffff;
+  --kyte-sidebar-hover-bg: #1a1a1a;
+  --kyte-sidebar-active-indicator: #e81c1c;
 
   /* ── Legacy aliases (for backwards compat) ── */
-  --dorzak-primary: #BE000C;
-  --dorzak-primary-hover: #E81C1C;
-  --dorzak-primary-active: #9B0009;
-  --dorzak-primary-light: #FFEFED;
-  --dorzak-success: #0F8A4B;
-  --dorzak-success-light: #EAF7EF;
-  --dorzak-warning: #B7791F;
-  --dorzak-warning-light: #FFF6E5;
-  --dorzak-danger: #BA1A1A;
-  --dorzak-danger-light: #FFDAD6;
-  --dorzak-info: #0060A2;
+  --dorzak-primary: #be000c;
+  --dorzak-primary-hover: #e81c1c;
+  --dorzak-primary-active: #9b0009;
+  --dorzak-primary-light: #ffefed;
+  --dorzak-success: #0f8a4b;
+  --dorzak-success-light: #eaf7ef;
+  --dorzak-warning: #b7791f;
+  --dorzak-warning-light: #fff6e5;
+  --dorzak-danger: #ba1a1a;
+  --dorzak-danger-light: #ffdad6;
+  --dorzak-info: #0060a2;
   --dorzak-dark: #000000;
-  --dorzak-secondary: #1A1C1C;
+  --dorzak-secondary: #1a1c1c;
 
-  --kyte-primary: #BE000C;
-  --kyte-primary-hover: #E81C1C;
-  --kyte-primary-active: #9B0009;
-  --kyte-primary-light: #FFEFED;
-  --kyte-success: #0F8A4B;
-  --kyte-success-light: #EAF7EF;
-  --kyte-warning: #B7791F;
-  --kyte-warning-light: #FFF6E5;
-  --kyte-danger: #BA1A1A;
-  --kyte-danger-light: #FFDAD6;
-  --kyte-info: #0060A2;
+  --kyte-primary: #be000c;
+  --kyte-primary-hover: #e81c1c;
+  --kyte-primary-active: #9b0009;
+  --kyte-primary-light: #ffefed;
+  --kyte-success: #0f8a4b;
+  --kyte-success-light: #eaf7ef;
+  --kyte-warning: #b7791f;
+  --kyte-warning-light: #fff6e5;
+  --kyte-danger: #ba1a1a;
+  --kyte-danger-light: #ffdad6;
+  --kyte-info: #0060a2;
   --kyte-dark: #000000;
-  --kyte-secondary: #1A1C1C;
+  --kyte-secondary: #1a1c1c;
 
   /* ── Text (legacy aliases) ── */
-  --text-main: #1A1C1C;
+  --text-main: #1a1c1c;
   --text-muted: #666666;
   --text-light: #999999;
-
 
   /* ── Typography ── */
   --font-sans: 'Hanken Grotesk', Inter, system-ui, sans-serif;
@@ -154,15 +153,15 @@
   --radius-full: 9999px;
 
   /* ── Shadows — borders first, shadows only when floating ── */
-  --shadow-floating: 0 8px 24px rgba(0,0,0,0.08);
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
+  --shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
   --border-default: 1px solid var(--color-border);
 
   /* ── Transitions ── */
   --transition-fast: 120ms ease-out;
-  --transition-normal: 180ms cubic-bezier(.2,.8,.2,1);
+  --transition-normal: 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* ── Layout ── */
   --sidebar-width: 280px;

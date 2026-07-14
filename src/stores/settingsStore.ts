@@ -7,7 +7,11 @@ const storageKey = 'dorzak-merchant-lang';
 type Account = typeof initialAccountInfo;
 
 const persistedLang = (): 'en' | 'ar' => {
-  try { return (localStorage.getItem(storageKey) as 'en' | 'ar') || 'en'; } catch { return 'en'; }
+  try {
+    return (localStorage.getItem(storageKey) as 'en' | 'ar') || 'en';
+  } catch {
+    return 'en';
+  }
 };
 
 const applyDir = (language: 'en' | 'ar') => {
@@ -60,7 +64,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setLanguage: (language) => {
     applyDir(language);
-    try { localStorage.setItem(storageKey, language); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(storageKey, language);
+    } catch {
+      /* ignore */
+    }
     set((s) => ({ accountInfo: { ...s.accountInfo, language } }));
   },
 

@@ -17,7 +17,15 @@ export function formatMoney(
     maximumFractionDigits: fractionDigits,
   });
   const code = currencyOverride ?? format.currency;
-  const known: Record<string, string> = { QAR: 'QAR', USD: '$', EUR: '€', GBP: '£', CAD: 'CA$', BRL: 'R$', AUD: 'A$' };
+  const known: Record<string, string> = {
+    QAR: 'QAR',
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+    CAD: 'CA$',
+    BRL: 'R$',
+    AUD: 'A$',
+  };
   const symbol = known[code] ?? (currencyOverride || format.currencySymbol);
   return format.symbolPlacement === 'AFTER'
     ? `${amount} ${symbol}`

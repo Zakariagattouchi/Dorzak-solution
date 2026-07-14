@@ -43,7 +43,8 @@ export const ImpersonationBanner: React.FC = () => {
     >
       <AppIcon name="eye" size={16} color="#fff" />
       <span>
-        Viewing <strong>{impersonating}</strong> as its owner — actions you take affect their live store.
+        Viewing <strong>{impersonating}</strong> as its owner — actions you take affect their live
+        store.
       </span>
       <button
         type="button"

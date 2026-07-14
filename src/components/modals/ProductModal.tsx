@@ -16,7 +16,9 @@ export const ProductModal: React.FC = () => {
   const { categories, addProduct } = useProductStore();
   const { addToast } = useToastStore();
 
-  const [activeTab, setActiveTab] = useState<'BASIC' | 'PRICING' | 'STOCK' | 'VARIANTS' | 'ONLINE'>('BASIC');
+  const [activeTab, setActiveTab] = useState<'BASIC' | 'PRICING' | 'STOCK' | 'VARIANTS' | 'ONLINE'>(
+    'BASIC',
+  );
 
   // Form Fields
   const [name, setName] = useState('');
@@ -67,13 +69,14 @@ export const ProductModal: React.FC = () => {
   };
 
   const removeVariant = (id: string) => {
-    setVariants(variants.filter(v => v.id !== id));
+    setVariants(variants.filter((v) => v.id !== id));
   };
 
   const sellingPrice = parseFloat(price) || 0;
   const costPrice = parseFloat(cost) || 0;
   const profitMargin = sellingPrice - costPrice;
-  const profitPercentage = sellingPrice > 0 ? ((profitMargin / sellingPrice) * 100).toFixed(1) : '0';
+  const profitPercentage =
+    sellingPrice > 0 ? ((profitMargin / sellingPrice) * 100).toFixed(1) : '0';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,7 +103,7 @@ export const ProductModal: React.FC = () => {
         showInOnlineStore,
         isFeatured,
         variants,
-        variantGroups: []
+        variantGroups: [],
       });
       addToast(`Product "${name}" created with ${variants.length} variants!`, 'success');
       closeModal();
@@ -125,13 +128,25 @@ export const ProductModal: React.FC = () => {
       title="Create Production Product"
       footer={
         <>
-          <AppButton variant="secondary" onClick={closeModal}>Cancel</AppButton>
-          <AppButton variant="primary" onClick={handleSubmit} loading={loading}>Save Product</AppButton>
+          <AppButton variant="secondary" onClick={closeModal}>
+            Cancel
+          </AppButton>
+          <AppButton variant="primary" onClick={handleSubmit} loading={loading}>
+            Save Product
+          </AppButton>
         </>
       }
     >
       {/* Navigation Sub-Tabs */}
-      <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid var(--color-border)', marginBottom: '16px', overflowX: 'auto' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: '4px',
+          borderBottom: '1px solid var(--color-border)',
+          marginBottom: '16px',
+          overflowX: 'auto',
+        }}
+      >
         <button
           type="button"
           onClick={() => setActiveTab('BASIC')}
@@ -139,8 +154,9 @@ export const ProductModal: React.FC = () => {
             padding: '8px 12px',
             fontSize: '0.85rem',
             fontWeight: 600,
-            borderBottom: activeTab === 'BASIC' ? '2px solid var(--dorzak-primary)' : '2px solid transparent',
-            color: activeTab === 'BASIC' ? 'var(--dorzak-primary)' : 'var(--text-muted)'
+            borderBottom:
+              activeTab === 'BASIC' ? '2px solid var(--dorzak-primary)' : '2px solid transparent',
+            color: activeTab === 'BASIC' ? 'var(--dorzak-primary)' : 'var(--text-muted)',
           }}
         >
           Basic Info
@@ -152,8 +168,9 @@ export const ProductModal: React.FC = () => {
             padding: '8px 12px',
             fontSize: '0.85rem',
             fontWeight: 600,
-            borderBottom: activeTab === 'PRICING' ? '2px solid var(--dorzak-primary)' : '2px solid transparent',
-            color: activeTab === 'PRICING' ? 'var(--dorzak-primary)' : 'var(--text-muted)'
+            borderBottom:
+              activeTab === 'PRICING' ? '2px solid var(--dorzak-primary)' : '2px solid transparent',
+            color: activeTab === 'PRICING' ? 'var(--dorzak-primary)' : 'var(--text-muted)',
           }}
         >
           Pricing & Profit
@@ -165,8 +182,9 @@ export const ProductModal: React.FC = () => {
             padding: '8px 12px',
             fontSize: '0.85rem',
             fontWeight: 600,
-            borderBottom: activeTab === 'STOCK' ? '2px solid var(--dorzak-primary)' : '2px solid transparent',
-            color: activeTab === 'STOCK' ? 'var(--dorzak-primary)' : 'var(--text-muted)'
+            borderBottom:
+              activeTab === 'STOCK' ? '2px solid var(--dorzak-primary)' : '2px solid transparent',
+            color: activeTab === 'STOCK' ? 'var(--dorzak-primary)' : 'var(--text-muted)',
           }}
         >
           Stock & Alerts
@@ -178,8 +196,11 @@ export const ProductModal: React.FC = () => {
             padding: '8px 12px',
             fontSize: '0.85rem',
             fontWeight: 600,
-            borderBottom: activeTab === 'VARIANTS' ? '2px solid var(--dorzak-primary)' : '2px solid transparent',
-            color: activeTab === 'VARIANTS' ? 'var(--dorzak-primary)' : 'var(--text-muted)'
+            borderBottom:
+              activeTab === 'VARIANTS'
+                ? '2px solid var(--dorzak-primary)'
+                : '2px solid transparent',
+            color: activeTab === 'VARIANTS' ? 'var(--dorzak-primary)' : 'var(--text-muted)',
           }}
         >
           Variants ({variants.length})
@@ -191,8 +212,9 @@ export const ProductModal: React.FC = () => {
             padding: '8px 12px',
             fontSize: '0.85rem',
             fontWeight: 600,
-            borderBottom: activeTab === 'ONLINE' ? '2px solid var(--dorzak-primary)' : '2px solid transparent',
-            color: activeTab === 'ONLINE' ? 'var(--dorzak-primary)' : 'var(--text-muted)'
+            borderBottom:
+              activeTab === 'ONLINE' ? '2px solid var(--dorzak-primary)' : '2px solid transparent',
+            color: activeTab === 'ONLINE' ? 'var(--dorzak-primary)' : 'var(--text-muted)',
           }}
         >
           Online Store
@@ -203,8 +225,13 @@ export const ProductModal: React.FC = () => {
         {/* Tab 1: Basic Info */}
         {activeTab === 'BASIC' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <TextInput label="Product Title *" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Premium Fleece Hoodie" />
-            
+            <TextInput
+              label="Product Title *"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Premium Fleece Hoodie"
+            />
+
             <div className="form-group">
               <label className="form-label">Product Description</label>
               <textarea
@@ -221,7 +248,7 @@ export const ProductModal: React.FC = () => {
                 label="Category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                options={categories.map(c => ({ value: c.name, label: c.name }))}
+                options={categories.map((c) => ({ value: c.name, label: c.name }))}
               />
               <SelectInput
                 label="Unit of Measure"
@@ -232,14 +259,24 @@ export const ProductModal: React.FC = () => {
                   { value: 'kg', label: 'Kilograms (kg)' },
                   { value: 'box', label: 'Box / Pack' },
                   { value: 'm', label: 'Meters (m)' },
-                  { value: 'bottle', label: 'Bottle / Can' }
+                  { value: 'bottle', label: 'Bottle / Can' },
                 ]}
               />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <TextInput label="SKU / Barcode" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. HD-9901" />
-              <TextInput label="Image URL" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." />
+              <TextInput
+                label="SKU / Barcode"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="e.g. HD-9901"
+              />
+              <TextInput
+                label="Image URL"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://..."
+              />
             </div>
           </div>
         )}
@@ -248,14 +285,41 @@ export const ProductModal: React.FC = () => {
         {activeTab === 'PRICING' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <TextInput label="Selling Price ($) *" type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
-              <TextInput label="Cost Price ($)" type="number" step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0.00" />
+              <TextInput
+                label="Selling Price ($) *"
+                type="number"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="0.00"
+              />
+              <TextInput
+                label="Cost Price ($)"
+                type="number"
+                step="0.01"
+                value={cost}
+                onChange={(e) => setCost(e.target.value)}
+                placeholder="0.00"
+              />
             </div>
 
             {/* Calculated Profit Indicator */}
-            <div className="card" style={{ padding: '12px', backgroundColor: 'var(--dorzak-success-light)', borderColor: 'var(--dorzak-success)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--dorzak-success)' }}>ESTIMATED PROFIT MARGIN</span>
+            <div
+              className="card"
+              style={{
+                padding: '12px',
+                backgroundColor: 'var(--dorzak-success-light)',
+                borderColor: 'var(--dorzak-success)',
+              }}
+            >
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <span
+                  style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--dorzak-success)' }}
+                >
+                  ESTIMATED PROFIT MARGIN
+                </span>
                 <strong style={{ fontSize: '1.1rem', color: 'var(--dorzak-success)' }}>
                   ${profitMargin.toFixed(2)} ({profitPercentage}%)
                 </strong>
@@ -282,8 +346,18 @@ export const ProductModal: React.FC = () => {
 
             {trackStock && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <TextInput label="Current Stock Quantity" type="number" value={stock} onChange={(e) => setStock(e.target.value)} />
-                <TextInput label="Minimum Stock Alert Level" type="number" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+                <TextInput
+                  label="Current Stock Quantity"
+                  type="number"
+                  value={stock}
+                  onChange={(e) => setStock(e.target.value)}
+                />
+                <TextInput
+                  label="Minimum Stock Alert Level"
+                  type="number"
+                  value={minStock}
+                  onChange={(e) => setMinStock(e.target.value)}
+                />
               </div>
             )}
           </div>
@@ -292,33 +366,106 @@ export const ProductModal: React.FC = () => {
         {/* Tab 4: Variants & Options */}
         {activeTab === 'VARIANTS' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ backgroundColor: 'var(--color-bg)', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Add Product Variant</span>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '8px', alignItems: 'end' }}>
-                <TextInput placeholder="Variant (e.g. Size M / Blue)" value={newVarName} onChange={(e) => setNewVarName(e.target.value)} />
-                <TextInput placeholder="Price ($)" type="number" step="0.01" value={newVarPrice} onChange={(e) => setNewVarPrice(e.target.value)} />
-                <TextInput placeholder="Stock" type="number" value={newVarStock} onChange={(e) => setNewVarStock(e.target.value)} />
-                <AppButton variant="secondary" type="button" onClick={addVariant}>+ Add</AppButton>
+            <div
+              style={{
+                backgroundColor: 'var(--color-bg)',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  display: 'block',
+                  marginBottom: '8px',
+                }}
+              >
+                Add Product Variant
+              </span>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '2fr 1fr 1fr auto',
+                  gap: '8px',
+                  alignItems: 'end',
+                }}
+              >
+                <TextInput
+                  placeholder="Variant (e.g. Size M / Blue)"
+                  value={newVarName}
+                  onChange={(e) => setNewVarName(e.target.value)}
+                />
+                <TextInput
+                  placeholder="Price ($)"
+                  type="number"
+                  step="0.01"
+                  value={newVarPrice}
+                  onChange={(e) => setNewVarPrice(e.target.value)}
+                />
+                <TextInput
+                  placeholder="Stock"
+                  type="number"
+                  value={newVarStock}
+                  onChange={(e) => setNewVarStock(e.target.value)}
+                />
+                <AppButton variant="secondary" type="button" onClick={addVariant}>
+                  + Add
+                </AppButton>
               </div>
             </div>
 
             {/* List of Added Variants */}
             {variants.length === 0 ? (
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', display: 'block', padding: '12px' }}>
+              <span
+                style={{
+                  fontSize: '0.85rem',
+                  color: 'var(--text-muted)',
+                  textAlign: 'center',
+                  display: 'block',
+                  padding: '12px',
+                }}
+              >
                 No variants added yet. Add sizes, colors, or options above.
               </span>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {variants.map((v) => (
-                  <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
+                  <div
+                    key={v.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '8px 12px',
+                      backgroundColor: 'var(--color-surface)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '6px',
+                    }}
+                  >
                     <div>
                       <strong>{v.name}</strong>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '8px' }}>SKU: {v.code}</span>
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          color: 'var(--text-muted)',
+                          marginLeft: '8px',
+                        }}
+                      >
+                        SKU: {v.code}
+                      </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ color: 'var(--dorzak-primary)', fontWeight: 600 }}>${v.price.toFixed(2)}</span>
+                      <span style={{ color: 'var(--dorzak-primary)', fontWeight: 600 }}>
+                        ${v.price.toFixed(2)}
+                      </span>
                       <span style={{ fontSize: '0.8rem' }}>Stock: {v.stock}</span>
-                      <button type="button" onClick={() => removeVariant(v.id)} style={{ color: 'var(--dorzak-danger)' }}>
+                      <button
+                        type="button"
+                        onClick={() => removeVariant(v.id)}
+                        style={{ color: 'var(--dorzak-danger)' }}
+                      >
                         <AppIcon name="close" size={14} />
                       </button>
                     </div>

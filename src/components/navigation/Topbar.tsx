@@ -15,16 +15,21 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMenu }) => {
   return (
     <header className="app-topbar">
       <div className="topbar-left">
-        <AppButton variant="icon" className="mobile-menu-button" aria-label="Open navigation" onClick={onOpenMenu}>
+        <AppButton
+          variant="icon"
+          className="mobile-menu-button"
+          aria-label="Open navigation"
+          onClick={onOpenMenu}
+        >
           <AppIcon name="menu" size={22} />
         </AppButton>
         <div className="business-switcher">
-          <div className="business-avatar">
-            {accountInfo.businessName.substring(0, 1)}
-          </div>
+          <div className="business-avatar">{accountInfo.businessName.substring(0, 1)}</div>
           <div className="business-meta">
             <h4 className="business-name">{accountInfo.businessName}</h4>
-            <span className="business-context">All branches · {accountInfo.country} · {accountInfo.currency}</span>
+            <span className="business-context">
+              All branches · {accountInfo.country} · {accountInfo.currency}
+            </span>
           </div>
         </div>
       </div>
