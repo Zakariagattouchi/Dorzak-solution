@@ -46,3 +46,16 @@ The parent Control Register requires the existing user-owned MediaUrl diff to be
 - The existing P00 planning task may receive a narrowly scoped design-correction lease for the exact design file only.
 - After a corrected commit and clean independent review, the Control Room must ask the owner to approve the new exact artifact/hash.
 - No implementation plan, MediaUrl preservation action, worktree, execution task or code change may begin.
+
+## Resolution
+
+The two Important findings were corrected in commit `ea7b8258083231c6a9b7aa7c00d89009e29e696e`. The corrected artifact SHA-256 is `861dc58732d304d45837785d9ac74ff13dd3c44d46e467d531dbb55b408115e8`.
+
+- Section 11.1 now requires either formal approval of the product baseline and technical roadmap or a separate exact, owner-approved, durably recorded P00 plan-writing-only exception. It states that neither artifact status nor the earlier design-writing exception is sufficient.
+- Sections 7.1, 9 and 11.2 now require the approved MediaUrl preservation action to be completed, verified and evidenced before execution. The evidence must name the preservation method, exact patch/commit hash, verification result, resulting `BASE_SHA` and clean named worktree state.
+- The corrected commit changes only the formal P00 design relative to its review/control parent `70d5701b943bfc0b46314ec6325232dadcc2e392`.
+- The Control Register's future lifecycle diagram, P00 program gate, WP-P00 gate, execution-task gate and protected-state rule were also expanded in the current control revision after follow-up review identified weaker shorthand there.
+- A final independent read-only review of `ea7b825…` found no Critical or Important findings. It confirmed both corrections, the exact parent and sole-file delta, the artifact hashes, unchanged mandatory order/contracts/boundaries/exit gate, and the absence of planning or execution authority.
+- A separate final read-only review of the Control Register transition found no Critical or Important findings after its repeated execution-gate summaries and historical commit timestamps were reconciled.
+
+The earlier owner decision remains tied to commit `96844070bb0d1d8887afc10b0f21c86f04399f5a`. Because the corrected artifact has a new commit and content hash, its lifecycle is **Awaiting owner** and all P00 plan-writing and execution authorization remains withheld pending a new exact-artifact decision.
