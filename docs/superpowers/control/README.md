@@ -2,23 +2,23 @@
 
 **Purpose:** Single source of truth for current status, active authorization, blockers, and the next permitted Dorzak complete-launch action.
 
-**Last verified:** 2026-07-14 (final P00 plan review and Control Room handoff)
+**Last verified:** 2026-07-14 (exact owner gate and focused amendment authorization)
 
 **Register revision:** Resolve with: git log -1 feat/premium-features --format=%H -- docs/superpowers/control/README.md
 
 **Interim canonical control ref:** feat/premium-features, documentation-only control commits
 
-**Future canonical integration ref:** Not established; execution is prohibited until separately approved and created
+**Future canonical integration ref:** Approved target `origin/main` at `https://github.com/Zakariagattouchi/dorzak.git`; the local remote/ref do not yet exist and execution remains prohibited
 
 **Sole register writer:** Dorzak Launch — Control Room
 
 **Control task ID:** 019f6010-88bb-7653-ab98-15ef5d75c7e0
 
-**Observed repository HEAD before this control change:** 8b91d527fba26ee4407d339abe8dee78bffad99c
+**Observed repository HEAD before this control change:** a610130822f94c47b961d3317d0455194370a21a
 
 **Current lifecycle:** Planning
 
-**Current authorization:** Fresh Control Room read-only startup verification, owner-decision collection and control-register administration only. The required provider/P17 amendment, MediaUrl preservation, P00 implementation and execution remain Not authorized.
+**Current authorization:** Approved to durably record the exact owner gate and then write one focused documentation-only Task 14/P17 amendment at the exact roadmap and P00 plan paths. Actual CI/configuration/provider changes, MediaUrl preservation, P00 implementation and execution remain Not authorized.
 
 **Public release:** Blocked until M9. No partial public launch.
 
@@ -30,15 +30,16 @@ Authority depends on the question:
 
 | Artifact/domain | Governs | Lifecycle | Approval evidence | Document commit |
 |---|---|---|---|---|
-| [Complete-launch product baseline](../specs/2026-07-14-dorzak-complete-launch-baseline-v1.md) | Product requirements | Awaiting owner | Formal written-artifact approval not yet recorded | cc4085cbca11e89257ae8535438db6cfe3dd75cc; SHA-256 `7ae650f4b04c0fe1e234d4fa41cd4fac673abe1139853f4397f2286da24992f2` |
-| [Technical execution roadmap](../specs/2026-07-14-dorzak-technical-execution-roadmap-design.md) | Architecture, sequence and engineering gates | Planning | Formal written-artifact approval not yet recorded; lines 118 and 136 retain a superseded shared React merchant/Superadmin assumption and must be amended to the approved separate Frappe-native P17 direction before approval | Current artifact at 069f4833190c75866494e7ba51bff3021070c0bf; SHA-256 `e9aa2c7970f9edf08f03177458cb496f979a30dbf3cf7fd96480c0c3b9a5cc60` |
+| [Complete-launch product baseline](../specs/2026-07-14-dorzak-complete-launch-baseline-v1.md) | Product requirements | Approved | [Exact owner gate approval](approvals/2026-07-14-p00-owner-gate-and-focused-amendment-approval.md) recorded against commit `cc4085cbca11e89257ae8535438db6cfe3dd75cc` and SHA-256 `7ae650f4b04c0fe1e234d4fa41cd4fac673abe1139853f4397f2286da24992f2` | cc4085cbca11e89257ae8535438db6cfe3dd75cc |
+| [Technical execution roadmap](../specs/2026-07-14-dorzak-technical-execution-roadmap-design.md) | Architecture, sequence and engineering gates | Planning | [Owner gate](approvals/2026-07-14-p00-owner-gate-and-focused-amendment-approval.md) authorizes one focused documentation-only P17 reconciliation; the amended exact bytes require fresh zero-finding review and exact owner approval | Current pre-amendment artifact at 069f4833190c75866494e7ba51bff3021070c0bf; SHA-256 `e9aa2c7970f9edf08f03177458cb496f979a30dbf3cf7fd96480c0c3b9a5cc60` |
 | [P17 Frappe-native Superadmin decision](approvals/2026-07-14-p17-frappe-native-superadmin-owner-decision.md) | Internal control-plane architecture, isolation, access governance and authority boundary | Approved | Owner direction recorded on 14 July 2026; no P17 planning or execution authority | ec6989f095377118a12aaab5a63f0ed4bed00f33 |
+| [P00 owner gate and focused amendment authorization](approvals/2026-07-14-p00-owner-gate-and-focused-amendment-approval.md) | Exact safety/baseline approval, provider/remote/runtime inputs and two-path amendment lease | Approved | Owner replied `approved` to the preserved exact packet; implementation/execution explicitly excluded | Current control transition |
 | [Session orchestration design](../specs/2026-07-14-dorzak-session-orchestration-design.md) | Task/session workflow | Approved | Owner approved the rolling session plan in Control Room on 14 July 2026 | 069f483 |
 | This Control Register | Status and next authorization | Approved | Owner approved creation of the control folder/register on 14 July 2026 | Introduced at 069f483; current revision resolves from canonical ref |
 | [P00 proposed design](proposals/2026-07-14-p00-baseline-stabilization-proposal.md) | Exact input permitted for formal P00 design writing | Approved | [Scoped owner approval](approvals/2026-07-14-p00-proposed-design-approval.md), proposal SHA-256 `551054d063a89b8b361b4dbd45fefa03ec9e91915148b2490e0b454f57704320` | 4658111c1306133e82f01b83434d63ef1f44b695 |
 | [P00 formal written specification](../specs/2026-07-14-dorzak-p00-baseline-stabilization-design.md) | P00 contracts, boundaries, safety and exit gates | Approved | [Exact corrected-specification approval](approvals/2026-07-14-p00-written-specification-approval.md), commit `ea7b8258083231c6a9b7aa7c00d89009e29e696e`, SHA-256 `861dc58732d304d45837785d9ac74ff13dd3c44d46e467d531dbb55b408115e8` | ea7b8258083231c6a9b7aa7c00d89009e29e696e |
-| [P00 database-safety erratum](../specs/2026-07-14-dorzak-p00-e2e-safety-erratum.md) | Superseding browser-fixture and mutating-test connection safety | Awaiting owner | Proposed from the final exact-commit P00 assessment; no approval yet | Current control transition |
-| [P00 implementation plan](../plans/2026-07-14-dorzak-p00-baseline-stabilization.md) | Exact executable P00 change sequence | Planning | [Exact P00 plan-writing-only exception](approvals/2026-07-14-p00-plan-writing-exception-approval.md) plus [completed implementation-plan review](reviews/2026-07-14-p00-implementation-plan-review.md); the provider-neutral correction base has zero Critical and zero Important findings, but its Task 14 stop requires a provider-native amendment and the P17 decision requires the same focused roadmap/plan reconciliation; the amended exact bytes require a fresh zero-finding review and owner approval | Technical base `c3db796d11f50f3ce0f75fe7389d0225c271cd22`; SHA-256 `eecb96af875803f243c7694289526b34fdf0678a8792411fe4f1f41334d83444` |
+| [P00 database-safety erratum](../specs/2026-07-14-dorzak-p00-e2e-safety-erratum.md) | Superseding browser-fixture and mutating-test connection safety | Approved | [Exact owner gate approval](approvals/2026-07-14-p00-owner-gate-and-focused-amendment-approval.md) recorded against commit `59defd5dd36410d487679250c05d2be1d828c094` and SHA-256 `7af33dd41be2dca4490d512118d86dc14aa48f822a5051215927c88a66cd6024` | 59defd5dd36410d487679250c05d2be1d828c094 |
+| [P00 implementation plan](../plans/2026-07-14-dorzak-p00-baseline-stabilization.md) | Exact executable P00 change sequence | Planning | [Exact P00 plan-writing-only exception](approvals/2026-07-14-p00-plan-writing-exception-approval.md), [completed provider-neutral review](reviews/2026-07-14-p00-implementation-plan-review.md) and [focused amendment authorization](approvals/2026-07-14-p00-owner-gate-and-focused-amendment-approval.md); current base has zero Critical/Important findings, and only the exact two-path provider/P17 amendment is now authorized; amended bytes require fresh review and exact owner approval | Pre-amendment technical base `c3db796d11f50f3ce0f75fe7389d0225c271cd22`; SHA-256 `eecb96af875803f243c7694289526b34fdf0678a8792411fe4f1f41334d83444` |
 | Verified code/evidence SHA | Implemented reality | Not started | None | N/A |
 
 A review candidate may guide read-only analysis but is not execution authority. Before any design is committed or implementation plan is written, the Control Room must record the product-baseline and technical-roadmap approvals or the exact approved exception. The [P00 plan-writing exception](approvals/2026-07-14-p00-plan-writing-exception-approval.md) permits only the exact current source versions as inputs to the exact P00 plan target; it does not formally approve those program-wide artifacts and grants no implementation or execution authority.
@@ -131,9 +132,10 @@ ONE FINAL PARALLEL EXACT-COMMIT REVIEW
                        ↓
 OWNER APPROVES SAFETY ERRATUM + PRODUCT BASELINE,
 SELECTS CI PROVIDER/REMOTE/RUNTIME INPUTS
-                    current gates
+          complete in current revision
                        ↓
 FOCUSED TASK 14 + P17 ROADMAP/PLAN AMENDMENT
+     current authorized documentation-only gate
                        ↓
 FRESH EXACT-BYTE REVIEW: ZERO CRITICAL/IMPORTANT
                        ↓
@@ -157,9 +159,12 @@ No approval in this chain implies the next approval.
 ### Current repository facts
 
 - Current branch: **feat/premium-features**.
-- Observed HEAD before this register update: **c3db796d11f50f3ce0f75fe7389d0225c271cd22**.
+- Observed HEAD before this register update: **a610130822f94c47b961d3317d0455194370a21a**.
 - The checkout contains user-owned modifications and untracked files.
 - Pre-existing path-status manifest: **16 entries**, SHA-256 **a797825ef1c504e70abec3dd1a82694cf4fddd76be1544ed716067a9c95d9ffa**. It is the sorted git status --short output excluding this control-register work and records paths/status only, not secret contents.
+- Owner-approved remote/provider inputs: `origin` → `https://github.com/Zakariagattouchi/dorzak.git`, future integration branch `main`, CI provider `github-actions`. The repository had no refs and the local checkout had no configured remote when approved; adding/pushing/configuring them remains prohibited.
+- Owner-approved runtime pins: PHP `8.5.6`, Node.js `24.18.0`, npm `11.16.0`, Composer `2.9.8`; PostgreSQL major remains `16`.
+- Exact runner classes, immutable GitHub Action SHAs, immutable PostgreSQL image digest and normalizer design are bounded amendment outputs, not permission to configure or run them.
 - Before any writer task, the Control Room must capture HEAD, worktrees, status, and a hash/manifest of the pre-existing changes.
 - The existing MediaUrl change requires an approved preservation method plus completed, verified and evidenced preservation before P00 execution may begin.
 - Planning is read-only; application implementation is prohibited in this checkout.
@@ -232,7 +237,7 @@ Work packages are execution boundaries; their existence does not authorize their
 
 | Work package | Parent | Outcome | Lifecycle | Planning gate | Execution gate | Design/plan | Task IDs | Branch/worktree | Evidence | Serialized owner |
 |---|---|---|---|---|---|---|---|---|---|---|
-| WP-P00 | P00 | Baseline design and plan | Planning | Provider-neutral correction base complete under the Approved corrected design plus [plan-writing-only exception](approvals/2026-07-14-p00-plan-writing-exception-approval.md) | Owner-approved safety erratum/baseline; selected remote/provider/runtime inputs; focused Task 14 and P17 roadmap/plan amendment; fresh zero-finding review and exact owner approval; approved preservation method; completed, verified and evidenced MediaUrl preservation; recorded `BASE_SHA`; clean named worktree; explicit owner execution approval | Approved design `ea7b825`; proposed safety erratum; reviewed technical base `c3db796` / `eecb96af…`; provider/P17 amendment not yet authorized | Prior planning `019f5e64-9472-7f32-b0a9-77b4b3741864`; final correction `019f5f92-89a2-7ae1-9c97-91f5986c78b6`; active Control Room `019f6010-88bb-7653-ab98-15ef5d75c7e0` | Not created; execution prohibited | [Implementation-plan review](reviews/2026-07-14-p00-implementation-plan-review.md): current base zero Critical/Important; amended bytes require fresh review | Control Room |
+| WP-P00 | P00 | Baseline design and plan | Planning | Approved safety erratum/baseline and selected GitHub remote/provider/runtime inputs; exact two-path Task 14/P17 amendment authorized | Focused amendment committed; fresh zero-finding review and exact owner approval; approved preservation method; completed, verified and evidenced MediaUrl preservation; recorded `BASE_SHA`; clean named worktree; explicit owner execution approval | Approved design `ea7b825`; approved erratum/baseline; reviewed pre-amendment base `c3db796` / `eecb96af…`; focused amendment in progress | Prior planning `019f5e64-9472-7f32-b0a9-77b4b3741864`; final correction `019f5f92-89a2-7ae1-9c97-91f5986c78b6`; active Control Room `019f6010-88bb-7653-ab98-15ef5d75c7e0` | Not created; execution prohibited | Commit exact roadmap/plan amendment, then fresh independent review to zero Critical/Important | Control Room |
 | WP-P01A | P01 | Additive Organization migration | Not started | P00 complete | M0 complete + approved WP-P01A plan | None | None | N/A | N/A | Control Room |
 | WP-P01B | P01 | Identity, Party, OTP and consent | Not started | WP-P01A complete | WP-P01A complete + approved WP-P01B plan | None | None | N/A | N/A | Control Room |
 | WP-M2 | Shared prerequisite | Contract/value/outbox/real ERP handshake freeze | Not started | P01 complete | M1/P01 complete + approved WP-M2 plan | None | None | N/A | N/A | Control Room; all contract registries serialized |
@@ -249,7 +254,7 @@ WP-M2 is mandatory and must be Complete before P02/P03 execution. It receives it
 | Task title | Task ID | Type | Lifecycle | Outcome | Authorization | App state | Owner | Base/verified SHA | Writes allowed | Next gate |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Dorzak Launch — Control Room (predecessor) | 019f5a12-7412-7e53-9a2b-37d2f313628e | Control | Closed | Superseded by compact handoff | Succession transition completed | Unpinned | Prior Control Room | Initial handoff commit `8b91d52` | None | Historical evidence only |
-| Control Room | 019f6010-88bb-7653-ab98-15ef5d75c7e0 | Control | Planning | Open | Read-only startup verification, owner-decision collection and control administration only | Pinned | Control Room | Handoff `8b91d52`; latest register revision resolves from this file | Control documents only after exact owner authorization | Verify the committed handoff/register, report the current gate and await owner direction |
+| Control Room | 019f6010-88bb-7653-ab98-15ef5d75c7e0 | Control | Planning | Open | Control administration plus one focused documentation-only Task 14/P17 amendment | Pinned | Control Room | Handoff `8b91d52`; owner gate based on `a610130`; latest register revision resolves from this file | Control documents; then exact roadmap and P00 plan paths only under the recorded lease | Commit the two-path amendment and stop for fresh independent exact-byte review |
 | Dorzak Launch — P00 Baseline Planning | 019f5e64-9472-7f32-b0a9-77b4b3741864 | Planning | Closed | Historical | Prior correction lease completed | Archived | P00 planning owner | Candidate plan `5c88dc3` | None | Historical evidence only |
 | Dorzak Launch — P00 Final Plan Correction | 019f5f82-74f5-7f11-87ab-7b72b5d75bf8 | Planning | Closed | Superseded | Authorization revoked after exceeding the lean-session boundary | Archived | Prior correction owner | Clean isolated worktree at `59defd5`; uncommitted partial plan edit only | None | Preserve its isolated state; never integrate its uncommitted edit |
 | Dorzak Launch — P00 Direct Final Correction | 019f5f92-89a2-7ae1-9c97-91f5986c78b6 | Planning | Closed | Complete | One-file provider-neutral plan correction committed and independently reviewed | Archived | P00 direct-correction owner | Technical base `c3db796`; SHA-256 `eecb96af…`; zero Critical/Important | None | Historical evidence only |
@@ -396,13 +401,12 @@ Every context packet names the latest committed register revision. At every owne
 
 Current next action:
 
-1. fresh Control Room `019f6010-88bb-7653-ab98-15ef5d75c7e0` verifies the committed handoff/register and registered protected state, reports the current gate, then awaits owner direction;
-2. present the proposed database-safety erratum and complete-launch product baseline for exact owner approval, and obtain the owner-selected canonical remote, CI provider and exact runtime/tool inputs needed by Task 14;
-3. only after exact authorization, create one focused documentation-only amendment that both supplies the complete provider-native Task 14 adapter/required-status/two-run normalizer and reconciles roadmap/plan Superadmin wording to the approved separate Frappe-native P17 direction;
-4. independently review the amended roadmap/plan exact bytes to zero Critical/Important findings, then obtain exact owner approval of those amended artifacts; approval of technical base `c3db796d…` alone is intentionally insufficient;
-5. before execution, resolve the MediaUrl preservation choice and verified evidence, `BASE_SHA`, and clean named execution worktree;
-6. request explicit P00 execution approval only after every registered prerequisite is durable and verified;
-7. no MediaUrl preservation action, application/test/configuration/CI/dependency change, implementation, P01 work or public release begins from this transition.
+1. commit the exact owner-gate approval and this matching Control Register transition without touching protected user work;
+2. write and commit one focused documentation-only amendment changing only the technical roadmap and P00 plan: complete GitHub Actions Task 14 adapter/required status/two-new-run normalizer plus exact P17 Frappe-native reconciliation;
+3. independently review the amended exact bytes to zero Critical/Important findings, then obtain exact owner approval of the amended roadmap and plan; approval of technical base `c3db796d…` alone remains insufficient;
+4. before execution, resolve the MediaUrl preservation choice and verified evidence, `BASE_SHA`, clean named execution worktree, remote/ref creation and provider configuration;
+5. request explicit P00 execution approval only after every registered prerequisite is durable and verified;
+6. no MediaUrl preservation action, application/test/configuration/CI/dependency change, implementation, P01 work or public release begins from this transition.
 
 Plan-writing authorization is not implementation or execution authorization. Unresolved remote, CI-provider, runtime, MediaUrl-preservation and integration-base decisions must remain explicit pre-execution gates and may not be chosen by assumption.
 
@@ -436,3 +440,4 @@ Plan-writing authorization is not implementation or execution authorization. Unr
 | 2026-07-14 | Current register revision | Three exact-byte reviews and exact-commit seal checks found zero Critical and zero Important findings on that base; P00 stays Planning pending its mandatory provider/P17 amendment, with implementation/execution still Not authorized |
 | 2026-07-14 | Current register revision | Prepared the compact Control Room handoff and authorized one fresh pinned successor task; no product or application implementation was authorized |
 | 2026-07-14 | Current register revision | Created and pinned fresh task `019f6010-88bb-7653-ab98-15ef5d75c7e0` titled `Control Room` from handoff commit `8b91d527fba26ee4407d339abe8dee78bffad99c`; unpinned the predecessor and archived the completed planning/correction tasks |
+| 2026-07-14 13:13:31 | Current register revision | Recorded exact owner approval of the safety erratum and complete-launch baseline, selected `origin`/GitHub Actions/`main` plus PHP `8.5.6`, Node `24.18.0`, npm `11.16.0`, Composer `2.9.8`, and authorized only the focused two-path Task 14/P17 documentation amendment; implementation/execution remain prohibited |
