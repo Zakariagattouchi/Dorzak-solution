@@ -203,9 +203,11 @@ P00 uses one writer stream. A later boundary does not begin until the prior boun
 
 ### 7.1 Preservation preflight
 
-Record both worktrees, their branches, HEADs, statuses, path-level manifests and hashes, and the exact MediaUrl patch. Resolve the approved integration base and future clean P00 worktree before any execution checkout is created.
+Record both worktrees, their branches, HEADs, statuses, path-level manifests and hashes, and the exact MediaUrl user diff and its hash. Resolve the approved preservation method before any preservation action.
 
-No existing worktree is repurposed. No preservation action occurs until the Control Room records which approved method to use. At the end of every authorized writer boundary, compare final state with the captured pre-existing manifest and stop on any difference outside the approved allowlist.
+Under a separate preservation authorization, complete the approved action and verify it before execution authorization. The durable preservation record must identify the approved method, the exact preserved patch SHA-256 or commit SHA, the verification result proving that the preserved artifact matches the reviewed user diff, the resulting approved integration `BASE_SHA`, and the clean state of the named execution worktree at that base. Selecting a method without completed, verified, and evidenced preservation does not satisfy this gate.
+
+No existing worktree is repurposed. The future execution worktree and integration base are approved only from the completed preservation record. At the end of every authorized writer boundary, compare final state with the captured pre-existing manifest and stop on any difference outside the approved allowlist.
 
 ### 7.2 Baseline contracts
 
@@ -328,7 +330,10 @@ The repository begins P00 with user-owned work. Preservation is a hard correctne
 - preserve the MediaUrl diff independently;
 - recommended preservation is a dedicated owner-approved commit before selecting the clean execution base;
 - the permitted alternative is export and application of the exact reviewed patch;
-- the Control Room must select one method before either action occurs;
+- the Control Room must approve one method before either action occurs;
+- under separate authority, the approved preservation action must be completed and its result verified before execution authorization;
+- the durable record must identify the approved method, exact preserved patch SHA-256 or commit SHA, verification result against the reviewed user diff, resulting approved integration `BASE_SHA`, and clean state of the named execution worktree at that base;
+- selection of a method alone is insufficient evidence of preservation;
 - never let Pint or another mechanical rewrite absorb the diff;
 - never reuse the stale linked worktree;
 - never use `git add -A`; stage only the approved allowlist;
@@ -337,6 +342,7 @@ The repository begins P00 with user-owned work. Preservation is a hard correctne
 
 Execution also stops when:
 
+- MediaUrl preservation is incomplete, its evidence is missing or mismatched, or the named execution worktree is not clean at the approved integration base;
 - an authority or product contradiction appears;
 - a destructive database guard cannot prove the E2E target;
 - a PostgreSQL finding requires a new behavior decision;
@@ -381,23 +387,30 @@ This design opens neither implementation planning nor execution.
 
 ### 11.1 Implementation-planning entry
 
-No implementation-plan work begins until the owner approves this written P00 specification and the Control Room durably records a separate plan-writing authorization.
+No implementation-plan work begins until the owner approves this corrected exact written P00 specification artifact and its hash, and the Control Room durably records a separate plan-writing authorization.
 
-That authorization must state the authority status of the complete-launch baseline at `cc4085c` and the technical roadmap introduced at `d518f92` with the `069f483` correction. It must also identify which open implementation inputs are resolved and which, if any, are explicitly deferred to the execution gate. An unresolved input that affects an exact planning choice stops the affected plan work; the planning task may not supply it by assumption.
+That plan-writing authorization is valid only when it cites one of these two durable prerequisites:
+
+1. formal owner approval of both the complete-launch product baseline at `cc4085c` and the technical roadmap introduced at `d518f92` with the `069f483` correction; or
+2. a separate, exact, owner-approved P00 plan-writing exception durably recorded by the Control Room.
+
+The exception must name the source artifacts and versions it permits as planning inputs, limit its scope to writing and reviewing the P00 implementation plan, and explicitly exclude program-wide artifact approval, MediaUrl preservation, branch or worktree creation, application changes, execution authority, P01–P19 work, and public release. It cannot satisfy any execution-entry condition.
+
+Merely recording the two source artifacts' status, or carrying forward the design-writing exception, is insufficient. The plan-writing authorization must also identify which open implementation inputs are resolved and which, if any, are explicitly deferred to the execution gate. An unresolved input that affects an exact planning choice stops the affected plan work; the planning task may not supply it by assumption.
 
 ### 11.2 Execution entry
 
-No execution task, branch, or worktree begins until the Control Room has durably recorded:
+No P00 execution task may begin, and no execution authorization or code-writing lease may be issued, until the Control Room has durably recorded:
 
 1. a separately reviewed and owner-approved P00 implementation plan;
-2. owner approval of the integration base, clean P00 worktree, and execution;
-3. formal owner approval of the complete-launch baseline at `cc4085c` and the technical roadmap introduced at `d518f92` with the `069f483` correction;
-4. the canonical Git remote;
-5. the CI provider;
-6. exact production PHP and Node runtime pins;
-7. the exact MediaUrl preservation action.
+2. formal owner approval of the complete-launch product baseline at `cc4085c` and the technical roadmap introduced at `d518f92` with the `069f483` correction;
+3. the canonical Git remote;
+4. the CI provider;
+5. exact production PHP and Node runtime pins;
+6. completed, verified, and evidenced MediaUrl preservation whose record identifies the approved method, exact preserved patch SHA-256 or commit SHA, verification result against the reviewed user diff, resulting approved integration `BASE_SHA`, and clean state of the named execution worktree at that base;
+7. owner approval of that resulting integration base, clean execution worktree, and P00 execution.
 
-GitHub Actions remains conditional on first establishing an approved GitHub remote. No authority or implementation input in this section is selected by this specification.
+The P00 plan-writing exception described in Section 11.1 cannot satisfy item 2 or authorize any other execution-entry item. GitHub Actions remains conditional on first establishing an approved GitHub remote. No authority, preservation method, or implementation input in this section is selected by this specification.
 
 ---
 
