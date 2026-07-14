@@ -37,7 +37,8 @@ The future execution lease must bind the following shell variables to literal va
 
 | Variable | Exact meaning |
 |---|---|
-| `P00_CONTROL_RECORD` | Repository-relative path to the durable execution-entry approval |
+| `P00_CONTROL_RECORD` / `P00_CONTROL_RECORD_COMMIT` / `P00_CONTROL_RECORD_SHA256` | Repository-relative JSON execution-entry record, full commit containing those exact bytes, and their 64-hex SHA-256 |
+| `P00_SAFETY_ERRATUM_COMMIT` / `P00_SAFETY_ERRATUM_SHA256` | Full commit containing the exactly approved safety erratum and the erratum file's 64-hex SHA-256 |
 | `P00_APPROVED_PLAN_COMMIT` | Full commit containing the independently reviewed, exactly owner-approved, provider-complete plan revision |
 | `P00_APPROVED_PLAN_SHA256` | SHA-256 of this separately reviewed, owner-approved plan |
 | `P00_REMOTE_NAME` / `P00_REMOTE_URL` | Owner-approved canonical Git remote and its exact URL |
@@ -65,6 +66,7 @@ The future execution lease must bind the following shell variables to literal va
 | `P00_E2E_SERVICE_LIFECYCLE_ID` | Exact immutable provisioner/container lifecycle identifier from the attestation; cleanup may address only this value |
 | `P00_E2E_SERVICE_ATTESTATION_PATH` / `P00_E2E_SERVICE_ATTESTATION_SHA256` | Sanitized E2E-service attestation proving PG16, immutable image/resource identity, no real data, isolated credential issuance, noncandidate access denial, and the lifecycle ID |
 | `P00_FRESH_CHECKOUT` | New absolute path used only by final fresh-checkout verification |
+| `P00_RUNNER_CLASS` | Exact current runner-class literal bound by the control record: its `runnerClasses.local` value for fresh local commands or `runnerClasses.ci` value for every provider job |
 
 Guarded decisions are not substitute values. If the provider is GitHub, a later approved amendment may add a GitHub Actions file. If it is GitLab or another provider, that provider's native exact file and API commands must be approved instead. Task 14 stops until that amendment exists; no current task names a provider-native file.
 
@@ -81,7 +83,7 @@ Guarded decisions are not substitute values. If the provider is GitHub, a later 
 | Frontend behavior owner | Focused unit/component tests and production seams explicitly named in Tasks 7–8 | Task 6 |
 | PHP style owner | Exactly the 16 paths enumerated in Task 9; never MediaUrl | Task 8 |
 | Composer/static owner | `backend/composer.json`, `backend/composer.lock`, `backend/phpstan.neon.dist`, `backend/phpstan-baseline.neon` | Task 9 |
-| PostgreSQL owner | `backend/phpunit.pgsql.xml`, PostgreSQL bootstrap, portable search models, process barrier/worker/tests | Task 10 |
+| PostgreSQL owner | `backend/phpunit.pgsql.xml`, qualification parser/guard and its `AppServiceProvider` boot hook, PostgreSQL bootstrap, portable search models, process barrier/worker/tests | Task 10 |
 | Quality-interface owner | `.gitignore`, `scripts/quality/**`; package/composer scripts were reserved earlier and are not reopened | Task 12 |
 | CI adapter owner | One provider-native adapter and required-status configuration, only after the Task 14 amendment | Task 13 |
 | Architecture-doc owner | `CONTEXT.md`, exactly seven `docs/adr/*.md` files | Task 13 |
@@ -106,19 +108,75 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
 - [ ] **Verify formal authorities, not the planning exception.**
 
-  The durable record must separately approve: the exact safety design erratum replacing destructive SQLite E2E reset with the Task 4–5 create-only PostgreSQL contract; this exact matching plan/hash; the product baseline at `cc4085cbca11e89257ae8535438db6cfe3dd75cc`; the roadmap with `069f4833190c75866494e7ba51bff3021070c0bf`; canonical remote; provider; exact PHP/Node/Composer/npm pins; completed MediaUrl preservation; resulting base/worktree; and P00 execution. Search the record and inspect it manually:
+  The durable record is closed JSON. Its five approval objects separately approve the exact safety erratum, matching plan, product baseline, roadmap, and P00 execution; its closed `execution` object binds every non-secret execution input and the exact local/CI runner-class literals. The two credential-bearing database URLs are never stored in the record and are instead validated on their live PDOs in Tasks 4 and 11. Bind the record itself to an exact commit and content hash, then validate every approval and execution value independently:
 
   ```bash
   plan=docs/superpowers/plans/2026-07-14-dorzak-p00-baseline-stabilization.md
+  erratum=docs/superpowers/specs/2026-07-14-dorzak-p00-e2e-safety-erratum.md
   test -f "$P00_CONTROL_RECORD"
+  printf '%s\n' "$P00_CONTROL_RECORD_COMMIT" | rg -x '[0-9a-f]{40}'
+  printf '%s\n' "$P00_CONTROL_RECORD_SHA256" | rg -x '[0-9a-f]{64}'
+  test "$(git show "$P00_CONTROL_RECORD_COMMIT:$P00_CONTROL_RECORD" | shasum -a 256 | awk '{print $1}')" = "$P00_CONTROL_RECORD_SHA256"
+  test "$(shasum -a 256 "$P00_CONTROL_RECORD" | awk '{print $1}')" = "$P00_CONTROL_RECORD_SHA256"
   printf '%s\n' "$P00_APPROVED_PLAN_COMMIT" | rg -x '[0-9a-f]{40}'
   test "$(git log -1 --format=%H -- "$plan")" = "$P00_APPROVED_PLAN_COMMIT"
   test "$(shasum -a 256 "$plan" | awk '{print $1}')" = "$P00_APPROVED_PLAN_SHA256"
   test "$(git show "$P00_APPROVED_PLAN_COMMIT:$plan" | shasum -a 256 | awk '{print $1}')" = "$P00_APPROVED_PLAN_SHA256"
+  test "$(git show "$P00_SAFETY_ERRATUM_COMMIT:$erratum" | shasum -a 256 | awk '{print $1}')" = "$P00_SAFETY_ERRATUM_SHA256"
+  test "$(shasum -a 256 "$erratum" | awk '{print $1}')" = "$P00_SAFETY_ERRATUM_SHA256"
+  node --input-type=module - "$P00_CONTROL_RECORD" <<'NODE'
+  import { readFileSync } from 'node:fs';
+  import assert from 'node:assert/strict';
+  const record = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+  const exactKeys = (value, keys) => assert.deepEqual(Object.keys(value).sort(), [...keys].sort());
+  exactKeys(record, ['schemaVersion', 'approvals', 'execution']);
+  assert.equal(record.schemaVersion, 1);
+  exactKeys(record.approvals, ['safetyErratum', 'plan', 'productBaseline', 'roadmap', 'p00Execution']);
+  const artifactApproval = (name, commit, sha256) => {
+    const value = record.approvals[name];
+    exactKeys(value, ['approved', 'commit', 'sha256']);
+    assert.equal(value.approved, true);
+    assert.equal(value.commit, commit);
+    assert.equal(value.sha256, sha256);
+  };
+  artifactApproval('safetyErratum', process.env.P00_SAFETY_ERRATUM_COMMIT, process.env.P00_SAFETY_ERRATUM_SHA256);
+  artifactApproval('plan', process.env.P00_APPROVED_PLAN_COMMIT, process.env.P00_APPROVED_PLAN_SHA256);
+  artifactApproval('productBaseline', 'cc4085cbca11e89257ae8535438db6cfe3dd75cc', '7ae650f4b04c0fe1e234d4fa41cd4fac673abe1139853f4397f2286da24992f2');
+  artifactApproval('roadmap', '069f4833190c75866494e7ba51bff3021070c0bf', 'e9aa2c7970f9edf08f03177458cb496f979a30dbf3cf7fd96480c0c3b9a5cc60');
+  exactKeys(record.approvals.p00Execution, ['approved', 'planCommit', 'planSha256']);
+  assert.equal(record.approvals.p00Execution.approved, true);
+  assert.equal(record.approvals.p00Execution.planCommit, process.env.P00_APPROVED_PLAN_COMMIT);
+  assert.equal(record.approvals.p00Execution.planSha256, process.env.P00_APPROVED_PLAN_SHA256);
+  const bindings = {
+    approvedPlanCommit: 'P00_APPROVED_PLAN_COMMIT', approvedPlanSha256: 'P00_APPROVED_PLAN_SHA256',
+    remoteName: 'P00_REMOTE_NAME', remoteUrl: 'P00_REMOTE_URL', ciProvider: 'P00_CI_PROVIDER',
+    phpVersion: 'P00_PHP_VERSION', nodeVersion: 'P00_NODE_VERSION', composerVersion: 'P00_COMPOSER_VERSION', npmVersion: 'P00_NPM_VERSION',
+    mediaMethod: 'P00_MEDIA_METHOD', mediaReviewedDiffSha256: 'P00_MEDIA_REVIEWED_DIFF_SHA256', mediaArtifactId: 'P00_MEDIA_ARTIFACT_ID',
+    mediaArtifactPath: 'P00_MEDIA_ARTIFACT_PATH', mediaVerificationResult: 'P00_MEDIA_VERIFICATION_RESULT', baseSha: 'P00_BASE_SHA',
+    executionWorktree: 'P00_EXECUTION_WORKTREE', executionBranch: 'P00_EXECUTION_BRANCH', userWorktree: 'P00_USER_WORKTREE',
+    userBranch: 'P00_USER_BRANCH', userHead: 'P00_USER_HEAD', worktreeIdentitySha256: 'P00_WORKTREE_IDENTITY_SHA256',
+    protectedStatusSha256: 'P00_PROTECTED_STATUS_SHA256', protectedContentManifest: 'P00_PROTECTED_CONTENT_MANIFEST',
+    protectedContentManifestSha256: 'P00_PROTECTED_CONTENT_MANIFEST_SHA256', pgIdentityKind: 'P00_PG_IDENTITY_KIND',
+    pgIdentity: 'P00_PG_IDENTITY', pgAttestationPath: 'P00_PG_ATTESTATION_PATH', pgAttestationSha256: 'P00_PG_ATTESTATION_SHA256',
+    pgInstanceNonceSha256: 'P00_PG_INSTANCE_NONCE_SHA256', e2eServiceLifecycleId: 'P00_E2E_SERVICE_LIFECYCLE_ID',
+    e2eServiceAttestationPath: 'P00_E2E_SERVICE_ATTESTATION_PATH', e2eServiceAttestationSha256: 'P00_E2E_SERVICE_ATTESTATION_SHA256',
+    freshCheckout: 'P00_FRESH_CHECKOUT',
+  };
+  exactKeys(record.execution, [...Object.keys(bindings), 'runnerClasses']);
+  for (const [key, environment] of Object.entries(bindings)) {
+    assert.equal(typeof process.env[environment], 'string', environment + ' is absent');
+    assert.equal(record.execution[key], process.env[environment], key + ' does not match its independent binding');
+  }
+  exactKeys(record.execution.runnerClasses, ['local', 'ci']);
+  for (const value of Object.values(record.execution.runnerClasses)) assert.match(value, /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/);
+  assert.notEqual(record.execution.runnerClasses.local, record.execution.runnerClasses.ci);
+  assert.equal(process.env.P00_RUNNER_CLASS, record.execution.runnerClasses.local);
+  NODE
   set +e
-  node --input-type=module - "$plan" <<'NODE'
+  node --input-type=module - "$plan" "$P00_CONTROL_RECORD" <<'NODE'
   import { readFileSync } from 'node:fs';
   const text = readFileSync(process.argv[2], 'utf8');
+  const control = JSON.parse(readFileSync(process.argv[3], 'utf8'));
   const section = text.match(/^### Task 14:[\s\S]*?(?=^### Task 15:)/m)?.[0];
   if (!section) process.exit(2);
   const records = [...section.matchAll(/```json\n([\s\S]*?)\n```/g)]
@@ -126,22 +184,26 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     .filter((value) => value?.schemaVersion === 1 && 'adapterPaths' in value && 'state' in value);
   if (records.length !== 1) process.exit(2);
   const value = records[0];
-  const keys = ['adapterPaths','immutableDependencyIdentities','normalizerSha256','normalizerTestSha256','provider','pushAndRunCommandsSha256','requiredStatus','requiredStatusCommandsSha256','schemaVersion','state','twoRunCommandsSha256'];
+  const keys = ['adapterPaths','ciRunnerClass','immutableDependencyIdentities','localRunnerClass','normalizerSha256','normalizerTestSha256','provider','pushAndRunCommandsSha256','requiredStatus','requiredStatusCommandsSha256','schemaVersion','state','twoRunCommandsSha256'];
   if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(keys)) process.exit(2);
   if (value.state === 'pending') process.exit(42);
   if (value.state !== 'approved' || !Array.isArray(value.adapterPaths) || value.adapterPaths.length === 0
       || !Array.isArray(value.immutableDependencyIdentities) || value.immutableDependencyIdentities.length === 0
       || !value.provider || !value.requiredStatus
+      || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value.localRunnerClass)
+      || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value.ciRunnerClass)
+      || value.localRunnerClass === value.ciRunnerClass
+      || value.localRunnerClass !== control.execution?.runnerClasses?.local
+      || value.ciRunnerClass !== control.execution?.runnerClasses?.ci
       || !['normalizerSha256','normalizerTestSha256','pushAndRunCommandsSha256','requiredStatusCommandsSha256','twoRunCommandsSha256']
         .every((key) => /^[0-9a-f]{64}$/.test(value[key]))) process.exit(2);
   NODE
   ci_decision_status="$?"
   set -e
   test "$ci_decision_status" = 0
-  rg -n 'create-only PostgreSQL|design erratum|cc4085cbca11e89257ae8535438db6cfe3dd75cc|069f4833190c75866494e7ba51bff3021070c0bf|formal owner approval|P00 execution' "$P00_CONTROL_RECORD"
   ```
 
-  Expected: the first command exits `0`; the plan hash equals `P00_APPROVED_PLAN_SHA256`; all four authority patterns are present in explicit approval clauses. Presence without explicit approval fails the gate.
+  Expected: every binding and closed-key check exits `0`; the record bytes match both their exact commit and SHA-256; all five approvals are independently true for their exact commit/hash; and every non-secret execution value equals its own record field. Text presence is never authority.
 
 - [ ] **Validate decision-bound values.**
 
@@ -158,6 +220,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   test -n "$P00_REMOTE_URL"
   test -n "$P00_CI_PROVIDER"
   test -n "$P00_EXECUTION_BRANCH"
+  printf '%s\n' "$P00_RUNNER_CLASS" | rg -x '[A-Za-z0-9][A-Za-z0-9._-]{0,63}'
   test "$P00_PROTECTED_STATUS_SHA256" = a797825ef1c504e70abec3dd1a82694cf4fddd76be1544ed716067a9c95d9ffa
   printf '%s\n' "$P00_USER_HEAD" | rg -x '[0-9a-f]{40}'
   printf '%s\n' "$P00_WORKTREE_IDENTITY_SHA256" | rg -x '[0-9a-f]{64}'
@@ -622,7 +685,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - Create: `backend/tests/Feature/E2E/E2EProvisioningGuardTest.php`
 - Create: `backend/tests/Feature/E2E/E2ESeederTest.php`
 
-**Interfaces:** Playwright uses `php artisan e2e:serve`, never `migrate:fresh`, `db:wipe`, a file SQLite database, or a stable database pointer. `App\Support\E2eDatabaseLease::acquire()` opens one already-attested supervisor connection to a dedicated no-real-data PostgreSQL 16 service, re-verifies its immutable identity through the live provisioner nonce, and creates a cryptographically unique database plus login role. It never reuses, resets, drops, renames, or unlinks anything. The role is `NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`, can connect only to its candidate database, and owns no other database. The command runs only `artisan migrate --database=e2e --force`, seeds, then inserts the activation nonce and fixture-contract hash as the final mutation. The server starts only after a read-only verification of database, role, PostgreSQL major, service nonce, activation nonce, and contract hash; its boot guard repeats that verification on the exact `e2e` Laravel connection. Failure leaves every prior fixture/server and every noncandidate database unchanged. Cleanup addresses only the attested immutable service/container lifecycle ID; cleanup failure records this candidate as an orphan and never broadens deletion. If the approved service attestation cannot prove no real data and isolated credentials, Task 0 requires a new ephemeral digest-pinned PostgreSQL 16 service for that run.
+**Interfaces:** Playwright uses `php artisan e2e:serve`, never `migrate:fresh`, `db:wipe`, a file SQLite database, or a stable database pointer. `App\Support\E2eDatabaseLease::acquire()` opens one already-attested supervisor connection to a dedicated no-real-data PostgreSQL 16 service, re-verifies its immutable identity through the live provisioner nonce, and creates a cryptographically unique database plus login role. It never reuses, resets, drops, renames, or unlinks anything. The role is `NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`, can connect only to its candidate database, and owns no other database. The command runs only `artisan migrate --database=e2e --force`, seeds, then inserts the activation nonce and fixture-contract hash as the final mutation. The migration child boots with phase `provisioning-migrate` and the seeding child boots separately with phase `provisioning-seed`; on every such application boot the guard opens Laravel's exact `e2e` PDO and verifies driver, database, role, PostgreSQL major, live service nonce, least privilege, and the required unactivated state before the child can mutate. The serving child uses phase `active` and re-verifies the same live PDO plus activation nonce and fixture-contract hash. Parent or earlier-connection checks never substitute for these three boot checks. Failure leaves every prior fixture/server and every noncandidate database unchanged. Cleanup addresses only the attested immutable service/container lifecycle ID; cleanup failure records this candidate as an orphan and never broadens deletion. If the approved service attestation cannot prove no real data and isolated credentials, Task 0 requires a new ephemeral digest-pinned PostgreSQL 16 service for that run.
 
 - [ ] **Write the provisioning and fixture tests first.**
 
@@ -698,7 +761,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
               $this->assertRefused(fn () => ServeE2e::prepare(
                   $failureLease,
                   function (array $command, array $environment) use ($failingCommand): void {
-                      self::assertSame('provisioning', $environment['P00_E2E_PHASE']);
+                      self::assertContains($environment['P00_E2E_PHASE'], ['provisioning-migrate', 'provisioning-seed']);
                       if (in_array($failingCommand, $command, true)) {
                           throw new RuntimeException($failingCommand.' failed');
                       }
@@ -712,17 +775,16 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           $leaseC = $this->acquire(new FakeE2eSupervisor(), $attestation, $expected, '33');
           $successful = [];
           ServeE2e::prepare($leaseC, function (array $command, array $environment) use (&$successful): void {
-              $successful[] = $command;
-              self::assertSame('provisioning', $environment['P00_E2E_PHASE']);
+              $successful[] = [$environment['P00_E2E_PHASE'], $command];
           });
           $leaseC->assertActive();
           self::assertSame([
-              [PHP_BINARY, 'artisan', 'migrate', '--database=e2e', '--force', '--no-interaction'],
-              [PHP_BINARY, 'artisan', 'db:seed', '--database=e2e', '--class=Database\\Seeders\\E2ESeeder', '--force', '--no-interaction'],
+              ['provisioning-migrate', [PHP_BINARY, 'artisan', 'migrate', '--database=e2e', '--force', '--no-interaction']],
+              ['provisioning-seed', [PHP_BINARY, 'artisan', 'db:seed', '--database=e2e', '--class=Database\\Seeders\\E2ESeeder', '--force', '--no-interaction']],
           ], $successful);
           self::assertStringNotContainsString(
               'migrate:fresh db:wipe drop unlink rename reset',
-              implode(' ', array_merge(...$successful)),
+              implode(' ', array_merge(...array_column($successful, 1))),
           );
 
           $leaseC->supervisorForTest()->candidateSubstitution = true;
@@ -1034,7 +1096,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           $before = $supervisor->noncandidateFingerprint();
           $entropy = $randomBytes ?? random_bytes(...);
           $suffix = bin2hex($entropy(16));
-          $database = 'p00_e2e_'.$suffix;
+          $database = 'p00_e2e_'.$suffix.'_test';
           $role = 'p00_e2e_r_'.$suffix;
           $password = rtrim(strtr(base64_encode($entropy(32)), '+/', '-_'), '=');
           $activationNonceSha256 = hash('sha256', $entropy(32));
@@ -1128,21 +1190,44 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           string $serviceNonceSha256,
           string $activationNonceSha256,
           string $fixtureContractSha256,
+          string $phase,
       ): void {
           $row = $pdo->query(
               "SELECT current_database() AS database, current_user AS role,
               current_setting('server_version_num')::int / 10000 AS server_major,
               current_setting('dorzak.instance_nonce_sha256') AS service_nonce_sha256,
-              activation_nonce_sha256, fixture_contract_sha256
-              FROM p00_e2e_activation WHERE singleton = true",
+              rolsuper, rolcreatedb, rolcreaterole, rolbypassrls, rolreplication,
+              to_regclass('public.p00_e2e_activation') AS activation_table
+              FROM pg_roles WHERE rolname = current_user",
           )->fetch(PDO::FETCH_ASSOC);
-          if (! is_array($row)
+          if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'pgsql'
+              || ! in_array($phase, ['provisioning-migrate', 'provisioning-seed', 'active'], true)
+              || ! is_array($row)
               || $row['database'] !== $database
               || $row['role'] !== $role
               || (int) $row['server_major'] !== 16
               || $row['service_nonce_sha256'] !== $serviceNonceSha256
-              || $row['activation_nonce_sha256'] !== $activationNonceSha256
-              || $row['fixture_contract_sha256'] !== $fixtureContractSha256) {
+              || $row['rolsuper'] !== false
+              || $row['rolcreatedb'] !== false
+              || $row['rolcreaterole'] !== false
+              || $row['rolbypassrls'] !== false
+              || $row['rolreplication'] !== false) {
+              throw new RuntimeException('Live E2E connection identity mismatch.');
+          }
+          if ($phase !== 'active') {
+              if ($row['activation_table'] !== null) {
+                  throw new RuntimeException('Provisioning child requires an unactivated candidate.');
+              }
+              return;
+          }
+          $activation = $pdo->query(
+              'SELECT activation_nonce_sha256, fixture_contract_sha256, service_nonce_sha256
+               FROM p00_e2e_activation WHERE singleton = true',
+          )->fetch(PDO::FETCH_ASSOC);
+          if (! is_array($activation)
+              || $activation['activation_nonce_sha256'] !== $activationNonceSha256
+              || $activation['fixture_contract_sha256'] !== $fixtureContractSha256
+              || $activation['service_nonce_sha256'] !== $serviceNonceSha256) {
               throw new RuntimeException('Active E2E connection identity mismatch.');
           }
       }
@@ -1380,11 +1465,16 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       private static function urlParts(string $url): array
       {
           $parts = parse_url($url);
-          parse_str($parts['query'] ?? '', $query);
+          $queryString = $parts['query'] ?? '';
+          parse_str($queryString, $query);
           if (! is_array($parts)
               || ! in_array($parts['scheme'] ?? null, ['postgres', 'postgresql'], true)
               || ! isset($parts['host'], $parts['user'], $parts['pass'], $parts['path'])
-              || array_diff(array_keys($query), ['sslmode']) !== []) {
+              || array_diff(array_keys($query), ['sslmode']) !== []
+              || ($queryString !== '' && count(explode('&', $queryString)) !== 1)
+              || (isset($query['sslmode']) && ! in_array(
+                  $query['sslmode'], ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'], true,
+              ))) {
               throw new RuntimeException('PostgreSQL supervisor URL shape is invalid.');
           }
           $database = rawurldecode(ltrim($parts['path'], '/'));
@@ -1501,14 +1591,13 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
       public static function prepare(E2eDatabaseLease $lease, callable $runner): void
       {
-          $environment = $lease->environment('provisioning');
           $runner(
               [PHP_BINARY, 'artisan', 'migrate', '--database=e2e', '--force', '--no-interaction'],
-              $environment,
+              $lease->environment('provisioning-migrate'),
           );
           $runner(
               [PHP_BINARY, 'artisan', 'db:seed', '--database=e2e', '--class=Database\\Seeders\\E2ESeeder', '--force', '--no-interaction'],
-              $environment,
+              $lease->environment('provisioning-seed'),
           );
           $lease->activate();
       }
@@ -1547,16 +1636,21 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
        {
   +        if ($this->app->environment('e2e')) {
   +            $phase = (string) env('P00_E2E_PHASE');
-  +            if ($phase === 'active') {
+  +            if (in_array($phase, ['provisioning-migrate', 'provisioning-seed', 'active'], true)) {
+  +                $connection = DB::connection('e2e');
+  +                if ($connection->getConfig('url') !== (string) env('P00_E2E_DB_URL')) {
+  +                    throw new RuntimeException('E2E Laravel connection URL mismatch.');
+  +                }
   +                E2eDatabaseLease::assertBootConnection(
-  +                    DB::connection('e2e')->getPdo(),
+  +                    $connection->getPdo(),
   +                    (string) env('P00_E2E_DATABASE'),
   +                    (string) env('P00_E2E_ROLE'),
   +                    (string) env('P00_PG_INSTANCE_NONCE_SHA256'),
   +                    (string) env('P00_E2E_ACTIVATION_NONCE_SHA256'),
   +                    (string) env('P00_E2E_FIXTURE_CONTRACT_SHA256'),
+  +                    $phase,
   +                );
-  +            } elseif (! in_array($phase, ['supervisor', 'provisioning'], true)) {
+  +            } elseif ($phase !== 'supervisor') {
   +                throw new RuntimeException('Unrecognized E2E boot phase.');
   +            }
   +        }
@@ -1656,13 +1750,16 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   cd backend
   php artisan test tests/Feature/E2E/E2EProvisioningGuardTest.php tests/Feature/E2E/E2ESeederTest.php
   APP_ENV=testing P00_E2E_PHASE=supervisor php artisan e2e:serve --no-interaction; test "$?" = 1
-  rg -n 'migrate:fresh|db:wipe|\\bDROP\\b|unlink\\(|rename\\(' \
+  set +e
+  rg -n 'migrate:fresh|db:wipe|\bDROP\b|unlink\(|rename\(' \
     app/Support/E2eDatabaseLease.php app/Support/PdoE2eSupervisor.php app/Console/Commands/ServeE2e.php
-  test "$?" = 1
+  forbidden_status="$?"
+  set -e
+  test "$forbidden_status" = 1
   php artisan test
   ```
 
-  Expected: `2 passed`; the refusal command exits `1` before mutation. The comprehensive guard test covers wrong environment/driver/service/major/control-database/supervisor-role/nonce, create collision, live-service substitution between attestation and creation, seed failure, prior-server preservation, candidate DSN substitution at activation, concurrent candidate isolation, least privilege, unchanged noncandidate metadata, and an exact spy proving only `migrate` and `db:seed` run. The forbidden-operation scan has no match. Full SQLite reports `446 passed`.
+  Expected: `2 passed`; the refusal command exits `1` before mutation. The comprehensive guard test covers wrong environment/driver/service/major/control-database/supervisor-role/nonce, create collision, live-service substitution between attestation and creation, seed failure, prior-server preservation, candidate DSN substitution at activation, concurrent candidate isolation, least privilege, unchanged noncandidate metadata, and an exact spy proving only `migrate` and `db:seed` run. It also runs the real Laravel children against the provisioner's registered substitution harness twice: substitute the candidate endpoint after acquisition/before `provisioning-migrate`, then again after migration/before `provisioning-seed`; in both cases the child's exact live `e2e` PDO boot guard exits before its mutation and a pre-written noncandidate canary fingerprint remains byte-identical. A valid PostgreSQL 16 candidate ending `_test` but exposing the wrong live nonce is refused by both child phases. The forbidden-operation scan returns exactly no-match status `1`, never regex-error status `2`. Full SQLite reports `446 passed`.
 
   For the live browser run, Task 5 additionally proves the supervisor and candidate through the real PDO connection. The approved provisioner performs cleanup by exact `P00_E2E_SERVICE_LIFECYCLE_ID`; a failed cleanup records `orphan_database` and lifecycle ID without issuing SQL deletion. No P00 command contains a database/file destroy primitive.
 
@@ -3350,12 +3447,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
 **Files:**
 - Create: `backend/phpunit.pgsql.xml`
+- Create: `backend/app/Support/PostgresQualificationGuard.php`
 - Create: `backend/tests/Support/postgres-bootstrap.php`
 - Create: `backend/tests/Postgres/PostgresEnvironmentTest.php`
+- Modify: `backend/app/Providers/AppServiceProvider.php`
 - Modify: `backend/app/Models/Product.php:96-107`
 - Modify: `backend/app/Models/Customer.php:47-58`
 
-**Interfaces:** The qualification lane consumes the exact secret `DB_URL` plus the approved immutable identity/attestation/instance-nonce inputs, requires a `postgres` or `postgresql` URL whose database ends `_test`, requires `pdo_pgsql`, and rejects any live endpoint whose major or provisioner nonce differs before migrations. The bootstrap verifies through that exact `DB_URL`; `PostgresEnvironmentTest` repeats the database/major/nonce checks through Laravel's actual default connection. It runs Unit, Feature, and PostgreSQL suites. Search remains case-insensitive on SQLite and PostgreSQL.
+**Interfaces:** The qualification lane consumes the exact secret `DB_URL` plus the approved immutable identity/attestation/instance-nonce inputs, requires `pdo_pgsql`, and accepts only a `postgres` or `postgresql` URL with host, optional numeric port, user, password, one database path ending `_test`, no fragment, and at most one `sslmode` query option whose value is exactly `disable`, `allow`, `prefer`, `require`, `verify-ca`, or `verify-full`; duplicates, unknown options, and malformed percent encoding fail closed. Bootstrap and Laravel use this one parser and the same DSN transport fields. Bootstrap guards its preliminary PDO, then every qualification Laravel application boot independently guards the actual default PDO before any Feature setup, migration, `RefreshDatabase`, or other mutation. The live guard proves driver, database, role, PostgreSQL major, and provisioner nonce; the preliminary PDO never authorizes a later connection. It runs Unit, Feature, and PostgreSQL suites. Search remains case-insensitive on SQLite and PostgreSQL.
 
 - [ ] **Create the guard test/config seam and prove it is absent.**
 
@@ -3368,10 +3467,101 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
 - [ ] **Create `postgres-bootstrap.php` completely.**
 
+  Create `backend/app/Support/PostgresQualificationGuard.php` first:
+
+  ```php
+  <?php
+
+  namespace App\Support;
+
+  use PDO;
+  use RuntimeException;
+
+  final class PostgresQualificationGuard
+  {
+      private const SSLMODES = ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'];
+
+      public static function parseUrl(string $url): array
+      {
+          $parts = parse_url($url);
+          if (! is_array($parts)
+              || ! in_array($parts['scheme'] ?? null, ['postgres', 'postgresql'], true)
+              || ! isset($parts['host'], $parts['user'], $parts['pass'], $parts['path'])
+              || isset($parts['fragment'])) {
+              throw new RuntimeException('PostgreSQL qualification URL shape is invalid.');
+          }
+          $query = [];
+          if (($parts['query'] ?? '') !== '') {
+              foreach (explode('&', $parts['query']) as $item) {
+                  $pair = explode('=', $item, 2);
+                  if (count($pair) !== 2 || self::decode($pair[0]) !== 'sslmode' || array_key_exists('sslmode', $query)) {
+                      throw new RuntimeException('PostgreSQL qualification URL options are not closed.');
+                  }
+                  $query['sslmode'] = self::decode($pair[1]);
+              }
+          }
+          if (isset($query['sslmode']) && ! in_array($query['sslmode'], self::SSLMODES, true)) {
+              throw new RuntimeException('PostgreSQL sslmode is unsupported.');
+          }
+          $database = self::decode(ltrim($parts['path'], '/'));
+          $port = $parts['port'] ?? 5432;
+          if ($database === '' || str_contains($database, '/') || ! str_ends_with($database, '_test')
+              || ! is_int($port) || $port < 1 || $port > 65535) {
+              throw new RuntimeException('PostgreSQL qualification database or port is invalid.');
+          }
+          return [
+              'host' => $parts['host'], 'port' => $port,
+              'user' => self::decode($parts['user']), 'password' => self::decode($parts['pass']),
+              'database' => $database, 'sslmode' => $query['sslmode'] ?? null,
+          ];
+      }
+
+      public static function connect(string $url): PDO
+      {
+          $parts = self::parseUrl($url);
+          $dsn = "pgsql:host={$parts['host']};port={$parts['port']};dbname={$parts['database']}";
+          if ($parts['sslmode'] !== null) $dsn .= ";sslmode={$parts['sslmode']}";
+          return new PDO($dsn, $parts['user'], $parts['password'], [
+              PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+              PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+              PDO::ATTR_STRINGIFY_FETCHES => false,
+          ]);
+      }
+
+      public static function assertPdo(PDO $pdo, string $url, string $nonceSha256): array
+      {
+          $expected = self::parseUrl($url);
+          $live = $pdo->query(
+              "SELECT current_database() AS database, current_user AS role,
+              current_setting('server_version_num')::int AS server_version_num,
+              current_setting('dorzak.instance_nonce_sha256') AS instance_nonce_sha256",
+          )->fetch(PDO::FETCH_ASSOC);
+          if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'pgsql' || ! is_array($live)
+              || $live['database'] !== $expected['database'] || $live['role'] !== $expected['user']
+              || (int) $live['server_version_num'] < 160000 || (int) $live['server_version_num'] >= 170000
+              || ! preg_match('/^[0-9a-f]{64}$/', $nonceSha256)
+              || ! hash_equals($nonceSha256, (string) $live['instance_nonce_sha256'])) {
+              throw new RuntimeException('Live PostgreSQL qualification PDO is not approved.');
+          }
+          return $live;
+      }
+
+      private static function decode(string $value): string
+      {
+          if (preg_match('/%(?![0-9A-Fa-f]{2})/', $value)) {
+              throw new RuntimeException('PostgreSQL URL percent encoding is invalid.');
+          }
+          return rawurldecode($value);
+      }
+  }
+  ```
+
   ```php
   <?php
 
   declare(strict_types=1);
+
+  use App\Support\PostgresQualificationGuard;
 
   require dirname(__DIR__, 2).'/vendor/autoload.php';
 
@@ -3381,14 +3571,6 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   };
 
   $url = getenv('DB_URL') ?: '';
-  $parts = parse_url($url);
-  if (! is_array($parts) || ! in_array($parts['scheme'] ?? '', ['postgres', 'postgresql'], true)) {
-      $fail('DB_URL scheme must be postgres or postgresql');
-  }
-  $database = ltrim((string) ($parts['path'] ?? ''), '/');
-  if ($database === '' || ! str_ends_with($database, '_test')) {
-      $fail('database name must end in _test');
-  }
   if (! extension_loaded('pdo_pgsql')) {
       $fail('pdo_pgsql is unavailable');
   }
@@ -3412,25 +3594,15 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       $fail('approved PostgreSQL identity is invalid');
   }
 
-  $host = (string) ($parts['host'] ?? '');
-  $port = (int) ($parts['port'] ?? 5432);
-  $user = rawurldecode((string) ($parts['user'] ?? ''));
-  $password = rawurldecode((string) ($parts['pass'] ?? ''));
-  $pdo = new PDO("pgsql:host={$host};port={$port};dbname={$database}", $user, $password, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-  $live = $pdo->query(
-      "SELECT current_database() AS database,
-      current_setting('server_version_num')::int AS server_version_num,
-      current_setting('dorzak.instance_nonce_sha256') AS instance_nonce_sha256",
-  )->fetch(PDO::FETCH_ASSOC);
+  try {
+      $parts = PostgresQualificationGuard::parseUrl($url);
+      $pdo = PostgresQualificationGuard::connect($url);
+      $live = PostgresQualificationGuard::assertPdo($pdo, $url, $nonceSha256);
+  } catch (Throwable $error) {
+      $fail($error->getMessage());
+  }
   $version = (int) $live['server_version_num'];
-  if ($version < 160000 || $version >= 170000) {
-      $fail('server major version must be 16');
-  }
-  if ($live['database'] !== $database || ! hash_equals($nonceSha256, $live['instance_nonce_sha256'])) {
-      $fail('live database or provisioner nonce does not match the approved endpoint');
-  }
-
-  fwrite(STDOUT, "P00_POSTGRES_GUARD PASS database={$database} server_version_num={$version}\n");
+  fwrite(STDOUT, "P00_POSTGRES_GUARD PASS database={$parts['database']} server_version_num={$version}\n");
   ```
 
 - [ ] **Create the full PostgreSQL PHPUnit config and environment test.**
@@ -3468,6 +3640,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           <env name="BROADCAST_CONNECTION" value="null"/>
           <env name="CACHE_STORE" value="array"/>
           <env name="DB_CONNECTION" value="pgsql" force="true"/>
+          <env name="P00_PG_QUALIFICATION_PHASE" value="qualification" force="true"/>
           <env name="MAIL_MAILER" value="array"/>
           <env name="QUEUE_CONNECTION" value="sync"/>
           <env name="SESSION_DRIVER" value="array"/>
@@ -3485,6 +3658,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   namespace Tests\Postgres;
 
+  use App\Support\PostgresQualificationGuard;
   use Illuminate\Support\Facades\DB;
   use Tests\TestCase;
 
@@ -3493,20 +3667,37 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       public function test_lane_is_postgresql_16(): void
       {
           self::assertSame('pgsql', DB::connection()->getDriverName());
-          $url = parse_url((string) getenv('DB_URL'));
-          $expectedDatabase = ltrim((string) ($url['path'] ?? ''), '/');
-          $identity = DB::selectOne(
-              "SELECT current_database() AS database,
-              current_setting('server_version_num')::int AS server_version_num,
-              current_setting('dorzak.instance_nonce_sha256') AS instance_nonce_sha256",
+          $identity = PostgresQualificationGuard::assertPdo(
+              DB::connection()->getPdo(),
+              (string) getenv('DB_URL'),
+              (string) getenv('P00_PG_INSTANCE_NONCE_SHA256'),
           );
-          $version = (int) $identity->server_version_num;
+          $version = (int) $identity['server_version_num'];
           self::assertGreaterThanOrEqual(160000, $version);
           self::assertLessThan(170000, $version);
-          self::assertSame($expectedDatabase, $identity->database);
-          self::assertSame((string) getenv('P00_PG_INSTANCE_NONCE_SHA256'), $identity->instance_nonce_sha256);
       }
   }
+  ```
+
+  In the Task 4 `AppServiceProvider::boot()` patch, add this independent qualification branch after the E2E branch. It executes on every Laravel application construction, before PHPUnit's Feature setup traits can migrate or refresh the database:
+
+  ```diff
+  +use App\Support\PostgresQualificationGuard;
+  @@
+  +        if ((string) env('P00_PG_QUALIFICATION_PHASE') === 'qualification') {
+  +            $connection = DB::connection();
+  +            if ($connection->getDriverName() !== 'pgsql'
+  +                || $connection->getConfig('url') !== (string) env('DB_URL')) {
+  +                throw new RuntimeException('PostgreSQL qualification requires the default pgsql connection.');
+  +            }
+  +            PostgresQualificationGuard::assertPdo(
+  +                $connection->getPdo(),
+  +                (string) env('DB_URL'),
+  +                (string) env('P00_PG_INSTANCE_NONCE_SHA256'),
+  +            );
+  +        } elseif (env('P00_PG_QUALIFICATION_PHASE') !== null) {
+  +            throw new RuntimeException('Unrecognized PostgreSQL qualification phase.');
+  +        }
   ```
 
   Before using the service, rerun Task 0's immutable-attestation checks. Provision the service outside the repository from the exact `P00_PG_IDENTITY`, export its `DB_URL` without logging it, and record only the sanitized attestation hash, identity, `SELECT current_database()`, and `current_setting('server_version_num')`. A mutable tag, service alias, or `external-postgresql-16` sentinel is rejected.
@@ -3517,13 +3708,35 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   cd backend
   DB_URL=sqlite://unsafe vendor/bin/phpunit -c phpunit.pgsql.xml --testsuite PostgreSQL; test "$?" = 2
   DB_URL=postgresql://dorzak_p00:dorzak_p00@127.0.0.1:55432/dorzak_p00 vendor/bin/phpunit -c phpunit.pgsql.xml --testsuite PostgreSQL; test "$?" = 2
+  php -r 'require "vendor/autoload.php"; foreach ([
+    "postgresql://u:p@127.0.0.1/db_test?unknown=x",
+    "postgresql://u:p@127.0.0.1/db_test?sslmode=require&sslmode=prefer",
+    "postgresql://u:p@127.0.0.1/db_test?sslmode=unsupported",
+    "postgresql://u:p@127.0.0.1/db_test#fragment",
+    "postgresql://u:p@127.0.0.1/db%ZZ_test",
+  ] as $url) { try { App\Support\PostgresQualificationGuard::parseUrl($url); exit(1); } catch (RuntimeException) {} }'
+  mkdir -p ../.artifacts/p00
+  wrong_nonce="$(printf '0%.0s' {1..64})"
+  wrong_attestation=../.artifacts/p00/postgresql-wrong-live-nonce.json
+  jq --arg nonce "$wrong_nonce" '.instanceNonceSha256 = $nonce' "$P00_PG_ATTESTATION_PATH" > "$wrong_attestation"
+  set +e
+  P00_PG_INSTANCE_NONCE_SHA256="$wrong_nonce" \
+  P00_PG_ATTESTATION_PATH="$wrong_attestation" \
+  P00_PG_ATTESTATION_SHA256="$(shasum -a 256 "$wrong_attestation" | awk '{print $1}')" \
+  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml --testsuite Feature
+  wrong_nonce_status="$?"
+  set -e
+  test "$wrong_nonce_status" = 2
   DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml --testsuite PostgreSQL
   ```
 
-  Expected: both unsafe invocations exit `2`; approved PostgreSQL 16 reports one pass.
+  Expected: every unsafe invocation exits `2` from bootstrap before PHPUnit can construct a Feature application or mutate. The fourth command uses the valid approved PostgreSQL 16 `_test` endpoint but a matching test attestation with the wrong expected live nonce, proving the live-nonce check rather than URL-shape rejection. The registered provisioner substitution test then pauses after the preliminary bootstrap PASS, substitutes the endpoint before the first Feature application boot, and requires that the default-PDO guard exits `2` before migration/`RefreshDatabase`; its mutation canary remains unchanged. Approved PostgreSQL 16 reports one pass. Unsupported `sslmode`, duplicate `sslmode`, fragments, and every query option other than the six-value `sslmode` allowlist receive the same pre-mutation refusal.
 
   ```bash
-  git add -- backend/phpunit.pgsql.xml backend/tests/Support/postgres-bootstrap.php backend/tests/Postgres/PostgresEnvironmentTest.php
+  git add -- backend/phpunit.pgsql.xml backend/app/Support/PostgresQualificationGuard.php \
+    backend/app/Providers/AppServiceProvider.php backend/tests/Support/postgres-bootstrap.php \
+    backend/tests/Postgres/PostgresEnvironmentTest.php
+  test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = 5
   git commit -m "test(backend): add guarded PostgreSQL 16 lane"
   ```
 
@@ -3868,7 +4081,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - Create: `scripts/quality/test-run-p00.sh`
 - Create: `scripts/quality/run-postgres-16`
 
-**Interfaces:** `p00-contract.json` is the sole versioned provenance for six ordered jobs, exact test totals, the 216,700-byte gzip ceiling, and the accepted-open Vite large-chunk warning. `scripts/quality/run-p00 --list` emits exactly those jobs; invoking one writes `$P00_ARTIFACT_DIR/<job>.json`. `node scripts/quality/p00.mjs aggregate <dir>` accepts exactly six passing same-SHA/same-input results. The same module measures bundles, records immutable PostgreSQL identity, builds Task 17's seven sibling evidence payloads plus manifest/schema, and validates hashes, identities, counts, debt, reviews, CI runs, and secret rejection.
+**Interfaces:** `p00-contract.json` is the sole versioned provenance for six ordered jobs, exact test totals, the 216,700-byte gzip ceiling, and the accepted-open Vite large-chunk warning. `scripts/quality/run-p00 --list` emits exactly those jobs; invoking one requires the exact control-bound `P00_RUNNER_CLASS` and writes `$P00_ARTIFACT_DIR/<job>.json`. `node scripts/quality/p00.mjs aggregate <dir>` accepts exactly six passing same-SHA/same-complete-portable-input results. The same module measures bundles, records portable PostgreSQL identity/policy plus per-run observations, builds Task 17's seven sibling evidence payloads plus manifest/schema through atomic publication, and validates hashes, identities, counts, debt, reviews, CI runs, closed schemas and whole-value secret rejection.
 
 - [ ] **Write the dispatcher, bundle, aggregate, and evidence tests first.**
 
@@ -3901,7 +4114,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   ~~~js
   import assert from 'node:assert/strict';
   import { randomBytes } from 'node:crypto';
-  import { mkdtempSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+  import { existsSync, mkdtempSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
   import { tmpdir } from 'node:os';
   import { join } from 'node:path';
   import test from 'node:test';
@@ -3926,7 +4139,10 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     contractSha256,
     runtime: { php: '8.5.1', composer: '2.8.0', node: process.versions.node, npm: '10.9.0' },
     lockfileSha256: { composer: sha64, npm: sha64 },
-    postgresql: { kind: 'oci', identity: 'registry.test/postgres@sha256:' + sha64 },
+    postgresql: {
+      kind: 'oci', identity: 'registry.test/postgres@sha256:' + sha64,
+      policy: 'postgresql-16-test-closed-transport-v1',
+    },
     playwright: { packageVersion: '1.57.0', chromiumRevision: '1234567' },
     bundleAlgorithms: { assetSelection: 'html-module-entry-and-modulepreload-v1', gzip: 'node-zlib-level-9' },
   });
@@ -3956,9 +4172,9 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const artifacts = Object.fromEntries(artifactNames[job.name].map((name) => {
       const path = artifactPaths[name];
       const bytes = name === 'dispatcherTap'
-        ? 'TAP version 13\nok 1 - list\nok 2 - invalid\n1..2\n'
+        ? 'TAP version 13\nok 1 - list\nok 2 - invalid\n1..2\n# dispatcher reporter diagnostic\n'
         : name === 'p00NodeTap'
-          ? 'TAP version 13\n' + Array.from({ length: 9 }, (_, index) => `ok ${index + 1} - node`).join('\n') + '\n1..9\n'
+          ? 'TAP version 13\n' + Array.from({ length: 9 }, (_, index) => `ok ${index + 1} - node`).join('\n') + '\n1..9\n# node reporter diagnostic\n'
           : name === 'junit'
             ? `<testsuite tests="${job.testCount}" failures="0" errors="0" skipped="0"></testsuite>\n`
             : name === 'vitest'
@@ -4056,6 +4272,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       identity: inputs().postgresql.identity,
       attestationSha256: sha64,
       instanceNonceSha256: sha64,
+      endpointSha256: sha64,
       serverVersionNum: 160000,
       databaseName: 'dorzak_test',
     };
@@ -4084,32 +4301,51 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       '# Independent P00 Review', '', 'BASE_SHA: ' + sha40, 'CODE_SHA: ' + sha40,
       'Critical: 0', 'Important: 0', '', '## Minor', '', '- None.', '',
     ].join('\n'));
-    const ci = (runId) => ({
+    const ci = (runId, observation) => ({
       schemaVersion: 1, provider: 'approved-provider', runId, attempt: 1,
       integratedSha: sha40, contractSha256,
       inputFingerprintSha256: aggregate.inputFingerprintSha256,
+      inputs: structuredClone(aggregate.inputs),
       platformObservationFingerprintSha256: aggregate.platformObservationFingerprintSha256,
       platformObservation: aggregate.platformObservation,
-      postgresqlObservation,
-      requiredGate: { status: 'passed', jobs: 6 }, jobs: aggregate.jobs,
+      postgresqlObservation: observation,
+      requiredGate: { status: 'passed', jobs: 6 }, jobs: structuredClone(aggregate.jobs),
     });
     const ci1 = join(root, 'ci-1.json');
     const ci2 = join(root, 'ci-2.json');
-    json(ci1, ci('run-1'));
-    json(ci2, ci('run-2'));
+    const secondPostgresqlObservation = {
+      ...postgresqlObservation,
+      attestationSha256: '1'.repeat(64), instanceNonceSha256: '2'.repeat(64),
+      endpointSha256: '3'.repeat(64), databaseName: 'dorzak_second_test',
+    };
+    json(ci1, ci('run-1', postgresqlObservation));
+    json(ci2, ci('run-2', secondPostgresqlObservation));
     const manifest = buildEvidence({
       outputDirectory: join(root, 'output'), baseSha: sha40, codeSha: sha40,
       integratedSha: sha40, localDirectory: local, ciRunPaths: [ci1, ci2],
       reviewJsonPath: reviewJson, reviewMarkdownPath: reviewMarkdown,
     });
     assert.equal(validateEvidence(manifest).files.length, 7);
+    assert.notDeepEqual(JSON.parse(readFileSync(ci1)).postgresqlObservation, JSON.parse(readFileSync(ci2)).postgresqlObservation);
     assert.throws(() => stableJson({ authorization: 'Bearer unsafe-value' }));
-    json(reviewJson, { schemaVersion: 1, baseSha: sha40, codeSha: sha40, critical: 1, important: 0, minor: [] });
+    const crossBinding = ci('run-2', secondPostgresqlObservation);
+    crossBinding.jobs[0].inputs = { ...crossBinding.jobs[0].inputs, runtime: { ...crossBinding.jobs[0].inputs.runtime, php: '9.9.9' } };
+    crossBinding.jobs[0].inputFingerprintSha256 = sha256(stableJson(crossBinding.jobs[0].inputs));
+    json(ci2, crossBinding);
     assert.throws(() => buildEvidence({
-      outputDirectory: join(root, 'rejected'), baseSha: sha40, codeSha: sha40,
+      outputDirectory: join(root, 'cross-binding-rejected'), baseSha: sha40, codeSha: sha40,
       integratedSha: sha40, localDirectory: local, ciRunPaths: [ci1, ci2],
       reviewJsonPath: reviewJson, reviewMarkdownPath: reviewMarkdown,
     }));
+    json(ci2, ci('run-2', secondPostgresqlObservation));
+    json(reviewJson, { schemaVersion: 1, baseSha: sha40, codeSha: sha40, critical: 1, important: 0, minor: [] });
+    const rejected = join(root, 'rejected');
+    assert.throws(() => buildEvidence({
+      outputDirectory: rejected, baseSha: sha40, codeSha: sha40,
+      integratedSha: sha40, localDirectory: local, ciRunPaths: [ci1, ci2],
+      reviewJsonPath: reviewJson, reviewMarkdownPath: reviewMarkdown,
+    }));
+    assert.equal(existsSync(rejected), false);
   });
 
   test('aggregate rejects changed raw bytes, extra roots, and symlinks', () => {
@@ -4198,6 +4434,13 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     composer-validation|php-style-static|sqlite|postgresql-16|frontend|playwright) ;;
     *) echo "Unknown P00 job: $job" >&2; exit 64 ;;
   esac
+  : "${P00_RUNNER_CLASS:?P00_RUNNER_CLASS is required}"
+  node --input-type=module - "$ROOT/$P00_CONTROL_RECORD" "$P00_RUNNER_CLASS" <<'NODE'
+  import { readFileSync } from 'node:fs';
+  const record = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+  const allowed = [record.execution?.runnerClasses?.local, record.execution?.runnerClasses?.ci];
+  if (!allowed.includes(process.argv[3])) process.exit(1);
+  NODE
   JOB_ARTIFACTS="$ARTIFACTS/$job"
   test ! -L "$JOB_ARTIFACTS"
   mkdir -p "$JOB_ARTIFACTS"
@@ -4288,24 +4531,24 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
   ARTIFACTS="${P00_JOB_ARTIFACT_DIR:?P00_JOB_ARTIFACT_DIR is required}"
   test ! -L "$ARTIFACTS"
-  observation="$(php -r '
-    $parts = parse_url(getenv("DB_URL") ?: "");
-    if (!is_array($parts) || !in_array($parts["scheme"] ?? "", ["postgres", "postgresql"], true)) exit(2);
-    $database = ltrim((string) ($parts["path"] ?? ""), "/");
-    if ($database === "" || !str_ends_with($database, "_test")) exit(2);
-    $pdo = new PDO(
-      "pgsql:host=".($parts["host"] ?? "").";port=".($parts["port"] ?? 5432).";dbname=".$database,
-      rawurldecode((string) ($parts["user"] ?? "")),
-      rawurldecode((string) ($parts["pass"] ?? "")),
-      [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
+  observation="$(P00_ROOT="$ROOT" php -r '
+    require getenv("P00_ROOT")."/backend/vendor/autoload.php";
+    $url = getenv("DB_URL") ?: "";
+    $parts = App\Support\PostgresQualificationGuard::parseUrl($url);
+    $pdo = App\Support\PostgresQualificationGuard::connect($url);
+    $row = App\Support\PostgresQualificationGuard::assertPdo(
+      $pdo, $url, getenv("P00_PG_INSTANCE_NONCE_SHA256") ?: "",
     );
-    $row = $pdo->query("SELECT current_setting('server_version_num')::int AS version, current_database() AS database, current_setting('dorzak.instance_nonce_sha256') AS nonce")->fetch(PDO::FETCH_ASSOC);
-    echo $row["version"], "\n", $row["database"], "\n", $row["nonce"], "\n";
+    $endpoint = hash("sha256", $parts["host"].":".$parts["port"]."?sslmode=".($parts["sslmode"] ?? "default"));
+    echo $row["server_version_num"], "\n", $row["database"], "\n",
+      $row["instance_nonce_sha256"], "\n", $endpoint, "\n";
   ')"
   server_version_num="$(printf '%s\n' "$observation" | sed -n '1p')"
   database_name="$(printf '%s\n' "$observation" | sed -n '2p')"
   instance_nonce_sha256="$(printf '%s\n' "$observation" | sed -n '3p')"
-  node "$ROOT/scripts/quality/p00.mjs" postgres-identity "$server_version_num" "$database_name" "$instance_nonce_sha256"
+  endpoint_sha256="$(printf '%s\n' "$observation" | sed -n '4p')"
+  node "$ROOT/scripts/quality/p00.mjs" postgres-identity \
+    "$server_version_num" "$database_name" "$instance_nonce_sha256" "$endpoint_sha256"
   exec "$ROOT/backend/vendor/bin/phpunit" \
     --configuration "$ROOT/backend/phpunit.pgsql.xml" \
     --log-junit "$ARTIFACTS/postgresql-16.junit.xml"
@@ -4335,13 +4578,15 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     copyFileSync,
     existsSync,
     lstatSync,
+    mkdtempSync,
     mkdirSync,
     readFileSync,
     readdirSync,
     realpathSync,
+    renameSync,
     writeFileSync,
   } from 'node:fs';
-  import { dirname, join, relative, resolve } from 'node:path';
+  import { basename, dirname, join, relative, resolve } from 'node:path';
   import { arch, platform, release } from 'node:os';
   import { fileURLToPath } from 'node:url';
   import { gzipSync } from 'node:zlib';
@@ -4495,7 +4740,11 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       },
       postgresql: (() => {
         const value = expectedPostgresqlIdentity();
-        return { kind: value.kind, identity: value.identity };
+        return {
+          kind: value.kind,
+          identity: value.identity,
+          policy: 'postgresql-16-test-closed-transport-v1',
+        };
       })(),
       playwright: {
         packageVersion: playwrightPackage.version,
@@ -4551,6 +4800,17 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   }
 
   function assertBundle(value) {
+    rejectSecrets(value, '$.bundle');
+    assertExactKeys(value, [
+      'schemaVersion', 'files', 'minifiedBytes', 'gzipBytes', 'limitBytes',
+      'nodeVersion', 'zlibVersion', 'largeChunkDebt',
+    ], '$.bundle');
+    value.files?.forEach((file, index) => assertExactKeys(
+      file, ['path', 'minifiedBytes', 'gzipBytes'], '$.bundle.files[' + index + ']',
+    ));
+    assertExactKeys(value.largeChunkDebt, [
+      'status', 'thresholdBytes', 'affectedFiles', 'message', 'messageSha256', 'occurrenceCount',
+    ], '$.bundle.largeChunkDebt');
     invariant(value.schemaVersion === 1, 'Bundle schema mismatch');
     invariant(typeof value.nodeVersion === 'string' && value.nodeVersion.length > 0, 'Bundle Node identity is missing');
     invariant(typeof value.zlibVersion === 'string' && value.zlibVersion.length > 0, 'Bundle zlib identity is missing');
@@ -4654,9 +4914,9 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   function tapCount(path) {
     const lines = readFileSync(path, 'utf8').trimEnd().split('\n');
-    const plan = lines.at(-1)?.match(/^1\.\.(\d+)$/);
-    invariant(plan, 'TAP plan is missing: ' + path);
-    const count = Number(plan[1]);
+    const plans = lines.map((line) => line.match(/^1\.\.(\d+)(?:\s+#.*)?$/)).filter(Boolean);
+    invariant(plans.length === 1, 'TAP requires one unique top-level plan: ' + path);
+    const count = Number(plans[0][1]);
     invariant(lines.filter((line) => /^ok \d+\b/.test(line)).length === count, 'TAP pass count mismatch');
     invariant(lines.every((line) => !/^not ok \d+\b/.test(line)), 'TAP failure present');
     return count;
@@ -4725,6 +4985,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   }
 
   function assertRecord(record, expectedJob, directory = null) {
+    rejectSecrets(record, 'job[' + expectedJob + ']');
     assertExactKeys(record, [
       'schemaVersion', 'job', 'command', 'integratedSha', 'status', 'exitCode',
       'retryAttempt', 'testCount', 'failureCount', 'unexplainedSkipCount', 'durationMs',
@@ -4764,8 +5025,10 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       }
     }
     invariant(record.inputFingerprintSha256 === sha256(stableJson(record.inputs)), 'Job input fingerprint mismatch');
+    validateSchema(inputsSchema, record.inputs, 'job[' + expectedJob + '].inputs');
     invariant(record.platformObservationFingerprintSha256
       === sha256(stableJson(record.platformObservation)), 'Job platform fingerprint mismatch');
+    validateSchema(platformObservationSchema, record.platformObservation, 'job[' + expectedJob + '].platformObservation');
   }
 
   function writeGateResult(job, exitCode, durationMs, logPath) {
@@ -4821,9 +5084,11 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     });
     const shas = new Set(records.map((record) => record.integratedSha));
     const fingerprints = new Set(records.map((record) => record.inputFingerprintSha256));
+    const completeInputs = new Set(records.map((record) => stableJson(record.inputs)));
     const platformFingerprints = new Set(records.map((record) => record.platformObservationFingerprintSha256));
     invariant(shas.size === 1, 'P00 jobs used different SHAs');
     invariant(fingerprints.size === 1, 'P00 jobs used different declared inputs');
+    invariant(completeInputs.size === 1, 'P00 jobs used different complete portable inputs');
     invariant(platformFingerprints.size === 1, 'P00 jobs used different platform observations');
     return {
       schemaVersion: 1,
@@ -4842,32 +5107,57 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     };
   }
 
-  function postgresqlObservation(serverVersionNum, databaseName, instanceNonceSha256) {
+  function postgresqlObservation(serverVersionNum, databaseName, instanceNonceSha256, endpointSha256) {
     const expected = expectedPostgresqlIdentity();
     const numericVersion = Number(serverVersionNum);
     invariant(Number.isInteger(numericVersion) && numericVersion >= 160000 && numericVersion < 170000, 'PostgreSQL is not major 16');
     invariant(/_test$/.test(databaseName), 'PostgreSQL database is not a test database');
     invariant(instanceNonceSha256 === expected.instanceNonceSha256, 'Live PostgreSQL nonce mismatch');
-    return { ...expected, serverVersionNum: numericVersion, databaseName };
+    invariant(SHA64.test(endpointSha256), 'PostgreSQL endpoint observation is invalid');
+    return { ...expected, endpointSha256, serverVersionNum: numericVersion, databaseName };
   }
 
   function assertPostgresqlObservation(value, expectedInputs) {
+    rejectSecrets(value, '$.postgresqlObservation');
+    assertExactKeys(value, [
+      'kind', 'identity', 'attestationSha256', 'instanceNonceSha256',
+      'endpointSha256', 'serverVersionNum', 'databaseName',
+    ], '$.postgresqlObservation');
     invariant(value.kind === expectedInputs.postgresql.kind, 'PostgreSQL identity kind mismatch');
     invariant(value.identity === expectedInputs.postgresql.identity, 'PostgreSQL immutable identity mismatch');
+    invariant(expectedInputs.postgresql.policy === 'postgresql-16-test-closed-transport-v1', 'PostgreSQL portable policy mismatch');
     invariant(SHA64.test(value.attestationSha256), 'PostgreSQL attestation hash is invalid');
     invariant(SHA64.test(value.instanceNonceSha256), 'PostgreSQL nonce is invalid');
+    invariant(SHA64.test(value.endpointSha256), 'PostgreSQL endpoint observation is invalid');
     invariant(Number.isInteger(value.serverVersionNum)
       && value.serverVersionNum >= 160000 && value.serverVersionNum < 170000, 'PostgreSQL major is not 16');
     invariant(typeof value.databaseName === 'string' && /_test$/.test(value.databaseName), 'PostgreSQL test database is invalid');
   }
 
   function assertAggregate(value) {
+    rejectSecrets(value, '$.aggregate');
+    const aggregateKeys = [
+      'schemaVersion', 'status', 'integratedSha', 'retryAttempt', 'contractSha256',
+      'inputFingerprintSha256', 'inputs', 'platformObservationFingerprintSha256',
+      'platformObservation', 'testCount', 'failureCount', 'unexplainedSkipCount', 'jobs',
+    ];
+    assertExactKeys(value, Object.hasOwn(value, 'postgresqlObservation')
+      ? [...aggregateKeys, 'postgresqlObservation'] : aggregateKeys, '$.aggregate');
     invariant(value.schemaVersion === 1 && value.status === 'passed', 'Aggregate did not pass');
     invariant(value.contractSha256 === contractSha256, 'Aggregate contract mismatch');
     invariant(Array.isArray(value.jobs) && value.jobs.length === contract.jobs.length, 'Aggregate job count mismatch');
     value.jobs.forEach((record, index) => assertRecord(record, contract.jobs[index].name));
     invariant(value.jobs.every((record) => record.integratedSha === value.integratedSha), 'Aggregate SHA mismatch');
     invariant(value.jobs.every((record) => record.inputFingerprintSha256 === value.inputFingerprintSha256), 'Aggregate input mismatch');
+    invariant(value.inputFingerprintSha256 === sha256(stableJson(value.inputs)), 'Aggregate input fingerprint is not self-bound');
+    invariant(value.jobs.every((record) => stableJson(record.inputs) === stableJson(value.inputs)), 'Aggregate complete inputs mismatch');
+    validateSchema(inputsSchema, value.inputs, '$.aggregate.inputs');
+    invariant(value.platformObservationFingerprintSha256 === sha256(stableJson(value.platformObservation)),
+      'Aggregate platform fingerprint is not self-bound');
+    validateSchema(platformObservationSchema, value.platformObservation, '$.aggregate.platformObservation');
+    if (Object.hasOwn(value, 'postgresqlObservation')) {
+      assertPostgresqlObservation(value.postgresqlObservation, value.inputs);
+    }
     invariant(value.jobs.every((record) => record.platformObservationFingerprintSha256
       === value.platformObservationFingerprintSha256), 'Aggregate platform mismatch');
   }
@@ -4919,10 +5209,11 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       postgresql: {
         type: 'object',
         additionalProperties: false,
-        required: ['kind', 'identity'],
+        required: ['kind', 'identity', 'policy'],
         properties: {
           kind: { enum: ['oci', 'external-attestation'] },
           identity: { type: 'string', minLength: 64 },
+          policy: { const: 'postgresql-16-test-closed-transport-v1' },
         },
       },
       playwright: {
@@ -4965,12 +5256,13 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       postgresqlObservation: {
         type: 'object',
         additionalProperties: false,
-        required: ['kind', 'identity', 'attestationSha256', 'instanceNonceSha256', 'serverVersionNum', 'databaseName'],
+        required: ['kind', 'identity', 'attestationSha256', 'instanceNonceSha256', 'endpointSha256', 'serverVersionNum', 'databaseName'],
         properties: {
           kind: { enum: ['oci', 'external-attestation'] },
           identity: { type: 'string', minLength: 64 },
           attestationSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
           instanceNonceSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+          endpointSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
           serverVersionNum: { type: 'integer', minimum: 160000, maximum: 169999 },
           databaseName: { type: 'string', pattern: '_test$' },
         },
@@ -5095,7 +5387,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     }
   }
 
-  function validateCiRun(run, aggregate, observation) {
+  function validateCiRun(run, aggregate) {
+    rejectSecrets(run, '$.ciRun');
+    assertExactKeys(run, [
+      'schemaVersion', 'provider', 'runId', 'attempt', 'integratedSha', 'contractSha256',
+      'inputFingerprintSha256', 'inputs', 'platformObservationFingerprintSha256',
+      'platformObservation', 'postgresqlObservation', 'requiredGate', 'jobs',
+    ], '$.ciRun');
+    assertExactKeys(run.requiredGate, ['status', 'jobs'], '$.ciRun.requiredGate');
     invariant(run.schemaVersion === 1, 'CI schema mismatch');
     invariant(typeof run.provider === 'string' && run.provider.length > 0, 'CI provider is missing');
     invariant(typeof run.runId === 'string' && run.runId.length > 0, 'CI run ID is missing');
@@ -5103,16 +5402,23 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     invariant(run.integratedSha === aggregate.integratedSha, 'CI SHA mismatch');
     invariant(run.contractSha256 === contractSha256, 'CI contract mismatch');
     invariant(run.inputFingerprintSha256 === aggregate.inputFingerprintSha256, 'CI input mismatch');
+    invariant(run.inputFingerprintSha256 === sha256(stableJson(run.inputs)), 'CI input fingerprint is not self-bound');
+    invariant(stableJson(run.inputs) === stableJson(aggregate.inputs), 'CI complete portable inputs differ from aggregate');
+    validateSchema(inputsSchema, run.inputs, '$.ciRun.inputs');
     invariant(run.platformObservationFingerprintSha256
       === sha256(stableJson(run.platformObservation)), 'CI platform fingerprint mismatch');
+    validateSchema(platformObservationSchema, run.platformObservation, '$.ciRun.platformObservation');
     invariant(run.requiredGate?.status === 'passed' && run.requiredGate?.jobs === 6, 'CI required gate failed');
-    assertPostgresqlObservation(run.postgresqlObservation, aggregate.inputs);
+    assertPostgresqlObservation(run.postgresqlObservation, run.inputs);
     invariant(Array.isArray(run.jobs) && run.jobs.length === 6, 'CI jobs missing');
     run.jobs.forEach((record, index) => assertRecord(record, contract.jobs[index].name));
-    invariant(run.jobs.every((record) => record.platformObservationFingerprintSha256
-      === run.platformObservationFingerprintSha256
+    invariant(run.jobs.every((record) => record.integratedSha === run.integratedSha
+      && record.integratedSha === aggregate.integratedSha
+      && record.inputFingerprintSha256 === run.inputFingerprintSha256
+      && stableJson(record.inputs) === stableJson(run.inputs)
+      && record.platformObservationFingerprintSha256 === run.platformObservationFingerprintSha256
       && stableJson(record.platformObservation) === stableJson(run.platformObservation)),
-    'CI jobs do not cross-bind one platform observation');
+    'CI jobs do not cross-bind SHA, complete portable inputs, and platform observation');
   }
 
   function safeSibling(directory, path) {
@@ -5120,6 +5426,18 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const full = resolve(directory, path);
     invariant(dirname(full) === resolve(directory), 'Evidence path escapes output');
     return full;
+  }
+
+  function readSanitizedJson(path, label) {
+    const value = readJson(path);
+    rejectSecrets(value, label);
+    return value;
+  }
+
+  function readSanitizedText(path, label) {
+    const value = readFileSync(path, 'utf8');
+    rejectSecrets(value, label);
+    return value;
   }
 
   function normalizedReviewMarkdown(review) {
@@ -5154,27 +5472,34 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const localAggregate = aggregateRequiredGates(localDirectory);
     assertAggregate(localAggregate);
     invariant(localAggregate.integratedSha === integratedSha, 'Local matrix SHA mismatch');
-    const observation = readJson(join(localDirectory, 'postgresql-16', 'postgresql-identity.json'));
+    const observation = readSanitizedJson(
+      join(localDirectory, 'postgresql-16', 'postgresql-identity.json'), '$.local.postgresqlObservation',
+    );
     assertPostgresqlObservation(observation, localAggregate.inputs);
-    const bundle = readJson(join(localDirectory, 'frontend', 'bundle.json'));
+    const bundle = readSanitizedJson(join(localDirectory, 'frontend', 'bundle.json'), '$.local.bundle');
     assertBundle(bundle);
     invariant(bundle.nodeVersion === localAggregate.inputs.runtime.node
       && bundle.zlibVersion === localAggregate.platformObservation.zlib, 'Bundle runtime identity mismatch');
-    const review = readJson(reviewJsonPath);
+    const review = readSanitizedJson(reviewJsonPath, '$.reviewJson');
+    assertExactKeys(review, ['schemaVersion', 'baseSha', 'codeSha', 'critical', 'important', 'minor'], '$.reviewJson');
     invariant(review.schemaVersion === 1 && review.baseSha === baseSha && review.codeSha === codeSha, 'Review range mismatch');
     invariant(review.critical === 0 && review.important === 0 && Array.isArray(review.minor), 'Review is not acceptable');
     invariant(review.minor.every((finding) => typeof finding === 'string' && finding.length > 0), 'Review minor finding is invalid');
-    const reviewMarkdown = readFileSync(reviewMarkdownPath, 'utf8');
+    const reviewMarkdown = readSanitizedText(reviewMarkdownPath, '$.reviewMarkdown');
     invariant(reviewMarkdown === normalizedReviewMarkdown(review), 'Review Markdown does not normalize the JSON verdict');
-    const runs = ciRunPaths.map(readJson);
-    runs.forEach((run) => validateCiRun(run, localAggregate, observation));
+    const runs = ciRunPaths.map((path, index) => readSanitizedJson(path, '$.ciRun[' + index + ']'));
+    runs.forEach((run) => validateCiRun(run, localAggregate));
     invariant(runs[0].runId !== runs[1].runId, 'CI run IDs must be distinct');
     invariant(runs[0].platformObservationFingerprintSha256 === runs[1].platformObservationFingerprintSha256
       && stableJson(runs[0].platformObservation) === stableJson(runs[1].platformObservation),
     'The two CI runs used different platforms or Chromium executables');
 
-    invariant(!existsSync(outputDirectory), 'Evidence output directory already exists');
-    mkdirSync(outputDirectory, { recursive: true });
+    const canonicalDirectory = resolve(outputDirectory);
+    invariant(!existsSync(canonicalDirectory), 'Evidence output directory already exists');
+    mkdirSync(dirname(canonicalDirectory), { recursive: true });
+    const publicationDirectory = mkdtempSync(
+      join(dirname(canonicalDirectory), '.' + basename(canonicalDirectory) + '.tmp-'),
+    );
     const readme = [
       '# P00 Verification Evidence',
       '',
@@ -5187,13 +5512,13 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       '',
     ].join('\n');
     const localPayload = { ...localAggregate, postgresqlObservation: observation };
-    writeFileSync(join(outputDirectory, 'README.md'), readme);
-    writeJson(join(outputDirectory, 'manifest.schema.json'), evidenceSchema);
-    writeJson(join(outputDirectory, 'local-full-matrix.json'), localPayload);
-    writeJson(join(outputDirectory, 'ci-run-1.json'), runs[0]);
-    writeJson(join(outputDirectory, 'ci-run-2.json'), runs[1]);
-    writeJson(join(outputDirectory, 'bundle.json'), bundle);
-    copyFileSync(reviewMarkdownPath, join(outputDirectory, 'independent-review.md'));
+    writeFileSync(join(publicationDirectory, 'README.md'), readme);
+    writeJson(join(publicationDirectory, 'manifest.schema.json'), evidenceSchema);
+    writeJson(join(publicationDirectory, 'local-full-matrix.json'), localPayload);
+    writeJson(join(publicationDirectory, 'ci-run-1.json'), runs[0]);
+    writeJson(join(publicationDirectory, 'ci-run-2.json'), runs[1]);
+    writeJson(join(publicationDirectory, 'bundle.json'), bundle);
+    copyFileSync(reviewMarkdownPath, join(publicationDirectory, 'independent-review.md'));
 
     const names = [
       'README.md', 'manifest.schema.json', 'local-full-matrix.json', 'ci-run-1.json',
@@ -5201,7 +5526,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     ];
     const files = names.map((path) => ({
       path,
-      sha256: sha256(readFileSync(join(outputDirectory, path))),
+      sha256: sha256(readFileSync(join(publicationDirectory, path))),
     }));
     const file = (path) => files.find((item) => item.path === path);
     const manifest = {
@@ -5251,15 +5576,23 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       })),
       files,
     };
-    writeJson(join(outputDirectory, 'manifest.json'), manifest);
-    origins.set(manifest, resolve(outputDirectory));
-    validateEvidence(join(outputDirectory, 'manifest.json'));
+    writeJson(join(publicationDirectory, 'manifest.json'), manifest);
+    origins.set(manifest, publicationDirectory);
+    validateEvidence(join(publicationDirectory, 'manifest.json'));
+    renameSync(publicationDirectory, canonicalDirectory);
+    origins.set(manifest, canonicalDirectory);
+    validateEvidence(join(canonicalDirectory, 'manifest.json'));
     return manifest;
   }
 
   export function validateEvidence(input) {
     const manifestPath = typeof input === 'string' ? resolve(input) : null;
-    const manifest = manifestPath ? readJson(manifestPath) : input;
+    if (manifestPath) {
+      const stat = lstatSync(manifestPath);
+      invariant(stat.isFile() && !stat.isSymbolicLink() && realpathSync(manifestPath) === manifestPath,
+        'Evidence manifest is not one canonical regular file');
+    }
+    const manifest = manifestPath ? readSanitizedJson(manifestPath, '$.manifest') : input;
     const directory = manifestPath ? dirname(manifestPath) : origins.get(manifest);
     invariant(directory, 'Evidence directory is unknown');
     rejectSecrets(manifest);
@@ -5278,15 +5611,29 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       'README.md', 'manifest.schema.json', 'local-full-matrix.json', 'ci-run-1.json',
       'ci-run-2.json', 'bundle.json', 'independent-review.md',
     ];
+    const directoryEntries = readdirSync(directory).sort();
+    invariant(stableJson(directoryEntries) === stableJson([...expectedNames, 'manifest.json'].sort()),
+      'Evidence directory must contain exactly eight canonical paths');
     invariant(stableJson(manifest.files.map((item) => item.path)) === stableJson(expectedNames), 'Evidence file list mismatch');
     for (const reference of manifest.files) {
       invariant(SHA64.test(reference.sha256), 'Evidence file hash invalid');
       const path = safeSibling(directory, reference.path);
+      const stat = lstatSync(path);
+      invariant(stat.isFile() && !stat.isSymbolicLink() && realpathSync(path) === path,
+        'Evidence sibling is not one canonical regular file: ' + reference.path);
       invariant(sha256(readFileSync(path)) === reference.sha256, 'Evidence file hash mismatch: ' + reference.path);
     }
-    invariant(stableJson(readJson(join(directory, 'manifest.schema.json')))
+    const referenceFor = (path) => manifest.files.find((item) => item.path === path);
+    for (const [summary, path] of [
+      [manifest.local, 'local-full-matrix.json'], [manifest.bundle, 'bundle.json'],
+      [manifest.review, 'independent-review.md'], [manifest.ciRuns[0], 'ci-run-1.json'],
+      [manifest.ciRuns[1], 'ci-run-2.json'],
+    ]) invariant(summary.path === path && summary.sha256 === referenceFor(path).sha256,
+      'Evidence summary/reference cross-binding mismatch: ' + path);
+    rejectSecrets(readSanitizedText(join(directory, 'README.md'), '$.README.md'), '$.README.md');
+    invariant(stableJson(readSanitizedJson(join(directory, 'manifest.schema.json'), '$.manifestSchema'))
       === stableJson(evidenceSchema), 'Evidence schema artifact changed');
-    const local = readJson(join(directory, 'local-full-matrix.json'));
+    const local = readSanitizedJson(join(directory, 'local-full-matrix.json'), '$.local');
     assertAggregate(local);
     invariant(local.integratedSha === manifest.INTEGRATED_SHA, 'Local evidence SHA mismatch');
     invariant(local.inputFingerprintSha256 === manifest.local.inputFingerprintSha256, 'Local evidence input mismatch');
@@ -5294,23 +5641,22 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     assertPostgresqlObservation(local.postgresqlObservation, manifest.inputs);
     invariant(stableJson(local.postgresqlObservation)
       === stableJson(manifest.postgresqlObservation), 'Local PostgreSQL observation mismatch');
-    const bundle = readJson(join(directory, 'frontend', 'bundle.json'));
+    const bundle = readSanitizedJson(join(directory, 'bundle.json'), '$.bundle');
     assertBundle(bundle);
     invariant(bundle.nodeVersion === manifest.inputs.runtime.node
       && bundle.zlibVersion === local.platformObservation.zlib, 'Bundle evidence runtime mismatch');
     invariant(bundle.gzipBytes === manifest.bundle.gzipBytes, 'Bundle measurement mismatch');
     const runs = [
-      readJson(join(directory, 'ci-run-1.json')),
-      readJson(join(directory, 'ci-run-2.json')),
+      readSanitizedJson(join(directory, 'ci-run-1.json'), '$.ciRun[0]'),
+      readSanitizedJson(join(directory, 'ci-run-2.json'), '$.ciRun[1]'),
     ];
-    runs.forEach((run) => validateCiRun(run, local, manifest.postgresqlObservation));
+    runs.forEach((run) => validateCiRun(run, local));
     invariant(runs[0].runId !== runs[1].runId, 'CI run IDs are not distinct');
     invariant(runs.every((run) => run.integratedSha === manifest.INTEGRATED_SHA), 'CI integrated SHA mismatch');
     invariant(manifest.review.baseSha === manifest.BASE_SHA
       && manifest.review.codeSha === manifest.CODE_SHA, 'Review range mismatch');
     invariant(manifest.review.critical === 0 && manifest.review.important === 0, 'Review has blocking findings');
-    const reviewMarkdown = readFileSync(join(directory, 'independent-review.md'), 'utf8');
-    rejectSecrets(reviewMarkdown, '$.independent-review.md');
+    const reviewMarkdown = readSanitizedText(join(directory, 'independent-review.md'), '$.independent-review.md');
     invariant(reviewMarkdown === normalizedReviewMarkdown({
       baseSha: manifest.review.baseSha,
       codeSha: manifest.review.codeSha,
@@ -5339,7 +5685,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       return;
     }
     if (action === 'postgres-identity') {
-      const value = postgresqlObservation(args[0], args[1], args[2]);
+      const value = postgresqlObservation(args[0], args[1], args[2], args[3]);
       writeJson(join(JOB_ARTIFACTS(), 'postgresql-identity.json'), value);
       print('P00_POSTGRESQL PASS major=16 database=' + value.databaseName
         + ' identity_sha256=' + sha256(value.identity));
@@ -5399,7 +5745,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   git diff --check -- .gitignore scripts/quality
   ~~~
 
-  Expected: dispatcher emits two passing TAP tests; all nine Node subtests pass, for eleven quality self-tests total; absent evidence fails closed; diff check passes. The tests prove path/symlink/extra-file rejection, raw-byte recomputation, the fixed 216700-byte budget, exact accepted-open large-chunk warning, closed schemas, count provenance, portable/platform identity boundaries, attempt one, broad secret and review rejection, sibling hashes, and two distinct CI runs.
+  Expected: dispatcher emits two passing TAP tests; all nine Node subtests pass, for eleven quality self-tests total; reporter diagnostics after each unique top-level TAP plan are accepted; absent evidence fails closed; diff check passes. The tests prove path/symlink/extra-file rejection, raw-byte recomputation, the fixed 216700-byte budget, exact accepted-open large-chunk warning, closed schemas and whole-payload secret scans, count provenance, complete SHA/input/platform cross-binding, attempt one, atomic publication, root bundle validation, sibling hashes, and two distinct CI runs whose portable PostgreSQL identity/policy matches while their attestation, nonce, endpoint and database observations differ.
 
 - [ ] **Stage only the seven quality-interface paths and commit.**
 
@@ -5422,6 +5768,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   TASK13_ARTIFACTS="$PWD/.artifacts/p00/task13-$TASK13_SHA"
   test ! -e "$TASK13_ARTIFACTS"
   mkdir -p "$TASK13_ARTIFACTS"
+  export P00_RUNNER_CLASS="$(jq -r .execution.runnerClasses.local "$P00_CONTROL_RECORD")"
   for job in composer-validation php-style-static sqlite postgresql-16 frontend playwright; do
     P00_ARTIFACT_DIR="$TASK13_ARTIFACTS" P00_ATTEMPT=1 scripts/quality/run-p00 "$job"
   done
@@ -5457,10 +5804,10 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 The sole machine-readable decision record in this Task 14 section is currently:
 
 ```json
-{"adapterPaths":[],"immutableDependencyIdentities":[],"normalizerSha256":null,"normalizerTestSha256":null,"provider":null,"pushAndRunCommandsSha256":null,"requiredStatus":null,"requiredStatusCommandsSha256":null,"schemaVersion":1,"state":"pending","twoRunCommandsSha256":null}
+{"adapterPaths":[],"ciRunnerClass":null,"immutableDependencyIdentities":[],"localRunnerClass":null,"normalizerSha256":null,"normalizerTestSha256":null,"provider":null,"pushAndRunCommandsSha256":null,"requiredStatus":null,"requiredStatusCommandsSha256":null,"schemaVersion":1,"state":"pending","twoRunCommandsSha256":null}
 ```
 
-The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headings, selects exactly one record by its closed key set, returns `42` for this exact pending state, `0` only for a closed `approved` record with nonempty adapter/dependency arrays and five exact 64-hex content hashes, and `2` for every malformed or partial record. Its own source is outside the parsed section, so it cannot satisfy itself. The provider amendment must rerun the parser against fixtures for pending (`42`), approved (`0`), extra/missing/wrong-type/wrong-hash records (`2`) before replacing this record.
+The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headings, selects exactly one record by its closed key set, returns `42` for this exact pending state, `0` only for a closed `approved` record with nonempty adapter/dependency arrays, distinct exact local/CI runner-class literals and five exact 64-hex content hashes, and `2` for every malformed or partial record. Its own source is outside the parsed section, so it cannot satisfy itself. The provider amendment must rerun the parser against fixtures for pending (`42`), approved (`0`), extra/missing/wrong-type/wrong-hash records (`2`) before replacing this record.
 
 - [ ] **Enforce the unresolved-input stop.**
 
@@ -5469,6 +5816,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
   - exact provider-native path and complete configuration;
   - immutable action/plugin/image identities;
   - exact mapping of all six jobs plus aggregate dependency;
+  - exact `localRunnerClass` and `ciRunnerClass` values matching the Control Room record, with `P00_RUNNER_CLASS` set to the former in every canonical fresh-local command and to the latter in every one of the six provider jobs;
   - exact remote push/ref semantics;
   - exact required-status API command and verification output;
   - exact commands to trigger two new runs, not retries, and download their artifacts;
@@ -5759,6 +6107,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
     '',
     '## Canonical quality entry points',
     '',
+    '    export P00_RUNNER_CLASS="$(jq -r .execution.runnerClasses.local "$P00_CONTROL_RECORD")"',
     '    scripts/quality/run-p00 --list',
     '    scripts/quality/run-p00 composer-validation',
     '    scripts/quality/run-p00 php-style-static',
@@ -5806,6 +6155,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
     '',
     'Obtain DB_URL from the approved secret store without echoing it. Its database name must end _test, and P00_PG_IDENTITY, the closed attestation hash and P00_PG_INSTANCE_NONCE_SHA256 selected in Task 0 must match the live connection:',
     '',
+    '    export P00_RUNNER_CLASS="$(jq -r .execution.runnerClasses.local "$P00_CONTROL_RECORD")"',
     '    DB_URL="$P00_PG_DB_URL" scripts/quality/run-p00 postgresql-16',
     '',
     'The bootstrap rejects a non-PostgreSQL URL, a non-test database, a non-immutable attestation, a mismatched live provisioner nonce and any server major other than 16 before migrations.',
@@ -5987,6 +6337,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
   cd "$P00_FRESH_CHECKOUT"
   P00_LOCAL_ARTIFACTS="$PWD/.artifacts/p00/fresh-$CODE_SHA"
   test ! -e "$P00_LOCAL_ARTIFACTS"
+  export P00_RUNNER_CLASS="$(jq -r .execution.runnerClasses.local "$P00_CONTROL_RECORD")"
   for job in composer-validation php-style-static sqlite postgresql-16 frontend playwright; do
     P00_ARTIFACT_DIR="$P00_LOCAL_ARTIFACTS" P00_ATTEMPT=1 scripts/quality/run-p00 "$job"
   done
@@ -6002,7 +6353,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
      and (.databaseName | endswith("_test"))
      and (.identity | length) >= 64
      and (.attestationSha256 | test("^[0-9a-f]{64}$"))' \
-    "$P00_LOCAL_ARTIFACTS/postgresql-identity.json"
+    "$P00_LOCAL_ARTIFACTS/postgresql-16/postgresql-identity.json"
   jq -e \
     '.gzipBytes <= 216700 and .limitBytes == 216700
      and .largeChunkDebt.status == "accepted-open"
@@ -6029,19 +6380,21 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
   test -f "$CI_RUN_1" && test -f "$CI_RUN_2"
   for run in "$CI_RUN_1" "$CI_RUN_2"; do
     jq -e --arg sha "$INTEGRATED_SHA" \
-      '.schemaVersion == 1 and .integratedSha == $sha and .attempt == 1
+      '. as $run | .schemaVersion == 1 and .integratedSha == $sha and .attempt == 1
        and .requiredGate.status == "passed" and .requiredGate.jobs == 6
        and (.jobs | length) == 6
        and all(.jobs[]; .integratedSha == $sha and .status == "passed"
-         and .retryAttempt == 1 and .failureCount == 0 and .unexplainedSkipCount == 0)' \
+         and .retryAttempt == 1 and .failureCount == 0 and .unexplainedSkipCount == 0
+         and .inputFingerprintSha256 == $run.inputFingerprintSha256
+         and .inputs == $run.inputs)' \
       "$run"
   done
   test "$(jq -r .runId "$CI_RUN_1")" != "$(jq -r .runId "$CI_RUN_2")"
-  test "$(jq -Sc '{contractSha256,inputFingerprintSha256,postgresqlObservation,jobs:[.jobs[]|{job,inputs,testCount}]}' "$CI_RUN_1" | shasum -a 256 | awk '{print $1}')" \
-    = "$(jq -Sc '{contractSha256,inputFingerprintSha256,postgresqlObservation,jobs:[.jobs[]|{job,inputs,testCount}]}' "$CI_RUN_2" | shasum -a 256 | awk '{print $1}')"
+  test "$(jq -Sc '{contractSha256,inputFingerprintSha256,inputs,jobs:[.jobs[]|{job,integratedSha,inputFingerprintSha256,inputs,testCount}]}' "$CI_RUN_1" | shasum -a 256 | awk '{print $1}')" \
+    = "$(jq -Sc '{contractSha256,inputFingerprintSha256,inputs,jobs:[.jobs[]|{job,integratedSha,inputFingerprintSha256,inputs,testCount}]}' "$CI_RUN_2" | shasum -a 256 | awk '{print $1}')"
   ```
 
-  Expected: distinct provider run IDs and attempt 1; exact same integrated SHA, contract, PHP/Node/Composer/npm/zlib/Playwright/Chromium identities, Composer/npm lock hashes, immutable PostgreSQL identity/attestation/observed major, ordered job names/counts and passing aggregate. Any retry metadata, provider-normalizer ambiguity or identity mismatch invalidates that run and returns to the Task 14 amendment; it may not be repaired in Task 17.
+  Expected: distinct provider run IDs and attempt 1; exact same integrated SHA, contract, complete portable inputs, PHP/Node/Composer/npm/Playwright identities, Composer/npm lock hashes, portable immutable PostgreSQL identity/policy, ordered job names/counts and passing aggregate. Each run separately binds its closed platform observation and its own PostgreSQL attestation hash, live nonce, sanitized endpoint hash, `_test` database and observed major; those per-run service observations may differ and are not compared across distinct ephemeral runs. Any retry metadata, provider-normalizer ambiguity or portable identity mismatch invalidates that run and returns to the Task 14 amendment; it may not be repaired in Task 17.
 
 - [ ] **Create the schema and eight sanitized evidence files from measured artifacts.**
 
@@ -6087,7 +6440,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
     "$EVIDENCE_DIRECTORY/bundle.json"
   ~~~
 
-  Expected: the absent manifest fails closed, then the deterministic builder creates exactly the eight declared files and prints P00_EVIDENCE_BUILT files=7 (seven manifest-referenced siblings plus manifest). Validation prints P00_EVIDENCE PASS with the literal base/code/integrated identities, two runs and seven sibling references. The generated schema has additionalProperties=false at every manifest object boundary; the validator verifies each sibling path/hash, stable input identity, exact contract counts, immutable PostgreSQL observation, browser identity, bundle limit and warning debt, review range/verdict, two distinct attempt-one CI runs, and recursive secret rejection. The manifest never embeds the later EVIDENCE_SHA.
+  Expected: the absent manifest fails closed, then the deterministic builder creates and validates all eight files in a new sibling temporary directory and publishes the canonical directory with one atomic rename. Any write or validation failure leaves the canonical path absent, never partial. It prints P00_EVIDENCE_BUILT files=7 (seven manifest-referenced siblings plus manifest). Validation prints P00_EVIDENCE PASS with the literal base/code/integrated identities, two runs and seven sibling references. The generated schema has additionalProperties=false at every manifest object boundary; the validator enforces exactly eight canonical regular paths, cross-binds every summary to its sibling path/hash, applies closed top-level checks and whole-value secret scans to every loaded local/CI payload, reads the generated root `bundle.json`, and verifies exact contract counts, portable PostgreSQL identity/policy plus separately bound per-run observations, browser identity, bundle limit and warning debt, review range/verdict, and two distinct attempt-one CI runs. The manifest never embeds the later EVIDENCE_SHA.
 
 - [ ] **Run final sanitization and design coverage checks.**
 
@@ -6120,9 +6473,23 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
   git commit -m "docs: record P00 verification evidence"
   EVIDENCE_SHA="$(git rev-parse HEAD)"
   printf '%s\n' "$EVIDENCE_SHA" | rg -x '[0-9a-f]{40}'
+  test "$(git rev-parse "$EVIDENCE_SHA^")" = "$CODE_SHA"
+  EVIDENCE_CHANGED="$(git diff-tree --no-commit-id --name-only -r "$EVIDENCE_SHA" | LC_ALL=C sort)"
+  test "$(printf '%s\n' "$EVIDENCE_CHANGED" | wc -l | tr -d ' ')" = 8
+  test "$EVIDENCE_CHANGED" \
+    = "$(printf '%s\n' \
+      docs/superpowers/evidence/p00/README.md \
+      docs/superpowers/evidence/p00/manifest.schema.json \
+      docs/superpowers/evidence/p00/manifest.json \
+      docs/superpowers/evidence/p00/local-full-matrix.json \
+      docs/superpowers/evidence/p00/ci-run-1.json \
+      docs/superpowers/evidence/p00/ci-run-2.json \
+      docs/superpowers/evidence/p00/bundle.json \
+      docs/superpowers/evidence/p00/independent-review.md | LC_ALL=C sort)"
+  test -z "$(git diff --cached --name-only)"
   ```
 
-  The Control Room durably records `BASE_SHA`, `CODE_SHA`, `INTEGRATED_SHA`, `EVIDENCE_SHA`, evidence payload SHA-256, the two CI run IDs, and the owner acceptance decision. Do not run CI on the evidence-only commit and mislabel it as the tested code SHA.
+  The Control Room durably records `BASE_SHA`, `CODE_SHA`, `INTEGRATED_SHA`, `EVIDENCE_SHA`, evidence payload SHA-256, the two CI run IDs, and the owner acceptance decision. `EVIDENCE_SHA^` must be exactly `CODE_SHA`, and its tree delta must be exactly the eight allowlisted evidence paths above. Do not run CI on the evidence-only commit and mislabel it as the tested code SHA.
 
 - [ ] **Perform the terminal repository and protected-state check, then stop.**
 
@@ -6174,16 +6541,16 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
 | Exact runtime pins and lockfile reproducibility | Tasks 1, 6, 10, 13, 17 |
 | Public media contract and origin `/storage` obligation | Tasks 2, 5, 16 |
 | Qatar/QAR demo/order/browser contract | Tasks 3–5, 7, 17 |
-| Create-only capability-isolated PostgreSQL fixture, Laravel+Vite health, auth setup, real login, seven journeys, one worker/zero retries | Tasks 4–5 |
+| Create-only capability-isolated PostgreSQL fixture, exact live-PDO migration/seed/serve boot guards and substitution canaries, Laravel+Vite health, auth setup, real login, seven journeys, one worker/zero retries | Tasks 4–5 |
 | DTO/API/auth/settings/money/protected shell/accessible form unit coverage | Tasks 6–8 |
 | Frontend format/lint/type/unit/build/bundle | Tasks 6–8, 13, 17 |
 | Independent 16-file Pint cleanup and bounded Larastan debt | Tasks 9–10 |
-| Full PostgreSQL 16 suite and portable existing contract | Task 11 |
+| Full PostgreSQL 16 suite, closed transport parser, every-boot default-PDO guard, wrong-nonce/substitution refusal and portable existing contract | Task 11 |
 | Process-level order/stock/wallet concurrency with barriers | Task 12 |
-| Provider-neutral jobs, aggregate, counts/versions/hashes | Task 13 |
+| Provider-neutral jobs, control-bound runner class, aggregate, counts/versions/hashes, closed/atomic evidence interfaces | Task 13 |
 | Provider-native thin wrapper and required status without assumption | Task 14 stop gate and later approved amendment |
 | CONTEXT, seven ADRs, accurate setup/runbook/recovery | Tasks 15–16 |
-| Clean `CODE_SHA`, independent review, fresh checkout, two same-SHA CI runs, sanitized evidence and distinct SHA identities | Task 17 |
+| Clean `CODE_SHA`, independent review, fresh checkout, two same-SHA CI runs with portable/per-run PostgreSQL boundaries, sanitized atomic evidence and exact parent/path SHA identities | Task 17 |
 
 ## Plan Self-Review Gate
 
@@ -6192,9 +6559,9 @@ Before plan approval and again after any approved amendment:
 - [ ] Trace every design Section 6–12 clause through the coverage table and exact task acceptance command.
 - [ ] Scan this file for banned indefinite markers, ellipses used as instructions, vague comparison phrases, broad staging, unbounded error repair, retries/quarantines/skips, and provider assumptions; require no matches.
 - [ ] Check every named path exists now or has one explicit creation task before first use.
-- [ ] Check interface names across PHP, TypeScript, shell, JSON and evidence (`e2e:serve`, `E2eDatabaseLease::acquire`, `ProcessBarrier::run`, six job names, SHA identities) for exact consistency.
+- [ ] Check interface names and cross-bindings across PHP, TypeScript, shell, JSON and evidence (`e2e:serve`, all three E2E phases, `PostgresQualificationGuard::assertPdo`, `ProcessBarrier::run`, `P00_RUNNER_CLASS`, six job names, root evidence paths, portable/per-run PostgreSQL identities, and SHA/parent identities) for exact consistency; rerun both registered endpoint-substitution canaries and the valid-PG16 wrong-nonce refusal.
 - [ ] Check tasks are numbered 0–17 exactly once and retain mandatory order.
 - [ ] Check each writer has one staging allowlist, shared manifests/lockfiles/config/evidence have one serialized owner, and no command stages the original user-owned paths accidentally.
-- [ ] Check Task 14 remains a hard stop and Task 0/17 state that plan approval is not execution authority.
+- [ ] Check Task 14 remains a hard stop, the closed control JSON still binds every approval/input by exact record commit/hash, and Task 0/17 state that plan approval is not execution authority.
 
 Execution handoff occurs only after this exact plan is independently reviewed, owner-approved, and durably authorized by the Control Room. Until then, stop at plan review.
