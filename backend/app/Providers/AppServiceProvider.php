@@ -14,6 +14,7 @@ use App\Services\GoogleCloudTranslationProvider;
 use App\Services\PlanGate;
 use App\Support\E2eDatabaseLease;
 use App\Support\PostgresConnectionProfile;
+use App\Support\PostgresQualificationGuard;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -63,6 +64,42 @@ class AppServiceProvider extends ServiceProvider
             } elseif ($phase !== 'supervisor') {
                 throw new RuntimeException('Unrecognized E2E boot phase.');
             }
+        }
+
+        $qualificationPhase = (string) getenv('P00_PG_QUALIFICATION_PHASE');
+        if (in_array($qualificationPhase, ['qualification-provisioning', 'qualification'], true)) {
+            $profile = $qualificationPhase === 'qualification'
+                ? PostgresQualificationGuard::assertBootstrapAuthority(
+                    (string) getenv('DB_URL'),
+                    (string) getenv('P00_PG_IDENTITY'),
+                    (string) getenv('P00_PG_ATTESTATION_SHA256'),
+                    (string) getenv('P00_PG_INSTANCE_NONCE_SHA256'),
+                    (string) getenv('P00_PG_QUALIFICATION_NONCE_SHA256'),
+                )
+                : PostgresConnectionProfile::fromUrl((string) getenv('DB_URL'));
+            DB::setReconnector(
+                static fn (Connection $connection): never => throw new RuntimeException('P00_RECONNECT_REFUSED'),
+            );
+            $connection = DB::connection();
+            $profile->assertLaravelConfiguration($connection, 'pgsql');
+            $pdo = $connection->getPdo();
+            $live = PostgresQualificationGuard::assertPdo(
+                $pdo,
+                $profile,
+                (string) getenv('P00_PG_INSTANCE_NONCE_SHA256'),
+            );
+            if ($qualificationPhase === 'qualification') {
+                PostgresQualificationGuard::assertActivated(
+                    $pdo,
+                    (string) getenv('P00_PG_QUALIFICATION_NONCE_SHA256'),
+                );
+                PostgresQualificationGuard::assertBootstrapLive($live);
+            } else {
+                PostgresQualificationGuard::assertEmptySchema($pdo);
+            }
+            PostgresConnectionProfile::sealVerifiedPdo($connection, $pdo);
+        } elseif ($qualificationPhase !== '') {
+            throw new RuntimeException('Unrecognized PostgreSQL qualification phase.');
         }
 
         // Invalidate the public storefront cache when catalog data changes.

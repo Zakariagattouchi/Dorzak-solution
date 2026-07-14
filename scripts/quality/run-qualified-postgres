@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+set -euo pipefail
+set +x
+if [[ -n "${DB_URL:-}" || -n "${P00_PG_SCHEMA_READY:-}" \
+  || -n "${P00_PG_QUALIFIED_CANDIDATE:-}" || -n "${P00_PG_QUALIFICATION_NONCE_SHA256:-}" \
+  || -n "${P00_PG_TEST_SUBSTITUTE_URL_PATH:-}" ]]; then
+  printf '%s\n' 'P00_QUALIFICATION_REFUSED caller supplied guarded state' >&2
+  exit 65
+fi
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+mode="${1:-}"
+if [[ "$#" -gt 0 ]]; then shift; fi
+case "$mode" in
+  environment)
+    [[ "$#" -eq 0 ]] || exit 64
+    command=(vendor/bin/phpunit --configuration=phpunit.pgsql.xml --testsuite PostgreSQL)
+    ;;
+  search)
+    [[ "$#" -eq 0 ]] || exit 64
+    command=(vendor/bin/phpunit --configuration=phpunit.pgsql.xml
+      tests/Feature/Catalog/ProductApiTest.php tests/Feature/Customer/CustomerApiTest.php
+      --filter=/test_\(search_matches_name_and_sku\|search_matches_name_email_phone\)/)
+    ;;
+  concurrency)
+    [[ "$#" -eq 0 ]] || exit 64
+    command=(vendor/bin/phpunit --configuration=phpunit.pgsql.xml
+      tests/Postgres/OrderAndStockConcurrencyTest.php)
+    ;;
+  full)
+    [[ "$#" -eq 0 ]] || exit 64
+    command=(vendor/bin/phpunit --configuration=phpunit.pgsql.xml)
+    ;;
+  quality-job)
+    [[ "$#" -eq 0 ]] || exit 64
+    command=("$ROOT/scripts/quality/run-postgres-16")
+    ;;
+  wrong-live-nonce)
+    [[ "$#" -eq 3 ]] || exit 64
+    wrong_nonce="$1"
+    wrong_attestation="$2"
+    wrong_attestation_sha256="$3"
+    [[ "$wrong_nonce" =~ ^[0-9a-f]{64}$ ]]
+    [[ "$wrong_attestation_sha256" =~ ^[0-9a-f]{64}$ ]]
+    [[ -f "$wrong_attestation" && ! -L "$wrong_attestation" ]]
+    [[ "$(realpath "$wrong_attestation")" == "$wrong_attestation" ]]
+    [[ "$(shasum -a 256 "$wrong_attestation" | awk '{print $1}')" == "$wrong_attestation_sha256" ]]
+    command=(vendor/bin/phpunit --configuration=phpunit.pgsql.xml --testsuite Feature)
+    ;;
+  *)
+    printf 'Unknown P00 PostgreSQL qualification mode: %s\n' "$mode" >&2
+    exit 64
+    ;;
+esac
+candidate_database=none
+candidate_role=none
+candidate_lifecycle=unknown
+on_exit() {
+  status="$?"
+  trap - EXIT
+  if [[ "$status" -ne 0 && "$candidate_database" != none ]]; then
+    printf 'P00_QUALIFICATION_RETAINED database=%s role=%s lifecycle=%s\n' \
+      "$candidate_database" "$candidate_role" "$candidate_lifecycle" >&2
+  fi
+  exit "$status"
+}
+trap on_exit EXIT
+provisioning_status=ERROR
+set +e
+IFS='|' read -r provisioning_status DB_URL candidate_database candidate_role candidate_lifecycle < <(
+  P00_ROOT="$ROOT" php -r '
+    require getenv("P00_ROOT")."/backend/vendor/autoload.php";
+    try {
+      $lease = Tests\Support\PostgresSubstitutionHarness::fromEnvironment()->candidate();
+      $url = $lease->environment("provisioning-migrate")["P00_E2E_DB_URL"];
+      echo "OK|", $url, "|", $lease->database(), "|", $lease->role(), "|", $lease->lifecycleId(), "\n";
+    } catch (App\Support\E2eProvisioningException $error) {
+      echo "ORPHAN||", $error->database, "|", $error->role, "|", $error->lifecycleId, "\n";
+    }
+  '
+)
+read_status="$?"
+set -e
+if [[ "$provisioning_status" == ORPHAN ]]; then
+  exit 66
+fi
+if [[ "$read_status" -ne 0 || "$provisioning_status" != OK || -z "$DB_URL" \
+  || "$candidate_database" == none || "$candidate_role" == none ]]; then
+  printf '%s\n' 'P00_QUALIFICATION_REFUSED candidate provisioning failed' >&2
+  exit 66
+fi
+export DB_URL
+P00_PG_QUALIFICATION_NONCE_SHA256="$(php -r 'echo hash("sha256", random_bytes(32));')"
+[[ "$P00_PG_QUALIFICATION_NONCE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+export P00_PG_QUALIFICATION_NONCE_SHA256
+(
+  cd "$ROOT/backend"
+  DB_CONNECTION=pgsql P00_PG_QUALIFICATION_PHASE=qualification-provisioning \
+    php artisan migrate --force --no-interaction
+)
+P00_ROOT="$ROOT" php -r '
+  require getenv("P00_ROOT")."/backend/vendor/autoload.php";
+  $profile = App\Support\PostgresConnectionProfile::fromUrl(getenv("DB_URL") ?: "");
+  $pdo = $profile->pdo();
+  App\Support\PostgresQualificationGuard::assertPdo(
+    $pdo, $profile, getenv("P00_PG_INSTANCE_NONCE_SHA256") ?: "",
+  );
+  App\Support\PostgresQualificationGuard::activateCandidate(
+    $pdo, getenv("P00_PG_QUALIFICATION_NONCE_SHA256") ?: "",
+  );
+'
+export P00_PG_SCHEMA_READY=1
+export P00_PG_QUALIFIED_CANDIDATE=1
+export DB_CONNECTION=pgsql
+export P00_PG_QUALIFICATION_PHASE=qualification
+if [[ "$mode" == wrong-live-nonce ]]; then
+  export P00_PG_INSTANCE_NONCE_SHA256="$wrong_nonce"
+  export P00_PG_ATTESTATION_PATH="$wrong_attestation"
+  export P00_PG_ATTESTATION_SHA256="$wrong_attestation_sha256"
+fi
+cd "$ROOT/backend"
+"${command[@]}"
