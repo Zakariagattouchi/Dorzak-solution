@@ -2,7 +2,7 @@
 
 **Purpose:** Single source of truth for current status, active authorization, blockers, and the next permitted Dorzak complete-launch action.
 
-**Last verified:** 2026-07-14 10:23:54 +03
+**Last verified:** 2026-07-14 10:41:25 +03
 
 **Register revision:** Resolve with: git log -1 feat/premium-features --format=%H -- docs/superpowers/control/README.md
 
@@ -239,7 +239,8 @@ WP-M2 is mandatory and must be Complete before P02/P03 execution. It receives it
 |---|---|---|---|---|---|---|---|---|---|---|
 | Dorzak Launch — Control Room | 019f5a12-7412-7e53-9a2b-37d2f313628e | Control | Planning | Open | Approved to administer control artifacts only | Pinned | Control Room | `5c88dc3` / current register revision | Control/spec/organization documents only | Commit this assessment transition, create one fresh short final-correction task, independently re-review and return only a clean corrected artifact to owner |
 | Dorzak Launch — P00 Baseline Planning | 019f5e64-9472-7f32-b0a9-77b4b3741864 | Planning | Planning | Open | Prior correction lease completed | Idle | P00 planning owner | Candidate plan `5c88dc3` | None until explicitly re-leased | Superseded as writer by the fresh short final-correction session; remains historical evidence |
-| Dorzak Launch — P00 Final Plan Correction | 019f5f82-74f5-7f11-87ab-7b72b5d75bf8 | Planning | Planning | Open | Approved to plan against the consolidated final review only | Active | P00 final-correction owner | Clean isolated worktree at `59defd5`; candidate `5c88dc3`; review/control at `59defd5` | Exact plan target only | Correct the consolidated two Critical/thirteen Important list, commit one file and stop |
+| Dorzak Launch — P00 Final Plan Correction | 019f5f82-74f5-7f11-87ab-7b72b5d75bf8 | Planning | Closed | Superseded | Authorization revoked after exceeding the lean-session boundary | Archived | Prior correction owner | Clean isolated worktree at `59defd5`; uncommitted partial plan edit only | None | Preserve its isolated state; never integrate its uncommitted edit |
+| Dorzak Launch — P00 Direct Final Correction | 019f5f92-89a2-7ae1-9c97-91f5986c78b6 | Planning | Planning | Open | Approved to correct the consolidated final review only | Active | P00 direct-correction owner | Clean isolated worktree at `7b98f47`; candidate `5c88dc3`; current registered review | Exact plan target only | Apply one direct correction pass, commit one file, verify and stop |
 | Dorzak Launch — P00 Baseline Execution | Not created | Execution | Not started | Open | Not authorized | Not created | Unassigned | N/A | Isolated worktree only | Formal source/design/plan approvals; approved method and completed, verified and evidenced MediaUrl preservation with exact patch SHA-256 or commit SHA and verification result against the reviewed diff; recorded `BASE_SHA`; clean named worktree; explicit owner execution approval |
 
 No other planning or execution task is authorized.
@@ -417,3 +418,4 @@ Plan-writing authorization is not implementation or execution authorization. Unr
 | 2026-07-14 10:05:00 | 5c88dc3 | P00 planning task committed the 6,200-line second corrected plan as its sole changed path and stopped without implementation |
 | 2026-07-14 10:19:52 | Current register revision | Final exact-commit assessment found two Critical live-connection mutation gaps and thirteen Important bounded plan defects; proposed one database-safety erratum, adopted the lean short-session method, and authorized one fresh exact-plan correction task only |
 | 2026-07-14 10:23:54 | Current register revision | Created fresh isolated task `019f5f82-74f5-7f11-87ab-7b72b5d75bf8` with one exact-plan writer lease at clean revision `59defd5`; no application or protected-user path is writable |
+| 2026-07-14 10:41:25 | Current register revision | Revoked and archived the overlong uncommitted task `019f5f82-…`; created direct replacement `019f5f92-89a2-7ae1-9c97-91f5986c78b6` at clean revision `7b98f47` with no subagents and the same one-file correction lease |
