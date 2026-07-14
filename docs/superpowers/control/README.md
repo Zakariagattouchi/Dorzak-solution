@@ -2,7 +2,7 @@
 
 **Purpose:** Single source of truth for current status, active authorization, blockers, and the next permitted Dorzak complete-launch action.
 
-**Last verified:** 2026-07-14 10:41:25 +03
+**Last verified:** 2026-07-14 11:03:51 +03
 
 **Register revision:** Resolve with: git log -1 feat/premium-features --format=%H -- docs/superpowers/control/README.md
 
@@ -32,6 +32,7 @@ Authority depends on the question:
 |---|---|---|---|---|
 | [Complete-launch product baseline](../specs/2026-07-14-dorzak-complete-launch-baseline-v1.md) | Product requirements | Awaiting owner | Formal written-artifact approval not yet recorded | cc4085cbca11e89257ae8535438db6cfe3dd75cc; SHA-256 `7ae650f4b04c0fe1e234d4fa41cd4fac673abe1139853f4397f2286da24992f2` |
 | [Technical execution roadmap](../specs/2026-07-14-dorzak-technical-execution-roadmap-design.md) | Architecture, sequence and engineering gates | Awaiting owner | Formal written-artifact approval not yet recorded | Current artifact at 069f4833190c75866494e7ba51bff3021070c0bf; SHA-256 `e9aa2c7970f9edf08f03177458cb496f979a30dbf3cf7fd96480c0c3b9a5cc60` |
+| [P17 Frappe-native Superadmin decision](approvals/2026-07-14-p17-frappe-native-superadmin-owner-decision.md) | Internal control-plane architecture, isolation, access governance and authority boundary | Approved | Owner direction recorded on 14 July 2026; no P17 planning or execution authority | Current control transition |
 | [Session orchestration design](../specs/2026-07-14-dorzak-session-orchestration-design.md) | Task/session workflow | Approved | Owner approved the rolling session plan in Control Room on 14 July 2026 | 069f483 |
 | This Control Register | Status and next authorization | Approved | Owner approved creation of the control folder/register on 14 July 2026 | Introduced at 069f483; current revision resolves from canonical ref |
 | [P00 proposed design](proposals/2026-07-14-p00-baseline-stabilization-proposal.md) | Exact input permitted for formal P00 design writing | Approved | [Scoped owner approval](approvals/2026-07-14-p00-proposed-design-approval.md), proposal SHA-256 `551054d063a89b8b361b4dbd45fefa03ec9e91915148b2490e0b454f57704320` | 4658111c1306133e82f01b83434d63ef1f44b695 |
@@ -169,7 +170,7 @@ Lifecycle, authorization, and Codex app state are tracked separately.
 | M5 | P05 + P06 + WP-P09A | Corporate site, Free Tools, pricing, clients, builder, localization and shared scheduling foundation | Not started | Not authorized | Public/customer platform and shared kernels qualified |
 | M6 | P07 + P08 + WP-P09B | Retail, supplier, restaurant, appointments and beauty completion | Not started | Not authorized | Category × plan matrices pass |
 | M7 | P10 + P11 + P12 + P13 + General | Healthcare, education, gym, nonprofit and general business | Not started | Not authorized | Sensitive and remaining vertical matrices pass |
-| M8 | P14 + P15 + P16 + P17 | Growth, Work/Gantt, delivery and complete Superadmin | Not started | Not authorized | Governed operations and intervention pass |
+| M8 | P14 + P15 + P16 + P17 | Growth, Work/Gantt, delivery and Frappe-native internal Superadmin | Not started | Not authorized | Governed operations and intervention pass |
 | M9 | P18 + P19 | Cross-cutting qualification, rehearsal and one complete launch | Not started | Not authorized | All gates/sign-offs pass; release switch may enable |
 
 Mandatory milestone sequence:
@@ -207,7 +208,7 @@ The dependency columns deliberately separate planning entry, execution entry, an
 | P14 | Marketing, CRM, loyalty and communications | Not started | P04 + P06 complete | M7 complete + P04/P06 + approved rewritten P14 plan | M8 evidence | Not authorized |
 | P15 | Work/Gantt and managed delivery | Not started | P02 + P04 complete | M7 complete + P02/P04 + approved rewritten P15 plan | M8 evidence | Not authorized |
 | P16 | Shipping/delivery fulfillment | Not started | P04 complete | M7 complete + P04 + provider scope + approved P16 plan | M8 evidence | Not authorized |
-| P17 | Complete Superadmin control plane | Not started | P02 + P03 complete | M7 complete + P02/P03 + approved P17 plan | M8 evidence | Not authorized |
+| P17 | [Frappe-native internal Superadmin control plane](approvals/2026-07-14-p17-frappe-native-superadmin-owner-decision.md) | Not started | P02 + P03 complete | M7 complete + P02/P03 + approved P17 plan | M8 evidence | Not authorized |
 | P18 | Language, country, security, accessibility and performance | Not started | P05–P17 complete | M8 + P05–P17 complete + approved P18 plan | M9 qualification evidence | Not authorized |
 | P19 | Integration, migration rehearsal and release | Not started | P18 complete | P18 complete + approved P19 plan | M9 release evidence | Not authorized |
 
@@ -419,3 +420,4 @@ Plan-writing authorization is not implementation or execution authorization. Unr
 | 2026-07-14 10:19:52 | Current register revision | Final exact-commit assessment found two Critical live-connection mutation gaps and thirteen Important bounded plan defects; proposed one database-safety erratum, adopted the lean short-session method, and authorized one fresh exact-plan correction task only |
 | 2026-07-14 10:23:54 | Current register revision | Created fresh isolated task `019f5f82-74f5-7f11-87ab-7b72b5d75bf8` with one exact-plan writer lease at clean revision `59defd5`; no application or protected-user path is writable |
 | 2026-07-14 10:41:25 | Current register revision | Revoked and archived the overlong uncommitted task `019f5f82-…`; created direct replacement `019f5f92-89a2-7ae1-9c97-91f5986c78b6` at clean revision `7b98f47` with no subagents and the same one-file correction lease |
+| 2026-07-14 11:03:51 | Current register revision | Recorded the owner's P17 direction: a Frappe-native internal Superadmin using ERPNext plus approved relevant Frappe applications, minimal Dorzak branding, strict isolated merchant sites, governed delegated intervention and explicit Dorzak/Frappe source-of-truth boundaries; P17 remains Not started and Not authorized |

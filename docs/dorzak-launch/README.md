@@ -21,6 +21,10 @@ Approved historical artifacts are not moved because their paths, commits and has
 
 The Control Register, not this index, owns lifecycle and authorization.
 
+## Approved program decisions
+
+- [P17 Frappe-native Superadmin owner decision](../superpowers/control/approvals/2026-07-14-p17-frappe-native-superadmin-owner-decision.md) — Frappe Desk for Dorzak's internal control environment, strict merchant-site isolation, governed intervention and a defined Dorzak/Frappe source-of-truth boundary.
+
 ## Program organization
 
 ~~~text
