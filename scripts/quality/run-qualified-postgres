@@ -88,6 +88,7 @@ if [[ "$read_status" -ne 0 || "$provisioning_status" != OK || -z "$DB_URL" \
   printf '%s\n' 'P00_QUALIFICATION_REFUSED candidate provisioning failed' >&2
   exit 66
 fi
+unset P00_E2E_SUPERVISOR_DB_URL
 export DB_URL
 P00_PG_QUALIFICATION_NONCE_SHA256="$(php -r 'echo hash("sha256", random_bytes(32));')"
 [[ "$P00_PG_QUALIFICATION_NONCE_SHA256" =~ ^[0-9a-f]{64}$ ]]

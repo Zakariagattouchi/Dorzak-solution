@@ -10,6 +10,10 @@ final class PostgresEnvironmentTest extends TestCase
 {
     public function test_lane_is_postgresql_16(): void
     {
+        self::assertTrue(
+            getenv('P00_E2E_SUPERVISOR_DB_URL') === false,
+            'Qualified children must not inherit the supervisor credential.',
+        );
         self::assertSame('pgsql', DB::connection()->getDriverName());
         $profile = PostgresQualificationGuard::assertBootstrapAuthority(
             (string) getenv('DB_URL'),
