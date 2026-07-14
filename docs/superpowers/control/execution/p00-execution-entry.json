@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 2,
+  "approvals": {
+    "safetyErratum": {
+      "approved": true,
+      "commit": "59defd5dd36410d487679250c05d2be1d828c094",
+      "sha256": "7af33dd41be2dca4490d512118d86dc14aa48f822a5051215927c88a66cd6024"
+    },
+    "plan": {
+      "approved": true,
+      "commit": "10730b447cc551efc2ebcd1e3e7c42968dc64389",
+      "sha256": "912bbdee7ee446e4184713e55215c8ffad30a7a3bb62025e19ee68b1bb337c91"
+    },
+    "productBaseline": {
+      "approved": true,
+      "commit": "cc4085cbca11e89257ae8535438db6cfe3dd75cc",
+      "sha256": "7ae650f4b04c0fe1e234d4fa41cd4fac673abe1139853f4397f2286da24992f2"
+    },
+    "roadmap": {
+      "approved": true,
+      "commit": "10730b447cc551efc2ebcd1e3e7c42968dc64389",
+      "sha256": "5e73f8bc9e6a9c6b1e0a36fbbbe3d014c785acd8c5ca73b57e6f1a1bac600cb0"
+    },
+    "p00Execution": {
+      "approved": true,
+      "planCommit": "10730b447cc551efc2ebcd1e3e7c42968dc64389",
+      "planSha256": "912bbdee7ee446e4184713e55215c8ffad30a7a3bb62025e19ee68b1bb337c91"
+    }
+  },
+  "execution": {
+    "approvedPlanCommit": "10730b447cc551efc2ebcd1e3e7c42968dc64389",
+    "approvedPlanSha256": "912bbdee7ee446e4184713e55215c8ffad30a7a3bb62025e19ee68b1bb337c91",
+    "remoteName": "origin",
+    "remoteUrl": "https://github.com/Zakariagattouchi/dorzak.git",
+    "integrationBranch": "main",
+    "ciProvider": "github-actions",
+    "phpVersion": "8.5.6",
+    "nodeVersion": "24.18.0",
+    "composerVersion": "2.9.8",
+    "npmVersion": "11.16.0",
+    "mediaMethod": "reviewed_patch",
+    "mediaReviewedDiffSha256": "d101e5bfd61ffae747573a41ed44a7eed4c11e3847d802b13e9112489fcff729",
+    "mediaArtifactId": "d101e5bfd61ffae747573a41ed44a7eed4c11e3847d802b13e9112489fcff729",
+    "mediaArtifactPath": "docs/superpowers/control/execution/p00-mediaurl-reviewed.patch",
+    "mediaVerificationResult": "verified",
+    "baseSha": "bfdb1fc4f62463db8999c830b09015f8c98e3632",
+    "executionWorktree": "/Users/barsha/.codex/worktrees/recover-kyte-p00/launch-baseline-v1",
+    "executionBranch": "codex/launch-baseline-v1",
+    "userWorktree": "/Users/barsha/Documents/recover Kyte",
+    "userBranch": "feat/premium-features",
+    "userHead": "cf2f65b2e308bdf4750c3e02dc1aafa7a7a39a4d",
+    "worktreeIdentitySha256": "b7329fb9a07b535ca030751dcad6adae645be2152a5bcaadf281db71bd085b6b",
+    "protectedStatusSha256": "a797825ef1c504e70abec3dd1a82694cf4fddd76be1544ed716067a9c95d9ffa",
+    "protectedContentManifest": "docs/superpowers/control/execution/p00-protected-content-manifest.json",
+    "protectedContentManifestSha256": "3c676dc372f2c83835daf4e0be971fb335c66f3bea65a9231358ddf4744c3738",
+    "pgIdentityKind": "oci",
+    "pgIdentity": "docker.io/library/postgres@sha256:c95fd5346040eba2de3c435e14874af18f5d681fb5848d4f081dbead0878af28",
+    "pgAttestationPath": "/Users/barsha/Documents/dorzak-p00-entry-state/postgresql-attestation.json",
+    "pgAttestationSha256": "e2b7d055642673c0e24275e666bd431519e8ce912073f26753088dd6a951f1cd",
+    "pgInstanceNonceSha256": "e855fe9ab985edfa3d698584d43204f4044e6c5d64095a2651e3f8d8fa1c5b4f",
+    "e2eServiceLifecycleId": "e7ebbe8bb82a6f3cbf2df38f23ad8def2e897e915bc664a85e9e3aab6f48225b",
+    "e2eServiceAttestationPath": "/Users/barsha/Documents/dorzak-p00-entry-state/e2e-service-attestation.json",
+    "e2eServiceAttestationSha256": "a471462c708fb84b8707a36043566f382be2a9d70550af82a0a10c18ebbd4c2f",
+    "freshCheckout": "/Users/barsha/.codex/worktrees/recover-kyte-p00/fresh-verification",
+    "runnerClasses": {
+      "local": "local-macos-arm64",
+      "ci": "github-hosted-ubuntu-24.04-x64"
+    },
+    "mediaReviewedPatchVerification": {
+      "checkoutKind": "disposable-verification-checkout",
+      "checkoutHead": "cf2f65b2e308bdf4750c3e02dc1aafa7a7a39a4d",
+      "checkoutCleanBeforeApply": true,
+      "artifactSha256": "d101e5bfd61ffae747573a41ed44a7eed4c11e3847d802b13e9112489fcff729",
+      "applyExitCode": 0,
+      "resultingDiffSha256": "d101e5bfd61ffae747573a41ed44a7eed4c11e3847d802b13e9112489fcff729"
+    }
+  }
+}
