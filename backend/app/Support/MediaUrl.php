@@ -20,6 +20,6 @@ class MediaUrl
 
         // Return a clean, root-relative path. The frontend proxy or web server
         // will route /storage/ requests to the correct backend host.
-        return '/storage/' . ltrim($path, '/');
+        return '/storage/'.ltrim($path, '/');
     }
 }
