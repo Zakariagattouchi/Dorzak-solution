@@ -2,15 +2,17 @@
 
 **Reviewed artifact:** `docs/superpowers/plans/2026-07-14-dorzak-p00-baseline-stabilization.md`
 
-**Reviewed commit:** `a44780dd259a02fbf6db81f8d0e8a113e310c78a`
+**Initial reviewed commit:** `a44780dd259a02fbf6db81f8d0e8a113e310c78a`
 
-**Artifact SHA-256:** `a8c94d01af34c386e4291f97534c8251c5efa3ea20f11856c5b834009a27608d`
+**Initial artifact SHA-256:** `a8c94d01af34c386e4291f97534c8251c5efa3ea20f11856c5b834009a27608d`
 
-**Latest corrected artifact commit:** `5c88dc36fa8e5948160b257d3cd1ba0dd9ed675e`
+**Latest corrected artifact commit:** `c3db796d11f50f3ce0f75fe7389d0225c271cd22`
 
-**Latest corrected artifact SHA-256:** `46da62efdaf73820cece759bc339f955196431b6b96a3331aacac6c3bc6043b5`
+**Latest corrected artifact SHA-256:** `eecb96af875803f243c7694289526b34fdf0678a8792411fe4f1f41334d83444`
 
-**Review completed:** 2026-07-14 08:07:57 +03 (Asia/Qatar)
+**Initial review completed:** 2026-07-14 08:07:57 +03 (Asia/Qatar)
+
+**Final exact-byte review completed:** 2026-07-14 (Asia/Qatar)
 
 **Review mode:** Independent read-only specification, repository, safety and executability review
 
@@ -18,9 +20,9 @@
 
 **Initial verdict:** One Critical and nine Important findings required correction.
 
-**Latest re-review verdict:** Commit `5c88dc36…` resolves the prior registered findings but its final exact-commit assessment found two Critical and thirteen Important defects. The plan remains in Planning and may be modified only at its exact authorized path. P00 execution remains Not authorized.
+**Latest re-review verdict:** Commit `c3db796d…` has zero Critical and zero Important technical findings as the current provider-neutral correction base. Its own Task 14 hard stop requires one owner-selected provider-native amendment, a fresh zero-Critical/Important review and exact owner approval before execution. The same focused reconciliation must remove the superseded merchant-React Superadmin assumptions from the roadmap/plan in favor of the approved Frappe-native P17 direction. P00 execution remains Not authorized.
 
-## Verified commit integrity
+## Initial verified commit integrity
 
 - Commit `a44780dd…` has sole parent `b2559301…`.
 - Its only delta is the authorized P00 implementation-plan file.
@@ -186,6 +188,32 @@ Three independent read-only reviews plus Control Room verification found two Cri
 
 Use one fresh short writer session. It may change only `docs/superpowers/plans/2026-07-14-dorzak-p00-baseline-stabilization.md`, may correct only the findings above and the matching proposed safety-erratum references, and must not expand P00 scope. It must commit only that plan and stop. One final parallel exact-commit review follows.
 
-## Resolution
+## Prior resolution
 
 Open. Awaiting one narrow final corrected plan commit and independent re-review. No implementation, MediaUrl preservation, worktree, dependency, CI, P01 or release action is authorized.
+
+## Final corrected-plan review — `c3db796d11f50f3ce0f75fe7389d0225c271cd22`
+
+The final correction is a one-path commit with parent `4442944d8f6162a17cc22d6e5b22ef7a26f63c45`. Its only changed path is `docs/superpowers/plans/2026-07-14-dorzak-p00-baseline-stabilization.md`; the committed file SHA-256 is `eecb96af875803f243c7694289526b34fdf0678a8792411fe4f1f41334d83444`.
+
+The artifact contains 7,869 lines, 18 ordered tasks, 114 checklist items and 308 balanced fence delimiters. `git show --check` and the plan diff check pass. The changed embedded PHP and shell implementations were extracted from the plan and passed `php -l` and `bash -n`. The separately protected 16-entry user state remains exactly SHA-256 `a797825ef1c504e70abec3dd1a82694cf4fddd76be1544ed716067a9c95d9ffa`.
+
+Three independent read-only reviews were bound to these exact file bytes:
+
+| Review lens | Critical | Important | Result |
+|---|---:|---:|---|
+| Qualification and Task 11/12 conformance | 0 | 0 | Pass |
+| PDO, substitution, reconnect, activation and orphan-safety audit | 0 | 0 | Pass |
+| Task 13/14/17 provenance, CI and evidence-flow audit | 0 | 0 | Pass |
+
+The correction closes the prior detached-checkout evidence commit, artifact-path mismatch, exact-PDO/canary, post-bootstrap substitution, automatic reconnect, live-fingerprint, URL-normalization, unique qualification database, migration lifecycle, concurrency worker and qualification-runner findings. PostgreSQL qualification now has fixed modes, one create-only candidate per packet, candidate-bound activation, fail-closed bootstrap/application PDO verification, and typed non-secret orphan reporting.
+
+### Final verdict
+
+**Zero Critical and zero Important findings.** Commit `c3db796d11f50f3ce0f75fe7389d0225c271cd22` is the technically reviewed provider-neutral P00 correction base. It is not yet the provider-complete, P17-consistent exact plan required for execution and is not implementation or execution authority.
+
+The remaining gates are owner decisions and execution prerequisites: exact owner approval of the database-safety erratum and product baseline; an owner-selected CI provider, canonical remote and runtime pins; one focused provider-native Task 14 plus P17 roadmap/plan reconciliation amendment; a new exact-byte zero-Critical/Important review and exact owner approval of the amended roadmap/plan; MediaUrl preservation selection plus verified evidence; approved `BASE_SHA`; a clean named execution worktree; and explicit P00 execution approval.
+
+## Resolution
+
+Provider-neutral technical correction and independent review complete. Awaiting owner decisions, the mandatory focused provider/P17 amendment, its fresh exact review/approval, and the remaining registered execution prerequisites. No implementation, MediaUrl preservation, worktree, dependency, CI, P01 or release action is authorized.

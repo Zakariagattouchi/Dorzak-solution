@@ -6,11 +6,12 @@ Approved historical artifacts are not moved because their paths, commits and has
 
 ## Start here
 
-1. [Control Register](../superpowers/control/README.md) — current status, authority, blocker and next action.
-2. [Complete-launch product baseline](../superpowers/specs/2026-07-14-dorzak-complete-launch-baseline-v1.md) — what the final product must contain.
-3. [Technical execution roadmap](../superpowers/specs/2026-07-14-dorzak-technical-execution-roadmap-design.md) — P00–P19 sequence and milestone gates.
-4. [Session orchestration design](../superpowers/specs/2026-07-14-dorzak-session-orchestration-design.md) — task, worktree and agent ownership.
-5. [Lean working method](./WORKING_METHOD.md) — short-session and economic review rules.
+1. [Control Room handoff](./CONTROL_ROOM_HANDOFF.md) — compact project memory, binding decisions, paths and protected state for a fresh task.
+2. [Control Register](../superpowers/control/README.md) — current status, authority, blocker and next action.
+3. [Complete-launch product baseline](../superpowers/specs/2026-07-14-dorzak-complete-launch-baseline-v1.md) — what the final product must contain.
+4. [Technical execution roadmap](../superpowers/specs/2026-07-14-dorzak-technical-execution-roadmap-design.md) — P00–P19 sequence and milestone gates.
+5. [Session orchestration design](../superpowers/specs/2026-07-14-dorzak-session-orchestration-design.md) — task, worktree and agent ownership.
+6. [Lean working method](./WORKING_METHOD.md) — short-session and economic review rules.
 
 ## Active package: P00
 
