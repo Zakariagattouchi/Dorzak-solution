@@ -100,15 +100,17 @@ export const POSPage: React.FC = () => {
           overflowY: 'auto',
           paddingRight: '4px'
         }}>
-          {filteredProducts.map((p) => (
-            <div
-              key={p.id}
+          {filteredProducts.map((product) => (
+            <button
+              type="button"
+              key={product.id}
+              aria-label={`Choose ${product.name}`}
               onClick={() => {
-                if (p.variants.length) {
-                  openModal('VARIANT_SELECT', { product: p });
+                if (product.variants.length) {
+                  openModal('VARIANT_SELECT', { product });
                 } else {
-                  addItem(p);
-                  addToast(`Added "${p.name}" to cart`, 'info');
+                  addItem(product);
+                  addToast(`Added "${product.name}" to cart`, 'info');
                 }
               }}
               className="card"
@@ -118,21 +120,61 @@ export const POSPage: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                textAlign: 'left',
+                width: '100%',
               }}
             >
-              <div style={{ height: '110px', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--color-bg)', marginBottom: '8px' }}>
-                <img src={p.imageUrl || 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=300'} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div
+                style={{
+                  height: '110px',
+                  borderRadius: '6px',
+                  overflow: 'hidden',
+                  backgroundColor: 'var(--color-bg)',
+                  marginBottom: '8px',
+                }}
+              >
+                <img
+                  src={
+                    product.imageUrl ||
+                    'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=300'
+                  }
+                  alt={product.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
               </div>
               <div>
-                <h5 style={{ margin: '0 0 4px 0', fontSize: '0.9rem', fontWeight: 600 }}>{p.name}</h5>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SKU: {p.code}</span>
+                <h5 style={{ margin: '0 0 4px 0', fontSize: '0.9rem', fontWeight: 600 }}>
+                  {product.name}
+                </h5>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  SKU: {product.code}
+                </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
-                <strong style={{ color: 'var(--dorzak-primary)', fontSize: '1rem' }}>{money(p.price)}</strong>
-                <span style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--color-bg)', color: 'var(--text-muted)' }}>Stock: {p.stock}</span>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginTop: '8px',
+                }}
+              >
+                <strong style={{ color: 'var(--dorzak-primary)', fontSize: '1rem' }}>
+                  {money(product.price)}
+                </strong>
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: 'var(--color-bg)',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  Stock: {product.stock}
+                </span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>

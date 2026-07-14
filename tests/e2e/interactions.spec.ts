@@ -1,24 +1,23 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from './fixtures/merchant';
 
-test.describe('Interactive Frontend Controls & POS Flow', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/checkout');
-  });
+test.beforeEach(async ({ page }) => page.goto('/checkout'));
 
-  test('adds product to cart and updates subtotal & total', async ({ page }) => {
-    const productCard = page.locator('h5:has-text("Dorzak Signature Cotton Hoodie")');
-    await productCard.click();
+test('selects a hoodie variant and charges in QAR', async ({ page }) => {
+  await page.getByRole('button', { name: 'Choose Dorzak Signature Cotton Hoodie' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Choose Dorzak Signature Cotton Hoodie options' });
+  await dialog.getByRole('button', { name: 'Small', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Black', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Add to Cart • QAR 49.99' }).click();
+  await expect(page.getByText('Dorzak Signature Cotton Hoodie').last()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Charge QAR 49.99' })).toBeEnabled();
+});
 
-    const cartPanel = page.locator('.card').last();
-    await expect(cartPanel).toContainText('Dorzak Signature Cotton Hoodie');
-
-    const chargeButton = page.locator('button:has-text("Charge $49.99")');
-    await expect(chargeButton).toBeVisible();
-  });
-
-  test('navigates to product creation page', async ({ page }) => {
-    await page.click('button:has-text("Add Product")');
-    await expect(page).toHaveURL(/\/products\/create$/);
-    await expect(page.locator('h2')).toContainText('Add a product');
-  });
+test('opens the current product creation dialog', async ({ page }) => {
+  const posAddProduct = page
+    .getByRole('main')
+    .getByRole('button', { name: 'Add Product', exact: true });
+  await expect(posAddProduct).toHaveCount(1);
+  await posAddProduct.click();
+  await expect(page.getByRole('dialog', { name: 'Create Production Product' })).toBeVisible();
+  await expect(page).toHaveURL(/\/checkout$/);
 });

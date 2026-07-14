@@ -1,36 +1,30 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from './fixtures/merchant';
 
-test.describe('SaaS Global Navigation & App Shell', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-  });
+test('redirects to checkout and renders the protected shell', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/checkout$/);
+  await expect(page.getByRole('complementary', { name: 'Primary navigation' })).toContainText('Dorzak Merchant');
+});
 
-  test('redirects to default Sell checkout view and renders sidebar', async ({ page }) => {
-    await expect(page).toHaveURL(/\/checkout$/);
-    const sidebar = page.locator('aside.app-sidebar');
-    await expect(sidebar).toBeVisible();
-    await expect(sidebar).toContainText('Dorzak Merchant');
-  });
+test('navigates through every merchant route semantically', async ({ page }) => {
+  await page.goto('/checkout');
+  const routes = [
+    ['Products', '/products', 'Products Catalog'],
+    ['Orders', '/orders', 'Orders'],
+    ['Online Catalog', '/catalog', 'Online Storefront Customizer'],
+    ['Customers', '/customers', 'Customers'],
+    ['Transactions', '/sales', 'Sales Transactions Log'],
+    ['Finances', '/finances', 'Finances & Cash Flow'],
+    ['Analytics', '/analytics', 'Analytics & Business Reports'],
+    ['Users', '/users', 'Users & Staff Management'],
+    ['Settings', '/config', 'General Store Settings'],
+  ] as const;
 
-  test('navigates seamlessly across all connected Dorzak Merchant routes', async ({ page }) => {
-    const routes = [
-      { name: 'Products', path: '/products', heading: 'Products Catalog' },
-      { name: 'Orders', path: '/orders', heading: 'Orders & Transactions' },
-      { name: 'Online Catalog', path: '/catalog', heading: 'Online Storefront Customizer' },
-      { name: 'Customers', path: '/customers', heading: 'Customer CRM' },
-      { name: 'Transactions', path: '/sales', heading: 'Transactions' },
-      { name: 'Finances', path: '/finances', heading: 'Finances' },
-      { name: 'Analytics', path: '/analytics', heading: 'Reports' },
-      { name: 'Users', path: '/users', heading: 'Users & Staff' },
-      { name: 'Settings', path: '/config', heading: 'Business Settings' },
-      { name: 'Sell', path: '/checkout', heading: 'Search products' }
-    ];
-
-    for (const r of routes) {
-      await page.click(`aside.app-sidebar a:has-text("${r.name}")`);
-      await expect(page).toHaveURL(new RegExp(`${r.path}$`));
-      const activeLink = page.locator('aside.app-sidebar a.active');
-      await expect(activeLink).toContainText(r.name);
-    }
-  });
+  for (const [name, path, heading] of routes) {
+    const link = page.getByRole('link', { name, exact: true });
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    await expect(link).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+  }
 });
