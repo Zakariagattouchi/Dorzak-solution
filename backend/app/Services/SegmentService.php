@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\PlanFeature;
+use App\Models\Customer;
 use App\Models\CustomerSegment;
 use App\Models\Store;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -34,7 +35,7 @@ class SegmentService
         return $this->query($segment)->count();
     }
 
-    /** @return Collection<int, \App\Models\Customer> */
+    /** @return Collection<int, Customer> */
     public function members(CustomerSegment $segment): Collection
     {
         return $this->query($segment)->get();

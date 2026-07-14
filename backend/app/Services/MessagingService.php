@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Mail\TestChannelMail;
 use App\Models\Campaign;
 use App\Models\MessagingSetting;
 use App\Models\Store;
@@ -152,7 +153,7 @@ class MessagingService
         }
 
         Mail::mailer($channel['mailer'])->to($to)->send(
-            new \App\Mail\TestChannelMail($store->name, $channel['from_address'], $channel['from_name']),
+            new TestChannelMail($store->name, $channel['from_address'], $channel['from_name']),
         );
 
         return true;

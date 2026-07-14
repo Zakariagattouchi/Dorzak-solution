@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\OrderStatus;
 use App\Enums\PlanFeature;
 use App\Exceptions\DomainConflictException;
 use App\Models\Coupon;
+use App\Models\Order;
 use App\Models\Store;
 
 /**
@@ -87,9 +89,9 @@ class CouponService
      */
     public function stats(Coupon $coupon): array
     {
-        $orders = \App\Models\Order::query()
+        $orders = Order::query()
             ->where('coupon_id', $coupon->id)
-            ->where('status', '!=', \App\Enums\OrderStatus::CANCELLED);
+            ->where('status', '!=', OrderStatus::CANCELLED);
 
         return [
             'orders' => (clone $orders)->count(),

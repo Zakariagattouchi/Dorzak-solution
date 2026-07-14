@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Marketing;
 
+use App\Mail\CampaignMail;
+use App\Mail\TestChannelMail;
 use App\Models\Campaign;
 use App\Models\Customer;
 use App\Models\MessagingSetting;
@@ -186,7 +188,7 @@ class MessagingChannelsTest extends TestCase
         app(CampaignService::class)->send($campaign);
 
         $this->assertSame(1, $campaign->refresh()->sent_count);
-        Mail::assertSent(\App\Mail\CampaignMail::class, fn ($mail) => $mail->hasTo('a@example.com') && $mail->hasFrom('hello@dorzak.shop', 'Dorzak Merchant'));
+        Mail::assertSent(CampaignMail::class, fn ($mail) => $mail->hasTo('a@example.com') && $mail->hasFrom('hello@dorzak.shop', 'Dorzak Merchant'));
     }
 
     public function test_test_email_endpoint_sends_to_the_requester(): void
@@ -200,6 +202,6 @@ class MessagingChannelsTest extends TestCase
             ->postJson('/api/v1/settings/messaging/test-email')
             ->assertOk();
 
-        Mail::assertSent(\App\Mail\TestChannelMail::class, fn ($mail) => $mail->hasTo($this->owner->email));
+        Mail::assertSent(TestChannelMail::class, fn ($mail) => $mail->hasTo($this->owner->email));
     }
 }

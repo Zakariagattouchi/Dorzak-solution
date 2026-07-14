@@ -6,6 +6,7 @@ use App\Enums\PlanFeature;
 use App\Exceptions\DomainConflictException;
 use App\Mail\CampaignMail;
 use App\Models\Campaign;
+use App\Models\Customer;
 use App\Models\Store;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -147,7 +148,7 @@ class CampaignService
         }
     }
 
-    /** @return Collection<int, \App\Models\Customer> */
+    /** @return Collection<int, Customer> */
     public function audienceFor(Campaign $campaign): Collection
     {
         $audience = $campaign->audience;

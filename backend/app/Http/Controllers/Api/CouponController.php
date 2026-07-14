@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\OrderStatus;
 use App\Enums\PlanFeature;
 use App\Http\Controllers\Controller;
 use App\Models\Coupon;
@@ -25,7 +26,7 @@ class CouponController extends Controller
 
     public function index(): JsonResponse
     {
-        $notCancelled = fn ($q) => $q->where('status', '!=', \App\Enums\OrderStatus::CANCELLED);
+        $notCancelled = fn ($q) => $q->where('status', '!=', OrderStatus::CANCELLED);
 
         $rows = Coupon::query()
             ->withCount(['orders as orders' => $notCancelled])

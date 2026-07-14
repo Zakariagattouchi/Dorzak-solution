@@ -5,6 +5,7 @@ namespace Tests\Feature\Campaign;
 use App\Models\Campaign;
 use App\Models\Customer;
 use App\Models\CustomerSegment;
+use App\Models\MessagingSetting;
 use App\Models\Store;
 use App\Services\CampaignService;
 use App\Support\StoreContext;
@@ -26,7 +27,7 @@ class CampaignServiceTest extends TestCase
         $this->store = Store::factory()->create();
         app(StoreContext::class)->setStore($this->store);
         // Email campaigns require a configured sender identity.
-        \App\Models\MessagingSetting::create([
+        MessagingSetting::create([
             'store_id' => $this->store->id,
             'email_from_name' => 'Test Store', 'email_from_address' => 'hello@test.shop',
         ]);

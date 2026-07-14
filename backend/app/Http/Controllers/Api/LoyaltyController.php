@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\PlanFeature;
 use App\Http\Controllers\Controller;
+use App\Models\LoyaltyAccount;
 use App\Services\LoyaltyService;
 use App\Services\PlanGate;
 use App\Support\StoreContext;
@@ -36,8 +37,8 @@ class LoyaltyController extends Controller
                 'redeem_value' => (float) $program->redeem_value,
             ] : null,
             'stats' => [
-                'members' => \App\Models\LoyaltyAccount::where('points', '>', 0)->count(),
-                'points_outstanding' => (int) \App\Models\LoyaltyAccount::sum('points'),
+                'members' => LoyaltyAccount::where('points', '>', 0)->count(),
+                'points_outstanding' => (int) LoyaltyAccount::sum('points'),
             ],
         ]);
     }

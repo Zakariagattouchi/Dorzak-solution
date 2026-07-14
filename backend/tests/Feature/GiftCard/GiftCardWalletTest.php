@@ -4,6 +4,7 @@ namespace Tests\Feature\GiftCard;
 
 use App\Exceptions\DomainConflictException;
 use App\Models\Customer;
+use App\Models\GiftCard;
 use App\Models\Store;
 use App\Services\GiftCardService;
 use App\Services\WalletService;
@@ -38,7 +39,7 @@ class GiftCardWalletTest extends TestCase
     {
         // Create the card directly to keep this test off the plan gate (issue()
         // gating is covered by the API test).
-        $card = \App\Models\GiftCard::create([
+        $card = GiftCard::create([
             'store_id' => $this->store->id, 'code' => 'GC-TEST12345', 'amount' => 75, 'status' => 'active',
         ]);
         $customer = Customer::factory()->create(['store_id' => $this->store->id]);

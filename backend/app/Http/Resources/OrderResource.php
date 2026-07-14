@@ -19,19 +19,20 @@ class OrderResource extends JsonResource
 {
     /** @var array<string, string> */
     private const COURIER_LABELS = [
-        'pending_dispatch'    => 'Finding a driver',
-        'auctioning'          => 'Finding a driver',
-        'accepted'            => 'Finding a driver',
-        'en_route_pickup'     => 'Driver en route to you',
-        'arrived_pickup'      => 'Driver en route to you',
-        'en_route_customer'   => 'Out for delivery',
-        'arrived_customer'    => 'Out for delivery',
-        'out_for_delivery'    => 'Out for delivery',
-        'delivered'           => 'Delivered',
-        'failed'              => 'Delivery failed',
-        'returned'            => 'Delivery returned',
-        'cancelled'           => 'Delivery cancelled',
+        'pending_dispatch' => 'Finding a driver',
+        'auctioning' => 'Finding a driver',
+        'accepted' => 'Finding a driver',
+        'en_route_pickup' => 'Driver en route to you',
+        'arrived_pickup' => 'Driver en route to you',
+        'en_route_customer' => 'Out for delivery',
+        'arrived_customer' => 'Out for delivery',
+        'out_for_delivery' => 'Out for delivery',
+        'delivered' => 'Delivered',
+        'failed' => 'Delivery failed',
+        'returned' => 'Delivery returned',
+        'cancelled' => 'Delivery cancelled',
     ];
+
     /** Toggle to embed the receipt block (store header/footer) on the detail endpoint. */
     public bool $withReceipt = false;
 

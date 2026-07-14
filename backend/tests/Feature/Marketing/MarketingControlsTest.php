@@ -5,6 +5,8 @@ namespace Tests\Feature\Marketing;
 use App\Models\Campaign;
 use App\Models\Coupon;
 use App\Models\Customer;
+use App\Models\LoyaltyAccount;
+use App\Models\MessagingSetting;
 use App\Models\Product;
 use App\Models\Referral;
 use App\Models\Review;
@@ -34,7 +36,7 @@ class MarketingControlsTest extends TestCase
         $this->assignPlan($this->store, 'ENTERPRISE');
         app(StoreContext::class)->setStore($this->store);
         // Email campaigns require a configured sender identity.
-        \App\Models\MessagingSetting::create([
+        MessagingSetting::create([
             'store_id' => $this->store->id,
             'email_from_name' => 'Test Store', 'email_from_address' => 'hello@test.shop',
         ]);
@@ -97,7 +99,7 @@ class MarketingControlsTest extends TestCase
     {
         app(LoyaltyService::class)->configure($this->store, ['enabled' => true, 'earn_points_per_currency' => 1, 'redeem_points' => 100, 'redeem_value' => 5]);
         $customer = Customer::factory()->create(['store_id' => $this->store->id]);
-        \App\Models\LoyaltyAccount::create(['store_id' => $this->store->id, 'customer_id' => $customer->id, 'points' => 250]);
+        LoyaltyAccount::create(['store_id' => $this->store->id, 'customer_id' => $customer->id, 'points' => 250]);
 
         $this->actingAsMember($this->owner)
             ->getJson('/api/v1/settings/loyalty')

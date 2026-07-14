@@ -77,14 +77,14 @@ class OrderResourceCourierStateTest extends TestCase
     public static function courierLabelProvider(): array
     {
         return [
-            'pending_dispatch'  => ['pending_dispatch',  'Finding a driver'],
-            'auctioning'        => ['auctioning',        'Finding a driver'],
-            'en_route_pickup'   => ['en_route_pickup',   'Driver en route to you'],
+            'pending_dispatch' => ['pending_dispatch',  'Finding a driver'],
+            'auctioning' => ['auctioning',        'Finding a driver'],
+            'en_route_pickup' => ['en_route_pickup',   'Driver en route to you'],
             'en_route_customer' => ['en_route_customer', 'Out for delivery'],
-            'out_for_delivery'  => ['out_for_delivery',  'Out for delivery'],
-            'delivered'         => ['delivered',         'Delivered'],
-            'failed'            => ['failed',            'Delivery failed'],
-            'returned'          => ['returned',          'Delivery returned'],
+            'out_for_delivery' => ['out_for_delivery',  'Out for delivery'],
+            'delivered' => ['delivered',         'Delivered'],
+            'failed' => ['failed',            'Delivery failed'],
+            'returned' => ['returned',          'Delivery returned'],
         ];
     }
 
@@ -183,7 +183,7 @@ class OrderResourceCourierStateTest extends TestCase
 
         // The Dorzak row has its external reference exposed; the Uber row does not.
         $dorzakRow = collect($data)->first(fn ($o) => $o['delivery_external_reference'] === 'TND-1234');
-        $uberRow   = collect($data)->first(fn ($o) => $o['delivery_external_reference'] === null);
+        $uberRow = collect($data)->first(fn ($o) => $o['delivery_external_reference'] === null);
 
         $this->assertNotNull($dorzakRow, 'Dorzak row must be found by external reference');
         $this->assertNotNull($uberRow, 'Uber row must be found with null external reference');

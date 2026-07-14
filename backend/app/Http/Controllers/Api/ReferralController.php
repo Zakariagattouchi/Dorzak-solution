@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\PlanFeature;
 use App\Http\Controllers\Controller;
+use App\Models\Referral;
+use App\Models\WalletEntry;
 use App\Services\PlanGate;
 use App\Services\ReferralService;
 use App\Support\StoreContext;
@@ -31,9 +33,9 @@ class ReferralController extends Controller
                 'referee_reward' => (float) $program->referee_reward,
             ] : null,
             'stats' => [
-                'rewarded' => \App\Models\Referral::where('status', 'rewarded')->count(),
-                'pending' => \App\Models\Referral::where('status', 'pending')->count(),
-                'credit_issued' => (float) \App\Models\WalletEntry::whereIn('reason', ['Referral reward', 'Referral welcome'])->sum('amount'),
+                'rewarded' => Referral::where('status', 'rewarded')->count(),
+                'pending' => Referral::where('status', 'pending')->count(),
+                'credit_issued' => (float) WalletEntry::whereIn('reason', ['Referral reward', 'Referral welcome'])->sum('amount'),
             ],
         ]);
     }

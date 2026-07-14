@@ -4,6 +4,7 @@ namespace Tests\Feature\Loyalty;
 
 use App\Exceptions\DomainConflictException;
 use App\Models\Customer;
+use App\Models\LoyaltyAccount;
 use App\Models\Store;
 use App\Services\LoyaltyService;
 use App\Support\StoreContext;
@@ -33,7 +34,7 @@ class LoyaltyRedemptionTest extends TestCase
     {
         $customer = Customer::factory()->create(['store_id' => $store->id]);
         LoyaltyService::class; // service resolves below
-        \App\Models\LoyaltyAccount::create([
+        LoyaltyAccount::create([
             'store_id' => $store->id, 'customer_id' => $customer->id, 'points' => $points,
         ]);
 

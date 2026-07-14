@@ -3,10 +3,16 @@
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Auth\PasswordController;
 use App\Http\Controllers\Api\Auth\RegisteredStoreController;
+use App\Http\Controllers\Api\CampaignController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CategoryImageController;
+use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CustomerImportController;
+use App\Http\Controllers\Api\GiftCardController;
+use App\Http\Controllers\Api\LoyaltyController;
+use App\Http\Controllers\Api\MarketingOverviewController;
+use App\Http\Controllers\Api\MessagingSettingsController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderDeliveryFeeController;
 use App\Http\Controllers\Api\OrderPaymentProofController;
@@ -31,9 +37,14 @@ use App\Http\Controllers\Api\Public\PublicDeliveryQuoteController;
 use App\Http\Controllers\Api\Public\PublicOrderController;
 use App\Http\Controllers\Api\Public\PublicOrderPaymentProofController;
 use App\Http\Controllers\Api\Public\PublicOrderShowController;
+use App\Http\Controllers\Api\Public\PublicUnsubscribeController;
 use App\Http\Controllers\Api\Public\StorefrontController as PublicStorefrontController;
+use App\Http\Controllers\Api\RecurringOrderController;
+use App\Http\Controllers\Api\ReferralController;
 use App\Http\Controllers\Api\Reports\AnalyticsController;
 use App\Http\Controllers\Api\Reports\FinanceController;
+use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\SegmentController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\StaffInvitationController;
@@ -81,45 +92,45 @@ Route::prefix('v1')->group(function () {
         Route::put('settings/integrations', [SettingsController::class, 'updateIntegrations']);
         Route::put('settings/storefront', [SettingsController::class, 'updateStorefront']);
         // Loyalty program config (premium — PlanFeature::LOYALTY).
-        Route::get('settings/loyalty', [\App\Http\Controllers\Api\LoyaltyController::class, 'show']);
-        Route::put('settings/loyalty', [\App\Http\Controllers\Api\LoyaltyController::class, 'update']);
+        Route::get('settings/loyalty', [LoyaltyController::class, 'show']);
+        Route::put('settings/loyalty', [LoyaltyController::class, 'update']);
         // Messaging channel setup (email sender + SMTP, WhatsApp Business API).
-        Route::get('settings/messaging', [\App\Http\Controllers\Api\MessagingSettingsController::class, 'show']);
-        Route::put('settings/messaging', [\App\Http\Controllers\Api\MessagingSettingsController::class, 'update']);
-        Route::post('settings/messaging/verify-whatsapp', [\App\Http\Controllers\Api\MessagingSettingsController::class, 'verifyWhatsapp']);
-        Route::post('settings/messaging/test-email', [\App\Http\Controllers\Api\MessagingSettingsController::class, 'testEmail']);
+        Route::get('settings/messaging', [MessagingSettingsController::class, 'show']);
+        Route::put('settings/messaging', [MessagingSettingsController::class, 'update']);
+        Route::post('settings/messaging/verify-whatsapp', [MessagingSettingsController::class, 'verifyWhatsapp']);
+        Route::post('settings/messaging/test-email', [MessagingSettingsController::class, 'testEmail']);
         // Marketing console overview (aggregate stats across growth features).
-        Route::get('marketing/overview', \App\Http\Controllers\Api\MarketingOverviewController::class);
+        Route::get('marketing/overview', MarketingOverviewController::class);
         // Coupons (premium — PlanFeature::COUPONS).
-        Route::get('coupons', [\App\Http\Controllers\Api\CouponController::class, 'index']);
-        Route::post('coupons', [\App\Http\Controllers\Api\CouponController::class, 'store']);
-        Route::patch('coupons/{coupon}', [\App\Http\Controllers\Api\CouponController::class, 'update']);
-        Route::delete('coupons/{coupon}', [\App\Http\Controllers\Api\CouponController::class, 'destroy']);
+        Route::get('coupons', [CouponController::class, 'index']);
+        Route::post('coupons', [CouponController::class, 'store']);
+        Route::patch('coupons/{coupon}', [CouponController::class, 'update']);
+        Route::delete('coupons/{coupon}', [CouponController::class, 'destroy']);
         // Gift cards + store credit (premium — PlanFeature::GIFT_CARDS).
-        Route::get('gift-cards', [\App\Http\Controllers\Api\GiftCardController::class, 'index']);
-        Route::post('gift-cards', [\App\Http\Controllers\Api\GiftCardController::class, 'store']);
-        Route::post('gift-cards/redeem', [\App\Http\Controllers\Api\GiftCardController::class, 'redeem']);
+        Route::get('gift-cards', [GiftCardController::class, 'index']);
+        Route::post('gift-cards', [GiftCardController::class, 'store']);
+        Route::post('gift-cards/redeem', [GiftCardController::class, 'redeem']);
         // Referral program (premium — PlanFeature::REFERRALS).
-        Route::get('settings/referrals', [\App\Http\Controllers\Api\ReferralController::class, 'show']);
-        Route::put('settings/referrals', [\App\Http\Controllers\Api\ReferralController::class, 'update']);
+        Route::get('settings/referrals', [ReferralController::class, 'show']);
+        Route::put('settings/referrals', [ReferralController::class, 'update']);
         // Customer segments (premium — PlanFeature::SEGMENTS).
-        Route::get('segments', [\App\Http\Controllers\Api\SegmentController::class, 'index']);
-        Route::post('segments', [\App\Http\Controllers\Api\SegmentController::class, 'store']);
-        Route::delete('segments/{segment}', [\App\Http\Controllers\Api\SegmentController::class, 'destroy']);
+        Route::get('segments', [SegmentController::class, 'index']);
+        Route::post('segments', [SegmentController::class, 'store']);
+        Route::delete('segments/{segment}', [SegmentController::class, 'destroy']);
         // Marketing campaigns (premium — PlanFeature::CAMPAIGNS).
-        Route::get('campaigns', [\App\Http\Controllers\Api\CampaignController::class, 'index']);
-        Route::post('campaigns', [\App\Http\Controllers\Api\CampaignController::class, 'store']);
-        Route::post('campaigns/{campaign}/send', [\App\Http\Controllers\Api\CampaignController::class, 'send']);
-        Route::delete('campaigns/{campaign}', [\App\Http\Controllers\Api\CampaignController::class, 'destroy']);
+        Route::get('campaigns', [CampaignController::class, 'index']);
+        Route::post('campaigns', [CampaignController::class, 'store']);
+        Route::post('campaigns/{campaign}/send', [CampaignController::class, 'send']);
+        Route::delete('campaigns/{campaign}', [CampaignController::class, 'destroy']);
         // Recurring orders (premium — PlanFeature::RECURRING_ORDERS).
-        Route::get('recurring-orders', [\App\Http\Controllers\Api\RecurringOrderController::class, 'index']);
-        Route::post('recurring-orders', [\App\Http\Controllers\Api\RecurringOrderController::class, 'store']);
-        Route::patch('recurring-orders/{subscription}', [\App\Http\Controllers\Api\RecurringOrderController::class, 'update']);
+        Route::get('recurring-orders', [RecurringOrderController::class, 'index']);
+        Route::post('recurring-orders', [RecurringOrderController::class, 'store']);
+        Route::patch('recurring-orders/{subscription}', [RecurringOrderController::class, 'update']);
         // Product reviews (premium — PlanFeature::REVIEWS).
-        Route::get('reviews', [\App\Http\Controllers\Api\ReviewController::class, 'index']);
-        Route::post('reviews', [\App\Http\Controllers\Api\ReviewController::class, 'store']);
-        Route::post('reviews/{review}/approve', [\App\Http\Controllers\Api\ReviewController::class, 'approve']);
-        Route::delete('reviews/{review}', [\App\Http\Controllers\Api\ReviewController::class, 'destroy']);
+        Route::get('reviews', [ReviewController::class, 'index']);
+        Route::post('reviews', [ReviewController::class, 'store']);
+        Route::post('reviews/{review}/approve', [ReviewController::class, 'approve']);
+        Route::delete('reviews/{review}', [ReviewController::class, 'destroy']);
         Route::post('settings/storefront/banner', [StorefrontMediaController::class, 'banner']);
         Route::post('settings/storefront/logo', [StorefrontMediaController::class, 'logo']);
 
@@ -266,6 +277,6 @@ Route::prefix('public')->group(function () {
     Route::get('resolve', [PublicStorefrontController::class, 'resolveHost'])->middleware('throttle:60,1');
 
     // One-click, signed unsubscribe — linked from every campaign email.
-    Route::get('unsubscribe/{customer}', \App\Http\Controllers\Api\Public\PublicUnsubscribeController::class)
+    Route::get('unsubscribe/{customer}', PublicUnsubscribeController::class)
         ->name('public.unsubscribe')->middleware('throttle:30,1');
 });
