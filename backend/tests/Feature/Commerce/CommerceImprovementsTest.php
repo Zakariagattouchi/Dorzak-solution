@@ -73,7 +73,10 @@ class CommerceImprovementsTest extends TestCase
         $this->getJson('/api/public/stores/photo-shop/catalog')
             ->assertOk()
             ->assertJsonPath('data.categories.0.name', 'Desserts')
-            ->assertJsonPath('data.categories.0.image_url', 'http://localhost'.Storage::disk('public')->url($path));
+            ->assertJsonPath(
+                'data.categories.0.image_url',
+                Storage::disk('public')->url($path),
+            );
     }
 
     public function test_fawran_order_stores_location_and_private_payment_proof(): void
