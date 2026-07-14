@@ -44,7 +44,12 @@ export const AppShell: React.FC = () => {
 
   if (status === 'idle' || status === 'loading') {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+      <div
+        role="status"
+        aria-label="Loading your store…"
+        aria-live="polite"
+        style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}
+      >
         Loading your store…
       </div>
     );
