@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ARTIFACTS="${P00_ARTIFACT_DIR:-$ROOT/.artifacts/p00}"
+export P00_ARTIFACT_DIR="$ARTIFACTS"
+mkdir -p "$ARTIFACTS"
+jobs=(composer-validation php-style-static sqlite postgresql-16 frontend playwright)
+
+if [[ "${1:-}" == "--list" ]]; then
+  printf '%s\n' "${jobs[@]}"
+  exit 0
+fi
+job="${1:-}"
+case "$job" in
+  composer-validation|php-style-static|sqlite|postgresql-16|frontend|playwright) ;;
+  *) echo "Unknown P00 job: $job" >&2; exit 64 ;;
+esac
+: "${P00_RUNNER_ROLE:?P00_RUNNER_ROLE is required}"
+: "${P00_RUNNER_CLASS:?P00_RUNNER_CLASS is required}"
+node --input-type=module - "$ROOT/$P00_CONTROL_RECORD" "$P00_RUNNER_ROLE" "$P00_RUNNER_CLASS" <<'NODE'
+import { readFileSync } from 'node:fs';
+const record = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+const role = process.argv[3];
+if (!['local', 'ci'].includes(role)
+    || process.argv[4] !== record.execution?.runnerClasses?.[role]) process.exit(1);
+NODE
+JOB_ARTIFACTS="$ARTIFACTS/$job"
+test ! -L "$JOB_ARTIFACTS"
+mkdir -p "$JOB_ARTIFACTS"
+export P00_JOB_ARTIFACT_DIR="$JOB_ARTIFACTS"
+export P00_JOB="$job"
+if [[ -n "$(git -C "$ROOT" status --short --untracked-files=normal)" ]]; then
+  echo 'P00 job refused: checkout is not clean.' >&2
+  exit 65
+fi
+started="$(node -p 'Date.now()')"
+log="$JOB_ARTIFACTS/job.log"
+
+run_job() {
+  case "$job" in
+    composer-validation)
+      (cd "$ROOT" && bash scripts/quality/test-run-p00.sh | tee "$JOB_ARTIFACTS/dispatcher.tap") || return $?
+      (cd "$ROOT" && node --test --test-reporter=tap scripts/quality/p00.test.mjs | tee "$JOB_ARTIFACTS/p00-node.tap") || return $?
+      (cd "$ROOT/backend" && composer validate --strict --no-check-publish) || return $?
+      ;;
+    php-style-static)
+      (cd "$ROOT/backend" && vendor/bin/pint --test && composer analyse) || return $?
+      ;;
+    sqlite)
+      (cd "$ROOT/backend" && vendor/bin/phpunit -c phpunit.xml --log-junit "$JOB_ARTIFACTS/sqlite.junit.xml") || return $?
+      ;;
+    postgresql-16)
+      "$ROOT/scripts/quality/run-qualified-postgres" quality-job || return $?
+      ;;
+    frontend)
+      (
+        cd "$ROOT" || exit $?
+        npm run format:check || exit $?
+        npm run lint || exit $?
+        npm run typecheck || exit $?
+        npm run test:unit -- --reporter=json --outputFile="$JOB_ARTIFACTS/vitest.json" || exit $?
+        npm run build 2>&1 | tee "$JOB_ARTIFACTS/vite-build.log" || exit $?
+        node scripts/quality/p00.mjs bundle dist "$JOB_ARTIFACTS/vite-build.log" || exit $?
+      ) || return $?
+      ;;
+    playwright)
+      (cd "$ROOT" && npm run test:e2e) || return $?
+      cp -- "$ROOT/test-results/results.json" "$JOB_ARTIFACTS/playwright.json" || return $?
+      ;;
+  esac
+}
+
+set +e
+run_job 2>&1 | tee "$log"
+command_status="${PIPESTATUS[0]}"
+set -e
+finished="$(node -p 'Date.now()')"
+set +e
+node "$ROOT/scripts/quality/p00.mjs" write-result "$job" "$command_status" "$((finished-started))" "$log"
+writer_status="$?"
+set -e
+if [[ "$command_status" -ne 0 ]]; then exit "$command_status"; fi
+exit "$writer_status"

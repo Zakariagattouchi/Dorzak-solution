@@ -4,6 +4,14 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
+  esbuild: {
+    legalComments: 'eof',
+  },
+  build: {
+    modulePreload: {
+      polyfill: false,
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

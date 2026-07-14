@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${P00_PG_QUALIFIED_CANDIDATE:-}" != 1 || "${P00_PG_SCHEMA_READY:-}" != 1 \
+  || ! "${P00_PG_QUALIFICATION_NONCE_SHA256:-}" =~ ^[0-9a-f]{64}$ \
+  || -z "${DB_URL:-}" || -n "${P00_PG_TEST_SUBSTITUTE_URL_PATH:-}" ]]; then
+  printf '%s\n' 'P00_POSTGRES_JOB_REFUSED unqualified candidate' >&2
+  exit 65
+fi
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ARTIFACTS="${P00_JOB_ARTIFACT_DIR:?P00_JOB_ARTIFACT_DIR is required}"
+test ! -L "$ARTIFACTS"
+observation="$(P00_ROOT="$ROOT" php -r '
+  require getenv("P00_ROOT")."/backend/vendor/autoload.php";
+  $url = getenv("DB_URL") ?: "";
+  $profile = App\Support\PostgresConnectionProfile::fromUrl($url);
+  $pdo = $profile->pdo();
+  $row = App\Support\PostgresQualificationGuard::assertPdo(
+    $pdo, $profile, getenv("P00_PG_INSTANCE_NONCE_SHA256") ?: "",
+  );
+  $endpoint = hash("sha256", $profile->host.":".$profile->port."?sslmode=".$profile->sslmode);
+  echo $row["server_version_num"], "\n", $row["database"], "\n",
+    $row["instance_nonce_sha256"], "\n", $endpoint, "\n";
+')"
+server_version_num="$(printf '%s\n' "$observation" | sed -n '1p')"
+database_name="$(printf '%s\n' "$observation" | sed -n '2p')"
+instance_nonce_sha256="$(printf '%s\n' "$observation" | sed -n '3p')"
+endpoint_sha256="$(printf '%s\n' "$observation" | sed -n '4p')"
+node "$ROOT/scripts/quality/p00.mjs" postgres-identity \
+  "$server_version_num" "$database_name" "$instance_nonce_sha256" "$endpoint_sha256"
+exec "$ROOT/backend/vendor/bin/phpunit" \
+  --configuration "$ROOT/backend/phpunit.pgsql.xml" \
+  --log-junit "$ARTIFACTS/postgresql-16.junit.xml"

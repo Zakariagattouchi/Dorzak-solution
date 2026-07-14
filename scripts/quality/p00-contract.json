@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "jobs": [
+    { "name": "composer-validation", "command": "scripts/quality/run-p00 composer-validation", "testCount": 11 },
+    { "name": "php-style-static", "command": "scripts/quality/run-p00 php-style-static", "testCount": 0 },
+    { "name": "sqlite", "command": "scripts/quality/run-p00 sqlite", "testCount": 446 },
+    { "name": "postgresql-16", "command": "scripts/quality/run-p00 postgresql-16", "testCount": 450 },
+    { "name": "frontend", "command": "scripts/quality/run-p00 frontend", "testCount": 8 },
+    { "name": "playwright", "command": "scripts/quality/run-p00 playwright", "testCount": 9 }
+  ],
+  "bundle": {
+    "initialGzipLimitBytes": 216797,
+    "largeChunkThresholdBytes": 500000,
+    "debtStatus": "accepted-open",
+    "warning": "(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.",
+    "expectedOccurrences": 1
+  },
+  "qualitySelfTests": { "dispatcher": 2, "node": 9, "total": 11 }
+}
