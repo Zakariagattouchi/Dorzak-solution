@@ -2,7 +2,7 @@
 
 **Purpose:** Single source of truth for current status, active authorization, blockers, and the next permitted Dorzak complete-launch action.
 
-**Last verified:** 2026-07-14 05:09:50 +03
+**Last verified:** 2026-07-14 05:11:38 +03
 
 **Register revision:** Resolve with: git log -1 feat/premium-features --format=%H -- docs/superpowers/control/README.md
 
@@ -18,7 +18,7 @@
 
 **Current lifecycle:** Planning
 
-**Current authorization:** Approved to create one read-only P00 planning task when this register transition is committed
+**Current authorization:** P00 planning task is Approved to analyze read-only and present a non-authoritative proposed design
 
 **Public release:** Blocked until M9. No partial public launch.
 
@@ -65,10 +65,10 @@ SESSION MODEL AND CONTROL REGISTER APPROVED
                     current
                        ↓
 COMMIT REGISTER TRANSITION AUTHORIZING P00 CREATION
-          current transition; durable when committed
+                 complete at f2654ae
                        ↓
 CREATE P00 READ-ONLY PLANNING TASK
-          authorized after transition commit
+             active; read-only analysis
                        ↓
 PROPOSED P00 DESIGN IN TASK
                        ↓
@@ -110,7 +110,7 @@ Lifecycle, authorization, and Codex app state are tracked separately.
 
 | Milestone | Canonical work | Big headline | Lifecycle | Authorization | Exit headline |
 |---|---|---|---|---|---|
-| M0 | P00 | Trustworthy baseline, CI, tests, tooling, context and ADRs | Not started | P00 read-only planning task Approved to create by this transition | Clean reproducible green baseline |
+| M0 | P00 | Trustworthy baseline, CI, tests, tooling, context and ADRs | Planning | P00 task Approved to analyze read-only only | Clean reproducible green baseline |
 | M1 | P01 | Organization, identity, Party, consent and fail-closed tenancy | Not started | Not authorized | Tenant/membership parity and identity isolation |
 | M2 | WP-M2 | Money, idempotency, outbox, audit, ERP and capability Interface freeze | Not started | Not authorized | Fake and real ERP contract handshake passes |
 | M3 | P02 + P03 | Isolated ERPNext fleet plus immutable plans, billing and regional payments | Not started | Not authorized | Two isolated READY sites and safe paid-plan lifecycle |
@@ -139,7 +139,7 @@ The dependency columns deliberately separate planning entry, execution entry, an
 
 | Program | Outcome | Lifecycle | Planning may begin after | Execution requires | Milestone exit requires | Authorization |
 |---|---|---|---|---|---|---|
-| P00 | Baseline stabilization and engineering controls | Not started | This committed control transition | Approved source artifacts, P00 design/plan, preserved user diff, clean worktree | M0 evidence | Approved to create planning task only |
+| P00 | Baseline stabilization and engineering controls | Planning | This committed control transition | Approved source artifacts, P00 design/plan, preserved user diff, clean worktree | M0 evidence | Approved to analyze read-only only |
 | P01 | Organization, identity, Party, consent and tenancy | Not started | P00 complete | M0/P00 complete + approved P01 work-package plan | M1 evidence | Not authorized |
 | P02 | ERPNext platform core and fleet | Not started | P01 complete + WP-M2 complete | P01 complete + WP-M2 complete + approved P02 plan | M3 ERP evidence | Not authorized |
 | P03 | Plans, subscriptions and regional billing | Not started | P01 complete + WP-M2 complete | P01 complete + WP-M2 complete + approved P03 plan | M3 commercial evidence | Not authorized |
@@ -170,7 +170,7 @@ Work packages are execution boundaries; their existence does not authorize their
 
 | Work package | Parent | Outcome | Lifecycle | Planning gate | Execution gate | Design/plan | Task IDs | Branch/worktree | Evidence | Serialized owner |
 |---|---|---|---|---|---|---|---|---|---|---|
-| WP-P00 | P00 | Baseline design and plan | Not started | This committed control transition | Source + design + plan + worktree approvals | None | Planning task not created | N/A | N/A | Control Room |
+| WP-P00 | P00 | Baseline design and plan | Planning | This committed control transition | Source + design + plan + worktree approvals | None | Planning: 019f5e64-9472-7f32-b0a9-77b4b3741864 | N/A | Dispatch f2654ae; proposed design pending | Control Room |
 | WP-P01A | P01 | Additive Organization migration | Not started | P00 complete | M0 complete + approved WP-P01A plan | None | None | N/A | N/A | Control Room |
 | WP-P01B | P01 | Identity, Party, OTP and consent | Not started | WP-P01A complete | WP-P01A complete + approved WP-P01B plan | None | None | N/A | N/A | Control Room |
 | WP-M2 | Shared prerequisite | Contract/value/outbox/real ERP handshake freeze | Not started | P01 complete | M1/P01 complete + approved WP-M2 plan | None | None | N/A | N/A | Control Room; all contract registries serialized |
@@ -186,8 +186,8 @@ WP-M2 is mandatory and must be Complete before P02/P03 execution. It receives it
 
 | Task title | Task ID | Type | Lifecycle | Outcome | Authorization | App state | Owner | Base/verified SHA | Writes allowed | Next gate |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Dorzak Launch — Control Room | 019f5a12-7412-7e53-9a2b-37d2f313628e | Control | Planning | Open | Approved to administer control artifacts | Pinned | Control Room | 069f483 / current register revision | Control/spec documents only | Create P00 planning task |
-| Dorzak Launch — P00 Baseline Planning | Not created | Planning | Not started | Open | Approved to create after this transition commit | Not created | P00 planning owner | N/A | None before durable design authorization | Create task and present proposed design |
+| Dorzak Launch — Control Room | 019f5a12-7412-7e53-9a2b-37d2f313628e | Control | Planning | Open | Approved to administer control artifacts | Pinned | Control Room | f2654ae / current register revision | Control/spec documents only | Record P00 task and await proposal |
+| Dorzak Launch — P00 Baseline Planning | 019f5e64-9472-7f32-b0a9-77b4b3741864 | Planning | Planning | Open | Approved to analyze read-only | Active | P00 planning owner | Dispatch f2654ae | None before durable design authorization | Present proposed design and stop |
 | Dorzak Launch — P00 Baseline Execution | Not created | Execution | Not started | Open | Not authorized | Not created | Unassigned | N/A | Isolated worktree only | Source + design + plan + worktree approvals |
 
 No other planning or execution task is authorized.
@@ -262,6 +262,7 @@ Authorization:
 
 - Not authorized
 - Approved to create
+- Approved to analyze read-only
 - Approved to administer control artifacts
 - Approved to write design
 - Approved to plan
@@ -328,12 +329,20 @@ Every context packet names the latest committed register revision. At every owne
 
 ## 13. Immediate next action
 
-After this transition is committed:
+Current next action:
 
-1. create **Dorzak Launch — P00 Baseline Planning** in the recover Kyte project;
-2. record its task ID and app state in another committed transition;
-3. send a compact context packet referencing that committed register revision;
-4. permit read-only inspection and a proposed P00 design in the task conversation;
-5. stop for formal product/roadmap and P00-design approvals.
+1. P00 task performs read-only inspection and presents its proposed design;
+2. the owner reviews the formal product baseline, technical roadmap, and P00 proposal;
+3. the Control Room preserves any approved proposal and approval record before authorizing design writing;
+4. no implementation plan, worktree, or code begins.
 
 The P00 planning task may not edit files, commit a design, write an implementation plan, create a worktree, stage the MediaUrl change, alter application code, or start P01.
+
+---
+
+## 14. Recent durable transitions
+
+| Timestamp (+03) | Register/control commit | Transition |
+|---|---|---|
+| 2026-07-14 05:09:50 | f2654ae | Authorized creation of one read-only P00 planning task |
+| 2026-07-14 05:11:38 | Current register revision | Recorded P00 planning task ID, Active app state, read-only authorization, and dispatch revision |

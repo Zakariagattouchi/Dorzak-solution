@@ -321,6 +321,7 @@ Authorization:
 
 - Not authorized;
 - Approved to create;
+- Approved to analyze read-only;
 - Approved to administer control artifacts;
 - Approved to write design;
 - Approved to plan;
