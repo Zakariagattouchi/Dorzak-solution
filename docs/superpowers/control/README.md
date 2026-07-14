@@ -2,7 +2,7 @@
 
 **Purpose:** Single source of truth for current status, active authorization, blockers, and the next permitted Dorzak complete-launch action.
 
-**Last verified:** 2026-07-14 05:39:11 +03
+**Last verified:** 2026-07-14 06:27:26 +03
 
 **Register revision:** Resolve with: git log -1 feat/premium-features --format=%H -- docs/superpowers/control/README.md
 
@@ -14,11 +14,11 @@
 
 **Control task ID:** 019f5a12-7412-7e53-9a2b-37d2f313628e
 
-**Observed repository HEAD before this control change:** 267704e1c58dd9cff9aa90b4f69375fc8b0cf292
+**Observed repository HEAD before this control change:** 96844070bb0d1d8887afc10b0f21c86f04399f5a
 
 **Current lifecycle:** Planning
 
-**Current authorization:** P00 planning task is Approved to write and commit only the formal P00 design, then stop for owner written-spec approval
+**Current authorization:** P00 planning task is Approved to correct and recommit only the formal P00 design; implementation-plan writing remains Not authorized
 
 **Public release:** Blocked until M9. No partial public launch.
 
@@ -34,11 +34,12 @@ Authority depends on the question:
 | [Technical execution roadmap](../specs/2026-07-14-dorzak-technical-execution-roadmap-design.md) | Architecture, sequence and engineering gates | Awaiting owner | Formal written-artifact approval not yet recorded | d518f92 plus current correction |
 | [Session orchestration design](../specs/2026-07-14-dorzak-session-orchestration-design.md) | Task/session workflow | Approved | Owner approved the rolling session plan in Control Room on 14 July 2026 | 069f483 |
 | This Control Register | Status and next authorization | Approved | Owner approved creation of the control folder/register on 14 July 2026 | Introduced at 069f483; current revision resolves from canonical ref |
-| [P00 proposed design](proposals/2026-07-14-p00-baseline-stabilization-proposal.md) | Exact input permitted for formal P00 design writing | Approved | [Scoped owner approval](approvals/2026-07-14-p00-proposed-design-approval.md), proposal SHA-256 `551054d063a89b8b361b4dbd45fefa03ec9e91915148b2490e0b454f57704320` | Current register revision |
-| Approved program design/plan | Exact bounded change | Not started | None | N/A |
+| [P00 proposed design](proposals/2026-07-14-p00-baseline-stabilization-proposal.md) | Exact input permitted for formal P00 design writing | Approved | [Scoped owner approval](approvals/2026-07-14-p00-proposed-design-approval.md), proposal SHA-256 `551054d063a89b8b361b4dbd45fefa03ec9e91915148b2490e0b454f57704320` | 4658111c1306133e82f01b83434d63ef1f44b695 |
+| [P00 formal written specification](../specs/2026-07-14-dorzak-p00-baseline-stabilization-design.md) | P00 contracts, boundaries, safety and exit gates | Planning | Owner decision signal received; [independent review](reviews/2026-07-14-p00-written-spec-review.md) requires two Important corrections before durable approval | 96844070bb0d1d8887afc10b0f21c86f04399f5a under correction |
+| P00 implementation plan | Exact executable P00 change sequence | Not started | None | N/A |
 | Verified code/evidence SHA | Implemented reality | Not started | None | N/A |
 
-A review candidate may guide read-only analysis but is not execution authority. Before any design is committed or implementation plan is written, the Control Room must record the product-baseline and technical-roadmap approvals or the exact approved exception. The P00 approval record grants a narrow exception to write the formal P00 design from the current review candidates; it does not approve those artifacts program-wide and does not authorize an implementation plan or execution.
+A review candidate may guide read-only analysis but is not execution authority. Before any design is committed or implementation plan is written, the Control Room must record the product-baseline and technical-roadmap approvals or the exact approved exception. The existing P00 approval record grants a design-writing exception only. No implementation-plan exception or authorization has been granted.
 
 If requirements, architecture, plan, status, or implementation evidence disagree, stop the affected work and reconcile the versioned artifacts.
 
@@ -63,7 +64,7 @@ This file is the only program-status writer. It links to requirements and design
 
 ~~~text
 SESSION MODEL AND CONTROL REGISTER APPROVED
-                    current
+              complete at 069f483
                        ↓
 COMMIT REGISTER TRANSITION AUTHORIZING P00 CREATION
                  complete at f2654ae
@@ -80,13 +81,26 @@ CONTROL ROOM COMMITS APPROVAL RECORD
 NARROW P00 DESIGN-WRITING EXCEPTION
                        ↓
 WRITE + COMMIT P00 DESIGN
+              complete at 9684407
+                       ↓
+OWNER WRITTEN-SPEC APPROVAL SIGNAL
+                       ↓
+INDEPENDENT REVIEW: 2 IMPORTANT CORRECTIONS
+                       ↓
+CORRECT + RECOMMIT P00 DESIGN
                     current
                        ↓
-OWNER APPROVES WRITTEN P00 SPEC
+OWNER APPROVES CORRECTED WRITTEN P00 SPEC
+                       ↓
+CONTROL ROOM COMMITS PLAN-WRITING AUTHORIZATION
                        ↓
 WRITE + COMMIT P00 IMPLEMENTATION PLAN
                        ↓
-OWNER APPROVES PLAN + WORKTREE + EXECUTION
+OWNER APPROVES P00 IMPLEMENTATION PLAN
+                       ↓
+CONTROL ROOM RECORDS MEDIAURL + BASE + WORKTREE APPROVALS
+                       ↓
+OWNER APPROVES P00 EXECUTION
                        ↓
 P00 EXECUTION TASK
               not yet authorized
@@ -97,11 +111,11 @@ No approval in this chain implies the next approval.
 ### Current repository facts
 
 - Current branch: **feat/premium-features**.
-- Observed HEAD before the uncommitted control artifacts: **d518f92**.
+- Observed HEAD before the uncommitted review/correction-control artifacts: **96844070bb0d1d8887afc10b0f21c86f04399f5a**.
 - The checkout contains user-owned modifications and untracked files.
 - Pre-existing path-status manifest: **16 entries**, SHA-256 **a797825ef1c504e70abec3dd1a82694cf4fddd76be1544ed716067a9c95d9ffa**. It is the sorted git status --short output excluding this control-register work and records paths/status only, not secret contents.
 - Before any writer task, the Control Room must capture HEAD, worktrees, status, and a hash/manifest of the pre-existing changes.
-- The existing MediaUrl change requires an explicit preservation decision before an execution worktree.
+- The existing MediaUrl change requires an approved preservation method plus completed, verified and evidenced preservation before P00 execution may begin.
 - Planning is read-only; application implementation is prohibited in this checkout.
 
 ---
@@ -112,7 +126,7 @@ Lifecycle, authorization, and Codex app state are tracked separately.
 
 | Milestone | Canonical work | Big headline | Lifecycle | Authorization | Exit headline |
 |---|---|---|---|---|---|
-| M0 | P00 | Trustworthy baseline, CI, tests, tooling, context and ADRs | Planning | P00 task Approved to write formal design only | Clean reproducible green baseline |
+| M0 | P00 | Trustworthy baseline, CI, tests, tooling, context and ADRs | Planning | P00 task Approved to correct formal design only | Clean reproducible green baseline |
 | M1 | P01 | Organization, identity, Party, consent and fail-closed tenancy | Not started | Not authorized | Tenant/membership parity and identity isolation |
 | M2 | WP-M2 | Money, idempotency, outbox, audit, ERP and capability Interface freeze | Not started | Not authorized | Fake and real ERP contract handshake passes |
 | M3 | P02 + P03 | Isolated ERPNext fleet plus immutable plans, billing and regional payments | Not started | Not authorized | Two isolated READY sites and safe paid-plan lifecycle |
@@ -141,7 +155,7 @@ The dependency columns deliberately separate planning entry, execution entry, an
 
 | Program | Outcome | Lifecycle | Planning may begin after | Execution requires | Milestone exit requires | Authorization |
 |---|---|---|---|---|---|---|
-| P00 | Baseline stabilization and engineering controls | Planning | This committed control transition | Approved source artifacts, P00 design/plan, preserved user diff, clean worktree | M0 evidence | Approved to write formal design only |
+| P00 | Baseline stabilization and engineering controls | Planning | This committed control transition | Approved source artifacts, P00 design/plan, preserved user diff, clean worktree | M0 evidence | Approved to correct formal design only |
 | P01 | Organization, identity, Party, consent and tenancy | Not started | P00 complete | M0/P00 complete + approved P01 work-package plan | M1 evidence | Not authorized |
 | P02 | ERPNext platform core and fleet | Not started | P01 complete + WP-M2 complete | P01 complete + WP-M2 complete + approved P02 plan | M3 ERP evidence | Not authorized |
 | P03 | Plans, subscriptions and regional billing | Not started | P01 complete + WP-M2 complete | P01 complete + WP-M2 complete + approved P03 plan | M3 commercial evidence | Not authorized |
@@ -172,7 +186,7 @@ Work packages are execution boundaries; their existence does not authorize their
 
 | Work package | Parent | Outcome | Lifecycle | Planning gate | Execution gate | Design/plan | Task IDs | Branch/worktree | Evidence | Serialized owner |
 |---|---|---|---|---|---|---|---|---|---|---|
-| WP-P00 | P00 | Baseline design and plan | Planning | This committed control transition | Source + design + plan + worktree approvals | Proposal approved; formal design pending | Planning: 019f5e64-9472-7f32-b0a9-77b4b3741864 | N/A | Approval record and proposal hash in current revision | Control Room |
+| WP-P00 | P00 | Baseline design and plan | Planning | This committed control transition | Source + design + plan + worktree approvals | Design commit 9684407 requires two Important corrections; plan not started | Planning: 019f5e64-9472-7f32-b0a9-77b4b3741864 | N/A | Independent written-spec review in current revision | Control Room |
 | WP-P01A | P01 | Additive Organization migration | Not started | P00 complete | M0 complete + approved WP-P01A plan | None | None | N/A | N/A | Control Room |
 | WP-P01B | P01 | Identity, Party, OTP and consent | Not started | WP-P01A complete | WP-P01A complete + approved WP-P01B plan | None | None | N/A | N/A | Control Room |
 | WP-M2 | Shared prerequisite | Contract/value/outbox/real ERP handshake freeze | Not started | P01 complete | M1/P01 complete + approved WP-M2 plan | None | None | N/A | N/A | Control Room; all contract registries serialized |
@@ -188,8 +202,8 @@ WP-M2 is mandatory and must be Complete before P02/P03 execution. It receives it
 
 | Task title | Task ID | Type | Lifecycle | Outcome | Authorization | App state | Owner | Base/verified SHA | Writes allowed | Next gate |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Dorzak Launch — Control Room | 019f5a12-7412-7e53-9a2b-37d2f313628e | Control | Planning | Open | Approved to administer control artifacts | Pinned | Control Room | 267704e / current register revision | Control/spec documents only | Verify P00 formal-design commit and return to owner gate |
-| Dorzak Launch — P00 Baseline Planning | 019f5e64-9472-7f32-b0a9-77b4b3741864 | Planning | Planning | Open | Approved to write design | Active | P00 planning owner | Approval record in current register revision | Exact formal P00 design path only | Commit formal design, self-review, and stop |
+| Dorzak Launch — Control Room | 019f5a12-7412-7e53-9a2b-37d2f313628e | Control | Planning | Open | Approved to administer control artifacts | Pinned | Control Room | 9684407 / current register revision | Control/spec documents only | Verify corrected P00 design commit and return to owner gate |
+| Dorzak Launch — P00 Baseline Planning | 019f5e64-9472-7f32-b0a9-77b4b3741864 | Planning | Planning | Open | Approved to write design | Active | P00 planning owner | Design 9684407 plus current review record | Exact formal P00 design path only | Correct two Important findings, commit, self-review, and stop |
 | Dorzak Launch — P00 Baseline Execution | Not created | Execution | Not started | Open | Not authorized | Not created | Unassigned | N/A | Isolated worktree only | Source + design + plan + worktree approvals |
 
 No other planning or execution task is authorized.
@@ -333,13 +347,13 @@ Every context packet names the latest committed register revision. At every owne
 
 Current next action:
 
-1. the P00 planning task refreshes this committed register and verifies the preserved proposal hash;
-2. it writes and commits only `docs/superpowers/specs/2026-07-14-dorzak-p00-baseline-stabilization-design.md` from the approved proposal;
-3. it self-reviews the committed design, reports the artifact path and commit SHA, and stops;
-4. the Control Room verifies the design commit and returns it to the owner for written-spec approval;
-5. no implementation plan, worktree, MediaUrl preservation action, or code begins.
+1. the P00 planning task refreshes this committed register and reads the independent review record;
+2. it corrects only the planning-authority prerequisite and completed/evidenced MediaUrl-preservation execution gate in `docs/superpowers/specs/2026-07-14-dorzak-p00-baseline-stabilization-design.md`;
+3. it self-reviews the corrected specification, stages only that exact design file, commits it, reports the full SHA, and stops;
+4. the Control Room independently verifies both findings are resolved and returns the corrected artifact/hash to the owner for written-spec approval;
+5. no implementation plan, worktree, MediaUrl preservation action, implementation, execution task, or code begins.
 
-The P00 planning task may edit only the exact formal-design target. It may not write an implementation plan, create a worktree, stage the MediaUrl change, alter application/test/configuration/CI files, choose unresolved infrastructure inputs by assumption, or start P01.
+The P00 planning task may edit only the exact formal-design target and only to resolve the two registered Important findings. It may not write an implementation plan, create a worktree, stage the MediaUrl change, alter application/test/configuration/CI/dependency/other-documentation files, choose unresolved infrastructure inputs by assumption, execute any plan step, or start P01.
 
 ---
 
@@ -350,3 +364,6 @@ The P00 planning task may edit only the exact formal-design target. It may not w
 | 2026-07-14 05:09:50 | f2654ae | Authorized creation of one read-only P00 planning task |
 | 2026-07-14 05:11:38 | Current register revision | Recorded P00 planning task ID, Active app state, read-only authorization, and dispatch revision |
 | 2026-07-14 05:39:11 | Current register revision | Preserved proposal `551054d0…`, recorded scoped owner approval, and authorized the P00 task to write only the formal design |
+| 2026-07-14 05:52:03 | 9684407 | Committed the 445-line formal P00 design as the sole changed path and stopped at the written-spec gate |
+| 2026-07-14 06:22:09 | Current register revision | Recorded the owner's written-spec approval signal without treating it as execution authority |
+| 2026-07-14 06:27:26 | Current register revision | Independent review found two Important gate defects; withheld durable approval/plan authorization and authorized exact design correction only |
