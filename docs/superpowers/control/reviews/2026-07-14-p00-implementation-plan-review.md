@@ -6,9 +6,9 @@
 
 **Artifact SHA-256:** `a8c94d01af34c386e4291f97534c8251c5efa3ea20f11856c5b834009a27608d`
 
-**Latest corrected artifact commit:** `822a8ce5ca6dac3aa236ec0c14122b0cddcf5baa`
+**Latest corrected artifact commit:** `5c88dc36fa8e5948160b257d3cd1ba0dd9ed675e`
 
-**Latest corrected artifact SHA-256:** `29956aded8f629da414a9cd053507e8ae860bf96373796e796c52e50f2cc3ce3`
+**Latest corrected artifact SHA-256:** `46da62efdaf73820cece759bc339f955196431b6b96a3331aacac6c3bc6043b5`
 
 **Review completed:** 2026-07-14 08:07:57 +03 (Asia/Qatar)
 
@@ -18,7 +18,7 @@
 
 **Initial verdict:** One Critical and nine Important findings required correction.
 
-**Latest re-review verdict:** The corrected commit still has one Critical and fifteen Important findings. The plan remains in Planning and may be modified only at its exact authorized path. P00 execution remains Not authorized.
+**Latest re-review verdict:** Commit `5c88dc36…` resolves the prior registered findings but its final exact-commit assessment found two Critical and thirteen Important defects. The plan remains in Planning and may be modified only at its exact authorized path. P00 execution remains Not authorized.
 
 ## Verified commit integrity
 
@@ -155,6 +155,37 @@ The lease locks and verifies one file descriptor, but Laravel/PDO later reopens 
 - The next corrected revision must resolve every finding above, preserve the 18-task order and approved P00 scope, and receive another independent re-review.
 - No MediaUrl preservation, worktree, implementation, dependency, CI, application, P01 or release action is authorized.
 
+## Final assessment of correction candidate — `5c88dc36fa8e5948160b257d3cd1ba0dd9ed675e`
+
+The candidate is a one-path commit with parent `fe95edc68696531ae9b001e0e8f57e815d25d0a3`, 6,200 lines, 18 ordered tasks, 110 checkboxes and 288 balanced fence lines. Its artifact SHA-256 is `46da62efdaf73820cece759bc339f955196431b6b96a3331aacac6c3bc6043b5`. `git show --check` passes, the index is empty, and the protected 16-entry state remains SHA-256 `a797825ef1c504e70abec3dd1a82694cf4fddd76be1544ed716067a9c95d9ffa`.
+
+Three independent read-only reviews plus Control Room verification found two Critical and thirteen Important blockers.
+
+### Critical findings
+
+1. **Browser provisioning children do not verify the PDO they mutate.** The parent validates the candidate, but the separate migration and seeding Laravel processes explicitly bypass the live guard during `provisioning`. Endpoint substitution after acquisition or between those children can reach mutation first. Guard the exact `e2e` PDO at every provisioning application boot and add both destructive-interval substitution/canary tests.
+2. **The PostgreSQL qualification suite verifies a different, earlier connection.** Bootstrap validates one PDO, then Laravel opens its default connection and Feature/`RefreshDatabase` work may mutate before the late environment test. Add an explicit qualification phase and guard the actual default PDO during every Laravel application boot before mutation, with an endpoint-substitution test between bootstrap and the first Feature test.
+
+### Important findings
+
+1. Replace Task 0's loose authority text search with a closed machine-readable control record bound by exact commit/content hash; validate every approval and execution value independently.
+2. Correct Task 4's double-escaped forbidden-operation regex so the expected no-match exit is `1`, not a regex-error exit `2`.
+3. Make PostgreSQL bootstrap use a closed allowlist of the exact URL transport options used by Laravel, including supported `sslmode`, and reject unknown options.
+4. Add the required valid-PostgreSQL-16/`_test` wrong-live-nonce negative case before PHPUnit can migrate.
+5. Parse the unique top-level Node TAP plan line instead of assuming `1..N` is the final line after reporter diagnostics.
+6. Add `P00_RUNNER_CLASS` to the approved input interface and set exact local/CI values in every canonical command.
+7. Validate the generated root `bundle.json`; the current evidence validator incorrectly reads `frontend/bundle.json`.
+8. Read Task 17's PostgreSQL observation from `postgresql-16/postgresql-identity.json`, matching the writer.
+9. Cross-bind every CI job's SHA, portable input fingerprint and complete portable inputs to its run/aggregate, not only its platform observation.
+10. Apply closed top-level schemas/exact-key checks and whole-value secret scanning to every loaded local/CI sibling payload, not only the manifest.
+11. Build and validate evidence in a sibling temporary directory, then atomically rename it; failure must not leave a partial canonical directory.
+12. After the evidence commit, prove `EVIDENCE_SHA^ == CODE_SHA` and verify exactly the eight evidence paths changed.
+13. Compare only portable PostgreSQL identity/policy across distinct CI runs. Allow separately bound per-run attestation, nonce, endpoint and database observations for provider-neutral ephemeral services, and add a different-instance passing test.
+
+### Required correction boundary
+
+Use one fresh short writer session. It may change only `docs/superpowers/plans/2026-07-14-dorzak-p00-baseline-stabilization.md`, may correct only the findings above and the matching proposed safety-erratum references, and must not expand P00 scope. It must commit only that plan and stop. One final parallel exact-commit review follows.
+
 ## Resolution
 
-Open. Awaiting a second corrected plan commit and independent re-review.
+Open. Awaiting one narrow final corrected plan commit and independent re-review. No implementation, MediaUrl preservation, worktree, dependency, CI, P01 or release action is authorized.
