@@ -59,12 +59,11 @@ The future execution lease must bind the following shell variables to literal va
 | `P00_PROTECTED_CONTENT_MANIFEST` / `P00_PROTECTED_CONTENT_MANIFEST_SHA256` | Durable owner-approved non-secret content manifest and its 64-hex file hash; unsafe-to-attest paths stop execution |
 | `P00_PG_IDENTITY_KIND` | Exactly `oci` or `external-attestation` |
 | `P00_PG_IDENTITY` | Immutable OCI reference with `@sha256:<64-hex>`, or approved external resource/revision/fingerprint identity |
-| `P00_PG_ATTESTATION_PATH` / `P00_PG_ATTESTATION_SHA256` | Sanitized immutable-service attestation and its 64-hex hash; never a mutable sentinel |
-| `P00_PG_DB_URL` | Secret runtime connection URL for the approved PostgreSQL 16 test service; never committed, printed, or embedded in evidence |
+| `P00_PG_ATTESTATION_PATH` / `P00_PG_ATTESTATION_SHA256` | Canonical absolute nonsymlink path to the sanitized immutable-service attestation and its 64-hex hash; never a mutable sentinel |
 | `P00_PG_INSTANCE_NONCE_SHA256` | Approved 64-hex hash of the provisioner-created live service nonce exposed by `current_setting('dorzak.instance_nonce_sha256')` |
 | `P00_E2E_SUPERVISOR_DB_URL` | Secret supervisor URL for the dedicated, no-real-data P00 E2E service; never committed, printed, or embedded in evidence |
 | `P00_E2E_SERVICE_LIFECYCLE_ID` | Exact immutable provisioner/container lifecycle identifier from the attestation; cleanup may address only this value |
-| `P00_E2E_SERVICE_ATTESTATION_PATH` / `P00_E2E_SERVICE_ATTESTATION_SHA256` | Sanitized E2E-service attestation proving PG16, immutable image/resource identity, no real data, isolated credential issuance, noncandidate access denial, and the lifecycle ID |
+| `P00_E2E_SERVICE_ATTESTATION_PATH` / `P00_E2E_SERVICE_ATTESTATION_SHA256` | Canonical absolute nonsymlink path and hash for the sanitized E2E-service attestation proving PG16, immutable image/resource identity, no real data, isolated credential issuance, noncandidate access denial, and the lifecycle ID |
 | `P00_FRESH_CHECKOUT` | New absolute path used only by final fresh-checkout verification |
 | `P00_RUNNER_ROLE` | Exactly `local` for fresh local commands or `ci` for provider jobs |
 | `P00_RUNNER_CLASS` | Exact current runner-class literal bound by the control record: its `runnerClasses.local` value for fresh local commands or `runnerClasses.ci` value for every provider job |
@@ -262,9 +261,13 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     *) exit 1 ;;
   esac
   test -f "$P00_PG_ATTESTATION_PATH"
+  test ! -L "$P00_PG_ATTESTATION_PATH"
+  test "$(realpath "$P00_PG_ATTESTATION_PATH")" = "$P00_PG_ATTESTATION_PATH"
   test "$(shasum -a 256 "$P00_PG_ATTESTATION_PATH" | awk '{print $1}')" = "$P00_PG_ATTESTATION_SHA256"
   php -r '$a=json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); if (($a["schemaVersion"] ?? null) !== 2 || ($a["kind"] ?? null) !== $argv[2] || ($a["identity"] ?? null) !== $argv[3] || ($a["serverMajor"] ?? null) !== 16 || ($a["immutable"] ?? null) !== true || ($a["instanceNonceSha256"] ?? null) !== $argv[4] || array_keys($a) !== ["schemaVersion","kind","identity","serverMajor","immutable","instanceNonceSha256"]) { exit(1); }' "$P00_PG_ATTESTATION_PATH" "$P00_PG_IDENTITY_KIND" "$P00_PG_IDENTITY" "$P00_PG_INSTANCE_NONCE_SHA256"
   test -f "$P00_E2E_SERVICE_ATTESTATION_PATH"
+  test ! -L "$P00_E2E_SERVICE_ATTESTATION_PATH"
+  test "$(realpath "$P00_E2E_SERVICE_ATTESTATION_PATH")" = "$P00_E2E_SERVICE_ATTESTATION_PATH"
   test "$(shasum -a 256 "$P00_E2E_SERVICE_ATTESTATION_PATH" | awk '{print $1}')" = "$P00_E2E_SERVICE_ATTESTATION_SHA256"
   php -r '$a=json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); if (array_keys($a) !== ["schemaVersion","identity","serverMajor","immutable","instanceNonceSha256","lifecycleId","supervisorDatabase","supervisorRole","containsRealData","canIssueIsolatedCredentials","noncandidateAccessDenied"] || $a["schemaVersion"] !== 1 || $a["identity"] !== $argv[2] || $a["serverMajor"] !== 16 || $a["immutable"] !== true || $a["instanceNonceSha256"] !== $argv[3] || $a["lifecycleId"] !== $argv[4] || ! is_string($a["supervisorDatabase"]) || $a["supervisorDatabase"] === "" || ! is_string($a["supervisorRole"]) || $a["supervisorRole"] === "" || $a["containsRealData"] !== false || $a["canIssueIsolatedCredentials"] !== true || $a["noncandidateAccessDenied"] !== true) { exit(1); }' "$P00_E2E_SERVICE_ATTESTATION_PATH" "$P00_PG_IDENTITY" "$P00_PG_INSTANCE_NONCE_SHA256" "$P00_E2E_SERVICE_LIFECYCLE_ID"
   ```
@@ -1136,15 +1139,6 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           ];
       }
 
-      public function guardFields(): array
-      {
-          return [
-              'host' => $this->host, 'port' => $this->port,
-              'database' => $this->database, 'user' => $this->username,
-              'password' => $this->password, 'sslmode' => $this->sslmode,
-          ];
-      }
-
       public function assertSameAuthority(self $other): void
       {
           if ($this->host !== $other->host || $this->port !== $other->port
@@ -1162,9 +1156,13 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
                   throw new RuntimeException('PostgreSQL read/write or option override is prohibited.');
               }
           }
+          $actualHost = trim((string) ($actual['host'] ?? ''), '[]');
+          $actualPort = filter_var($actual['port'] ?? null, FILTER_VALIDATE_INT);
+          if ($actualHost !== $this->host || $actualPort !== $this->port) {
+              throw new RuntimeException('PostgreSQL Laravel transport mismatch.');
+          }
           $expected = [
-              'driver' => 'pgsql', 'host' => $this->host, 'port' => $this->port,
-              'database' => $this->database, 'username' => $this->username,
+              'driver' => 'pgsql', 'database' => $this->database, 'username' => $this->username,
               'sslmode' => $this->sslmode, 'charset' => 'utf8', 'prefix' => '',
               'prefix_indexes' => true, 'search_path' => 'public',
           ];
@@ -1370,6 +1368,11 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       public function database(): string
       {
           return $this->database;
+      }
+
+      public function role(): string
+      {
+          return $this->role;
       }
 
       public function lifecycleId(): string
@@ -1720,6 +1723,24 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           }
       }
 
+      public function terminateBackend(string $database, string $role, int $pid): void
+      {
+          if ($pid < 1) {
+              throw new RuntimeException('P00_BACKEND_TERMINATION_REFUSED');
+          }
+          $statement = $this->pdo->prepare(
+              'SELECT pg_terminate_backend(pid) AS terminated
+               FROM pg_stat_activity
+               WHERE pid = :pid AND datname = :database AND usename = :role
+                 AND pid <> pg_backend_pid()',
+          );
+          $statement->execute(['pid' => $pid, 'database' => $database, 'role' => $role]);
+          $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
+          if (count($rows) !== 1 || $rows[0]['terminated'] !== true) {
+              throw new RuntimeException('P00_BACKEND_TERMINATION_REFUSED');
+          }
+      }
+
       private static function connect(string $url): PDO
       {
           return PostgresConnectionProfile::fromUrl($url, false)->pdo();
@@ -1820,8 +1841,9 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
               return self::FAILURE;
           } catch (Throwable) {
               $database = $lease?->database() ?? 'none';
+              $role = $lease?->role() ?? 'none';
               $lifecycle = $lease?->lifecycleId() ?? (string) env('P00_E2E_SERVICE_LIFECYCLE_ID', 'unknown');
-              $this->error("E2E_SERVE REFUSED orphan_database={$database} lifecycle={$lifecycle}");
+              $this->error("E2E_SERVE REFUSED orphan_database={$database} orphan_role={$role} lifecycle={$lifecycle}");
               return self::FAILURE;
           }
       }
@@ -1913,6 +1935,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   use App\Support\E2eDatabaseLease;
   use App\Support\PdoE2eSupervisor;
   use App\Support\PostgresConnectionProfile;
+  use App\Support\PostgresQualificationGuard;
   use Database\Seeders\E2ESeeder;
   use PDO;
   use RuntimeException;
@@ -1929,7 +1952,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       {
           $path = (string) env('P00_E2E_SERVICE_ATTESTATION_PATH');
           $sha = (string) env('P00_E2E_SERVICE_ATTESTATION_SHA256');
-          if (! is_file($path) || ! hash_equals($sha, hash_file('sha256', $path))) {
+          if (! is_file($path) || is_link($path) || realpath($path) !== $path
+              || ! hash_equals($sha, hash_file('sha256', $path))) {
               throw new RuntimeException('P00_LIVE_HARNESS_ATTESTATION_REFUSED');
           }
           $attestation = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
@@ -1962,7 +1986,29 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
       public function pdo(E2eDatabaseLease $lease): PDO
       {
-          return $this->profile($lease)->pdo();
+          $pdo = $this->profile($lease)->pdo();
+          $facts = $lease->environment('provisioning-migrate');
+          E2eDatabaseLease::assertBootConnection(
+              $pdo,
+              $facts['P00_E2E_DATABASE'],
+              $facts['P00_E2E_ROLE'],
+              $facts['P00_PG_INSTANCE_NONCE_SHA256'],
+              $facts['P00_E2E_ACTIVATION_NONCE_SHA256'],
+              $facts['P00_E2E_FIXTURE_CONTRACT_SHA256'],
+              'provisioning-migrate',
+          );
+          return $pdo;
+      }
+
+      public function terminateBackend(E2eDatabaseLease $lease, int $pid): void
+      {
+          $this->supervisor->terminateBackend($lease->database(), $lease->role(), $pid);
+      }
+
+      public function activateQualification(E2eDatabaseLease $lease, string $nonceSha256): void
+      {
+          $pdo = $this->pdo($lease);
+          PostgresQualificationGuard::activateCandidate($pdo, $nonceSha256);
       }
 
       public function installCanary(E2eDatabaseLease $lease): string
@@ -2076,8 +2122,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           self::assertFalse($harness->activationExists($activationCanary));
 
           $sealed = $harness->candidate();
-          $replacement = $harness->candidate();
-          $replacementFingerprint = $harness->installCanary($replacement);
+          $sealedFingerprint = $harness->installCanary($sealed);
           $profile = $harness->profile($sealed);
           $connection = app(ConnectionFactory::class)->make($profile->laravelConfiguration(), 'e2e-live-guard');
           $profile->assertLaravelConfiguration($connection, 'e2e-live-guard');
@@ -2090,7 +2135,16 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
               $sealedFacts['P00_E2E_FIXTURE_CONTRACT_SHA256'], 'provisioning-migrate',
           );
           PostgresConnectionProfile::sealVerifiedPdo($connection, $pdo);
-          $this->expectMarker('P00_RECONNECT_REFUSED', static fn () => $connection->reconnect());
+          $backendPid = (int) $connection->scalar('SELECT pg_backend_pid()');
+          $harness->terminateBackend($sealed, $backendPid);
+          $this->expectMarker(
+              'P00_RECONNECT_REFUSED',
+              static fn () => $connection->statement('CREATE TABLE forbidden_lost_write (id integer)'),
+          );
+          self::assertSame($sealedFingerprint, $harness->canaryFingerprint($sealed));
+
+          $replacement = $harness->candidate();
+          $replacementFingerprint = $harness->installCanary($replacement);
           $connection->setPdo($harness->pdo($replacement));
           $this->expectMarker('P00_PDO_SUBSTITUTION_REFUSED', static fn () => $connection->statement('CREATE TABLE forbidden_write (id integer)'));
           self::assertSame($replacementFingerprint, $harness->canaryFingerprint($replacement));
@@ -2224,7 +2278,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   php artisan test
   ```
 
-  Expected: `2 passed`; the refusal command exits `1` before mutation. The comprehensive guard test covers wrong environment/driver/service/major/control-database/supervisor-role/nonce, create collision, live-service substitution between attestation and creation, seed failure, prior-server preservation, candidate DSN substitution at activation, concurrent candidate isolation, least privilege, unchanged noncandidate metadata, and an exact spy proving only `migrate` and `db:seed` run. It also runs the real Laravel children against the provisioner's registered substitution harness twice: substitute the candidate endpoint after acquisition/before `provisioning-migrate`, then again after migration/before `provisioning-seed`; in both cases the child's exact live `e2e` PDO boot guard exits before its mutation and a pre-written noncandidate canary fingerprint remains byte-identical. A valid PostgreSQL 16 candidate ending `_test` but exposing the wrong live nonce is refused by both child phases. The forbidden-operation scan returns exactly no-match status `1`, never regex-error status `2`. Full SQLite reports `446 passed`.
+  Expected: `2 passed`; the refusal command exits `1` before mutation. The comprehensive guard test covers wrong environment/driver/service/major/control-database/supervisor-role/nonce, create collision, live-service substitution between attestation and creation, seed failure, prior-server preservation, candidate DSN substitution at activation, concurrent candidate isolation, least privilege, unchanged noncandidate metadata, and an exact spy proving only `migrate` and `db:seed` run. It also runs real Laravel children through `PostgresSubstitutionHarness` twice: substitute the candidate endpoint after acquisition/before `provisioning-migrate`, then again after migration/before `provisioning-seed`; in both cases the child's exact live `e2e` PDO boot guard exits before its mutation and a pre-written noncandidate canary fingerprint remains byte-identical. A valid PostgreSQL 16 candidate ending `_test` but exposing the wrong live nonce is refused by both child phases. The forbidden-operation scan returns exactly no-match status `1`, never regex-error status `2`. Full SQLite reports `446 passed`.
 
   For the live browser run, Task 5 additionally proves the supervisor and candidate through the real PDO connection. The approved provisioner performs cleanup by exact `P00_E2E_SERVICE_LIFECYCLE_ID`; a failed cleanup records `orphan_database` and lifecycle ID without issuing SQL deletion. No P00 command contains a database/file destroy primitive.
 
@@ -3848,7 +3902,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   "pint:check": "pint --test",
   "analyse": "phpstan analyse --configuration=phpstan.neon.dist --no-progress --memory-limit=2G",
   "test:sqlite": "@php artisan test",
-  "test:postgres": "@php vendor/bin/phpunit --configuration=phpunit.pgsql.xml"
+  "test:postgres": "../scripts/quality/run-qualified-postgres full"
   ```
 
   If Composer resolves a Larastan release outside `3.10.*` or PHPStan outside `2.2.*`, stop before staging.
@@ -3920,13 +3974,15 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - Create: `backend/tests/Support/postgres-bootstrap.php`
 - Create: `backend/tests/Postgres/PostgresEnvironmentTest.php`
 - Create: `backend/tests/LivePostgres/PostgresQualificationLiveGuardTest.php`
+- Create: `backend/tests/LivePostgres/QualificationBootstrapProbeTest.php`
+- Create: `scripts/quality/run-qualified-postgres`
 - Modify: `backend/app/Support/PostgresConnectionProfile.php`
 - Modify: `backend/tests/Support/PostgresSubstitutionHarness.php`
 - Modify: `backend/app/Providers/AppServiceProvider.php`
 - Modify: `backend/app/Models/Product.php:96-107`
 - Modify: `backend/app/Models/Customer.php:47-58`
 
-**Interfaces:** The qualification lane consumes the exact secret `DB_URL` plus the approved immutable identity, attestation hash and live instance nonce. Task 4's `PostgresConnectionProfile` remains the sole URL, DSN and resolved-Laravel-configuration parser; Task 11 adds no second parser. Bootstrap verifies its preliminary PDO, then binds the closed parsed profile and nonsecret authority tuple in process memory exactly once. Every qualification Laravel application boot asserts that immutable bootstrap authority *before resolving a connection*, installs manager- and connection-level fail-closed reconnectors, validates Laravel's resolved fields (Laravel removes `url`), guards the exact default PDO, and seals that PDO before Feature setup, migration, `RefreshDatabase`, or any other mutation. No credential-bearing URL or derivative is persisted or logged. Real PostgreSQL substitution, replacement and reconnect canaries prove the refusal paths. The lane runs Unit, Feature and PostgreSQL suites; search remains case-insensitive on SQLite and PostgreSQL.
+**Interfaces:** Every successful qualification process is launched only through `scripts/quality/run-qualified-postgres`. The runner has fixed modes and no arbitrary-command escape; it refuses caller-supplied guarded state, obtains a cryptographically unique create-only `_test` database and least-privilege role from the already attested no-real-data supervisor, proves the complete user schema is empty, migrates it once without `migrate:fresh`, and creates a random candidate-bound activation nonce as the final setup mutation. The credential URL exists only in the closed child environment; the nonce exists only there and in the disposable candidate's activation row. A candidate is never reset, wiped, dropped, renamed, reused or printed; local execution and every CI attempt receive different candidates. Task 4's `PostgresConnectionProfile` remains the sole URL, DSN and resolved-Laravel-configuration parser; Task 11 adds no second parser. PHPUnit bootstrap verifies its preliminary PDO and exact activation row, then binds the closed parsed profile, activation nonce and nonsecret live fingerprint in process memory exactly once. Every qualification Laravel application boot asserts that immutable bootstrap authority *before resolving a connection*, installs manager- and connection-level fail-closed reconnectors, validates Laravel's resolved fields (Laravel removes `url`), verifies the activation row on the exact default PDO, and seals that PDO before Feature setup, `RefreshDatabase`, `DatabaseTruncation`, or any other mutation. No setup or mutation path may call `migrate:fresh`, `db:wipe`, disconnect or reconnect. Laravel's normal `RefreshDatabase` teardown may disconnect only after rollback while destroying that test application; the next application must independently verify and seal a new exact PDO before use. Neither the credential-bearing URL nor the activation nonce may enter logs, committed artifacts or evidence. Real PostgreSQL substitution, replacement and automatic lost-connection canaries prove the refusal paths. The lane runs Unit, Feature and PostgreSQL suites; search remains case-insensitive on SQLite and PostgreSQL.
 
 - [ ] **Create the guard test/config seam and prove it is absent.**
 
@@ -3948,6 +4004,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   use PDO;
   use RuntimeException;
+  use Throwable;
 
   final class PostgresQualificationGuard
   {
@@ -3964,7 +4021,10 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           $live = $pdo->query(
               "SELECT current_database() AS database, current_user AS role,
               current_setting('server_version_num')::int AS server_version_num,
-              current_setting('dorzak.instance_nonce_sha256') AS instance_nonce_sha256",
+              current_setting('dorzak.instance_nonce_sha256') AS instance_nonce_sha256,
+              inet_server_addr()::text AS server_address,
+              inet_server_port() AS server_port,
+              COALESCE((SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()), false) AS tls",
           )->fetch(PDO::FETCH_ASSOC);
           if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'pgsql' || ! is_array($live)
               || $live['database'] !== $profile->database || $live['role'] !== $profile->username
@@ -3976,20 +4036,46 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           return $live;
       }
 
+      public static function fingerprint(array $live): string
+      {
+          $facts = [
+              'database' => (string) ($live['database'] ?? ''),
+              'role' => (string) ($live['role'] ?? ''),
+              'serverVersionNum' => (int) ($live['server_version_num'] ?? 0),
+              'instanceNonceSha256' => (string) ($live['instance_nonce_sha256'] ?? ''),
+              'serverAddress' => (string) ($live['server_address'] ?? ''),
+              'serverPort' => (int) ($live['server_port'] ?? 0),
+              'tls' => (bool) ($live['tls'] ?? false),
+          ];
+          if ($facts['database'] === '' || $facts['role'] === ''
+              || ! preg_match('/^[0-9a-f]{64}$/', $facts['instanceNonceSha256'])
+              || $facts['serverAddress'] === '' || $facts['serverPort'] < 1) {
+              throw new RuntimeException('P00_PG_LIVE_FINGERPRINT_REFUSED');
+          }
+          return hash('sha256', json_encode($facts, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+      }
+
       public static function bindBootstrapAuthority(
           PostgresConnectionProfile $profile,
           string $identity,
           string $attestationSha256,
           string $nonceSha256,
+          string $qualificationNonceSha256,
+          array $live,
       ): void {
           if (self::$bootstrapProfile !== null
-              || ! preg_match('/^[A-Za-z0-9][A-Za-z0-9._:@\/-]{0,255}$/', $identity)
+              || ! preg_match('/^[A-Za-z0-9][A-Za-z0-9._:@#\/-]{0,255}$/', $identity)
               || ! preg_match('/^[0-9a-f]{64}$/', $attestationSha256)
-              || ! preg_match('/^[0-9a-f]{64}$/', $nonceSha256)) {
+              || ! preg_match('/^[0-9a-f]{64}$/', $nonceSha256)
+              || ! preg_match('/^[0-9a-f]{64}$/', $qualificationNonceSha256)) {
               throw new RuntimeException('P00_PG_BOOTSTRAP_BIND_REFUSED');
           }
           self::$bootstrapProfile = $profile;
-          self::$bootstrapAuthority = compact('identity', 'attestationSha256', 'nonceSha256');
+          $liveFingerprintSha256 = self::fingerprint($live);
+          self::$bootstrapAuthority = compact(
+              'identity', 'attestationSha256', 'nonceSha256',
+              'qualificationNonceSha256', 'liveFingerprintSha256',
+          );
       }
 
       public static function assertBootstrapAuthority(
@@ -3997,6 +4083,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           string $identity,
           string $attestationSha256,
           string $nonceSha256,
+          string $qualificationNonceSha256,
       ): PostgresConnectionProfile {
           if (self::$bootstrapProfile === null || self::$bootstrapAuthority === null) {
               throw new RuntimeException('P00_PG_BOOTSTRAP_AUTHORITY_REFUSED');
@@ -4005,10 +4092,94 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           $expected = self::$bootstrapAuthority;
           if (! hash_equals($expected['identity'], $identity)
               || ! hash_equals($expected['attestationSha256'], $attestationSha256)
-              || ! hash_equals($expected['nonceSha256'], $nonceSha256)) {
+              || ! hash_equals($expected['nonceSha256'], $nonceSha256)
+              || ! hash_equals($expected['qualificationNonceSha256'], $qualificationNonceSha256)) {
               throw new RuntimeException('P00_PG_BOOTSTRAP_AUTHORITY_REFUSED');
           }
           return self::$bootstrapProfile;
+      }
+
+      public static function assertBootstrapLive(array $live): void
+      {
+          $expected = self::$bootstrapAuthority['liveFingerprintSha256'] ?? null;
+          $actual = self::fingerprint($live);
+          if (! is_string($expected) || ! hash_equals($expected, $actual)) {
+              throw new RuntimeException('P00_PG_BOOTSTRAP_LIVE_REFUSED');
+          }
+      }
+
+      public static function assertEmptySchema(PDO $pdo): void
+      {
+          $count = (int) $pdo->query(
+              "WITH user_objects AS (
+                  SELECT c.oid FROM pg_class c
+                  JOIN pg_namespace n ON n.oid = c.relnamespace
+                  WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+                    AND n.nspname !~ '^pg_toast'
+                    AND c.relkind IN ('r', 'p', 'v', 'm', 'S', 'f')
+                  UNION ALL
+                  SELECT t.oid FROM pg_type t
+                  JOIN pg_namespace n ON n.oid = t.typnamespace
+                  WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+                    AND n.nspname !~ '^pg_toast'
+                    AND t.typtype IN ('c', 'd', 'e', 'r', 'm')
+                  UNION ALL
+                  SELECT p.oid FROM pg_proc p
+                  JOIN pg_namespace n ON n.oid = p.pronamespace
+                  WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+                    AND n.nspname !~ '^pg_toast'
+                  UNION ALL
+                  SELECT n.oid FROM pg_namespace n
+                  WHERE n.nspname NOT IN ('public', 'pg_catalog', 'information_schema')
+                    AND n.nspname !~ '^pg_toast'
+              ) SELECT count(*) FROM user_objects",
+          )->fetchColumn();
+          if ($count !== 0) {
+              throw new RuntimeException('P00_PG_NONEMPTY_CANDIDATE_REFUSED');
+          }
+      }
+
+      public static function activateCandidate(PDO $pdo, string $qualificationNonceSha256): void
+      {
+          if (! preg_match('/^[0-9a-f]{64}$/', $qualificationNonceSha256)) {
+              throw new RuntimeException('P00_PG_QUALIFICATION_ACTIVATION_REFUSED');
+          }
+          try {
+              $pdo->beginTransaction();
+              $pdo->exec(
+                  'CREATE TABLE p00_qualification_activation (
+                      singleton boolean PRIMARY KEY CHECK (singleton),
+                      qualification_nonce_sha256 char(64) NOT NULL
+                  )',
+              );
+              $statement = $pdo->prepare(
+                  'INSERT INTO p00_qualification_activation
+                   (singleton, qualification_nonce_sha256) VALUES (true, :nonce)',
+              );
+              $statement->execute(['nonce' => $qualificationNonceSha256]);
+              $pdo->commit();
+          } catch (Throwable $error) {
+              if ($pdo->inTransaction()) {
+                  $pdo->rollBack();
+              }
+              throw new RuntimeException('P00_PG_QUALIFICATION_ACTIVATION_REFUSED', 0, $error);
+          }
+      }
+
+      public static function assertActivated(PDO $pdo, string $qualificationNonceSha256): void
+      {
+          try {
+              $rows = $pdo->query(
+                  'SELECT qualification_nonce_sha256
+                   FROM p00_qualification_activation WHERE singleton = true',
+              )->fetchAll(PDO::FETCH_COLUMN);
+          } catch (Throwable $error) {
+              throw new RuntimeException('P00_PG_QUALIFICATION_ACTIVATION_REFUSED', 0, $error);
+          }
+          if (count($rows) !== 1 || ! preg_match('/^[0-9a-f]{64}$/', $qualificationNonceSha256)
+              || ! hash_equals($qualificationNonceSha256, (string) $rows[0])) {
+              throw new RuntimeException('P00_PG_QUALIFICATION_ACTIVATION_REFUSED');
+          }
       }
   }
   ```
@@ -4038,28 +4209,93 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   $attestationSha256 = getenv('P00_PG_ATTESTATION_SHA256') ?: '';
   $identity = getenv('P00_PG_IDENTITY') ?: '';
   $nonceSha256 = getenv('P00_PG_INSTANCE_NONCE_SHA256') ?: '';
-  if (! is_file($attestationPath)
+  $qualificationNonceSha256 = getenv('P00_PG_QUALIFICATION_NONCE_SHA256') ?: '';
+  if (getenv('P00_PG_QUALIFIED_CANDIDATE') !== '1') {
+      $fail('qualification runner marker is absent');
+  }
+  if (! is_file($attestationPath) || is_link($attestationPath) || realpath($attestationPath) !== $attestationPath
       || ! preg_match('/^[0-9a-f]{64}$/', $attestationSha256)
       || ! hash_equals($attestationSha256, hash_file('sha256', $attestationPath))) {
       $fail('approved PostgreSQL attestation is absent or changed');
   }
-  $attestation = json_decode((string) file_get_contents($attestationPath), true, 512, JSON_THROW_ON_ERROR);
-  if (array_keys($attestation) !== ['schemaVersion', 'kind', 'identity', 'serverMajor', 'immutable', 'instanceNonceSha256']
-      || $attestation['schemaVersion'] !== 2
-      || $attestation['identity'] !== $identity
-      || $attestation['serverMajor'] !== 16
-      || $attestation['immutable'] !== true
-      || $attestation['instanceNonceSha256'] !== $nonceSha256) {
-      $fail('approved PostgreSQL identity is invalid');
-  }
-
   try {
+      $attestation = json_decode((string) file_get_contents($attestationPath), true, 512, JSON_THROW_ON_ERROR);
+      if (array_keys($attestation) !== ['schemaVersion', 'kind', 'identity', 'serverMajor', 'immutable', 'instanceNonceSha256']
+          || $attestation['schemaVersion'] !== 2
+          || $attestation['identity'] !== $identity
+          || $attestation['serverMajor'] !== 16
+          || $attestation['immutable'] !== true
+          || $attestation['instanceNonceSha256'] !== $nonceSha256) {
+          throw new RuntimeException('approved PostgreSQL identity is invalid');
+      }
       $profile = App\Support\PostgresConnectionProfile::fromUrl($url);
       $pdo = $profile->pdo();
       $live = PostgresQualificationGuard::assertPdo($pdo, $profile, $nonceSha256);
+      PostgresQualificationGuard::assertActivated($pdo, $qualificationNonceSha256);
       PostgresQualificationGuard::bindBootstrapAuthority(
           $profile, $identity, $attestationSha256, $nonceSha256,
+          $qualificationNonceSha256, $live,
       );
+      $substitutePath = getenv('P00_PG_TEST_SUBSTITUTE_URL_PATH') ?: '';
+      if ($substitutePath !== '') {
+          $handle = null;
+          $opened = null;
+          try {
+              if ((getenv('APP_ENV') ?: '') !== 'testing' || ! function_exists('posix_geteuid')) {
+                  throw new RuntimeException('P00_PG_TEST_BARRIER_REFUSED');
+              }
+              $handle = @fopen($substitutePath, 'rb');
+              $opened = is_resource($handle) ? fstat($handle) : false;
+              $named = @lstat($substitutePath);
+              if (! is_resource($handle) || ! is_array($opened) || ! is_array($named)
+                  || ($opened['mode'] & 0170000) !== 0100000
+                  || ($opened['mode'] & 0777) !== 0600
+                  || $opened['uid'] !== posix_geteuid()
+                  || $opened['dev'] !== $named['dev'] || $opened['ino'] !== $named['ino']
+                  || ! flock($handle, LOCK_EX)) {
+                  throw new RuntimeException('P00_PG_TEST_BARRIER_REFUSED');
+              }
+              fwrite(STDOUT, "P00_PG_BOOTSTRAP_BARRIER READY\n");
+              fflush(STDOUT);
+              if (trim((string) fgets(STDIN)) !== 'GO') {
+                  throw new RuntimeException('P00_PG_TEST_BARRIER_REFUSED');
+              }
+              $namedAfter = @lstat($substitutePath);
+              $openedAfter = fstat($handle);
+              if (! is_array($namedAfter) || ! is_array($openedAfter)
+                  || $openedAfter['dev'] !== $opened['dev'] || $openedAfter['ino'] !== $opened['ino']
+                  || $namedAfter['dev'] !== $opened['dev'] || $namedAfter['ino'] !== $opened['ino']
+                  || ($namedAfter['mode'] & 0777) !== 0600
+                  || rewind($handle) !== true) {
+                  throw new RuntimeException('P00_PG_TEST_BARRIER_REFUSED');
+              }
+              $contents = stream_get_contents($handle);
+              if (! is_string($contents) || ! @unlink($substitutePath)) {
+                  throw new RuntimeException('P00_PG_TEST_BARRIER_REFUSED');
+              }
+              $substituteUrl = trim($contents);
+          } finally {
+              if (is_resource($handle)) {
+                  flock($handle, LOCK_UN);
+                  fclose($handle);
+              }
+              $remaining = @lstat($substitutePath);
+              if (is_array($remaining) && is_array($opened)
+                  && $remaining['dev'] === $opened['dev'] && $remaining['ino'] === $opened['ino']) {
+                  @unlink($substitutePath);
+              }
+          }
+          App\Support\PostgresConnectionProfile::fromUrl($substituteUrl);
+          if (! putenv('DB_URL='.$substituteUrl)) {
+              throw new RuntimeException('P00_PG_TEST_BARRIER_REFUSED');
+          }
+          $_ENV['DB_URL'] = $substituteUrl;
+          $_SERVER['DB_URL'] = $substituteUrl;
+      }
+      if (getenv('P00_PG_SCHEMA_READY') !== '1') {
+          throw new RuntimeException('P00_PG_SCHEMA_READY_REFUSED');
+      }
+      Illuminate\Foundation\Testing\RefreshDatabaseState::$migrated = true;
   } catch (Throwable $error) {
       $fail($error->getMessage());
   }
@@ -4134,12 +4370,18 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
               (string) getenv('P00_PG_IDENTITY'),
               (string) getenv('P00_PG_ATTESTATION_SHA256'),
               (string) getenv('P00_PG_INSTANCE_NONCE_SHA256'),
+              (string) getenv('P00_PG_QUALIFICATION_NONCE_SHA256'),
           );
           $identity = PostgresQualificationGuard::assertPdo(
               DB::connection()->getPdo(),
               $profile,
               (string) getenv('P00_PG_INSTANCE_NONCE_SHA256'),
           );
+          PostgresQualificationGuard::assertActivated(
+              DB::connection()->getPdo(),
+              (string) getenv('P00_PG_QUALIFICATION_NONCE_SHA256'),
+          );
+          PostgresQualificationGuard::assertBootstrapLive($identity);
           $version = (int) $identity['server_version_num'];
           self::assertGreaterThanOrEqual(160000, $version);
           self::assertLessThan(170000, $version);
@@ -4152,60 +4394,213 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   ```diff
   +use App\Support\PostgresQualificationGuard;
   @@
-  +        if ((string) env('P00_PG_QUALIFICATION_PHASE') === 'qualification') {
-  +            $profile = PostgresQualificationGuard::assertBootstrapAuthority(
-  +                (string) env('DB_URL'),
-  +                (string) env('P00_PG_IDENTITY'),
-  +                (string) env('P00_PG_ATTESTATION_SHA256'),
-  +                (string) env('P00_PG_INSTANCE_NONCE_SHA256'),
-  +            );
+  +        $qualificationPhase = (string) env('P00_PG_QUALIFICATION_PHASE');
+  +        if (in_array($qualificationPhase, ['qualification-provisioning', 'qualification'], true)) {
+  +            $profile = $qualificationPhase === 'qualification'
+  +                ? PostgresQualificationGuard::assertBootstrapAuthority(
+  +                    (string) env('DB_URL'),
+  +                    (string) env('P00_PG_IDENTITY'),
+  +                    (string) env('P00_PG_ATTESTATION_SHA256'),
+  +                    (string) env('P00_PG_INSTANCE_NONCE_SHA256'),
+  +                    (string) env('P00_PG_QUALIFICATION_NONCE_SHA256'),
+  +                )
+  +                : PostgresConnectionProfile::fromUrl((string) env('DB_URL'));
   +            DB::setReconnector(
   +                static fn (Connection $connection): never => throw new RuntimeException('P00_RECONNECT_REFUSED'),
   +            );
   +            $connection = DB::connection();
   +            $profile->assertLaravelConfiguration($connection, 'pgsql');
   +            $pdo = $connection->getPdo();
-  +            PostgresQualificationGuard::assertPdo(
+  +            $live = PostgresQualificationGuard::assertPdo(
   +                $pdo,
   +                $profile,
   +                (string) env('P00_PG_INSTANCE_NONCE_SHA256'),
   +            );
+  +            if ($qualificationPhase === 'qualification') {
+  +                PostgresQualificationGuard::assertActivated(
+  +                    $pdo,
+  +                    (string) env('P00_PG_QUALIFICATION_NONCE_SHA256'),
+  +                );
+  +                PostgresQualificationGuard::assertBootstrapLive($live);
+  +            } else {
+  +                PostgresQualificationGuard::assertEmptySchema($pdo);
+  +            }
   +            PostgresConnectionProfile::sealVerifiedPdo($connection, $pdo);
-  +        } elseif (env('P00_PG_QUALIFICATION_PHASE') !== null) {
+  +        } elseif ($qualificationPhase !== '') {
   +            throw new RuntimeException('Unrecognized PostgreSQL qualification phase.');
   +        }
   ```
 
-  Before using the service, rerun Task 0's immutable-attestation checks. Provision the service outside the repository from the exact `P00_PG_IDENTITY`, export its `DB_URL` without logging it, and record only the sanitized attestation hash, identity, `SELECT current_database()`, and `current_setting('server_version_num')`. A mutable tag, service alias, or `external-postgresql-16` sentinel is rejected.
+  Before using the service, rerun Task 0's immutable-attestation checks. Provision the service outside the repository from the exact `P00_PG_IDENTITY`. A mutable tag, service alias, or `external-postgresql-16` sentinel is rejected. Qualification receives no stable database URL: only the attested supervisor may issue a fresh candidate.
+
+- [ ] **Create the sole qualification process runner.**
+
+  From the repository root, create `scripts/quality/` if absent. `scripts/quality/run-qualified-postgres` accepts only the closed modes `environment`, `search`, `concurrency`, `full`, `quality-job`, and the test-only `wrong-live-nonce <nonce> <absolute-attestation-path> <hash>`. It provisions one unique candidate, retains its credential URL only in the shell environment, migrates and activates it through guarded phases, then executes the mode's fixed command through qualification:
+
+  ```bash
+  #!/usr/bin/env bash
+  set -euo pipefail
+  set +x
+  if [[ -n "${DB_URL:-}" || -n "${P00_PG_SCHEMA_READY:-}" \
+    || -n "${P00_PG_QUALIFIED_CANDIDATE:-}" || -n "${P00_PG_QUALIFICATION_NONCE_SHA256:-}" \
+    || -n "${P00_PG_TEST_SUBSTITUTE_URL_PATH:-}" ]]; then
+    printf '%s\n' 'P00_QUALIFICATION_REFUSED caller supplied guarded state' >&2
+    exit 65
+  fi
+  ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+  mode="${1:-}"
+  if [[ "$#" -gt 0 ]]; then shift; fi
+  case "$mode" in
+    environment)
+      [[ "$#" -eq 0 ]] || exit 64
+      command=(vendor/bin/phpunit --configuration=phpunit.pgsql.xml --testsuite PostgreSQL)
+      ;;
+    search)
+      [[ "$#" -eq 0 ]] || exit 64
+      command=(vendor/bin/phpunit --configuration=phpunit.pgsql.xml
+        tests/Feature/Catalog/ProductApiTest.php tests/Feature/Customer/CustomerApiTest.php
+        --filter=/test_\(search_matches_name_and_sku\|search_matches_name_email_phone\)/)
+      ;;
+    concurrency)
+      [[ "$#" -eq 0 ]] || exit 64
+      command=(vendor/bin/phpunit --configuration=phpunit.pgsql.xml
+        tests/Postgres/OrderAndStockConcurrencyTest.php)
+      ;;
+    full)
+      [[ "$#" -eq 0 ]] || exit 64
+      command=(vendor/bin/phpunit --configuration=phpunit.pgsql.xml)
+      ;;
+    quality-job)
+      [[ "$#" -eq 0 ]] || exit 64
+      command=("$ROOT/scripts/quality/run-postgres-16")
+      ;;
+    wrong-live-nonce)
+      [[ "$#" -eq 3 ]] || exit 64
+      wrong_nonce="$1"
+      wrong_attestation="$2"
+      wrong_attestation_sha256="$3"
+      [[ "$wrong_nonce" =~ ^[0-9a-f]{64}$ ]]
+      [[ "$wrong_attestation_sha256" =~ ^[0-9a-f]{64}$ ]]
+      [[ -f "$wrong_attestation" && ! -L "$wrong_attestation" ]]
+      [[ "$(realpath "$wrong_attestation")" == "$wrong_attestation" ]]
+      [[ "$(shasum -a 256 "$wrong_attestation" | awk '{print $1}')" == "$wrong_attestation_sha256" ]]
+      command=(vendor/bin/phpunit --configuration=phpunit.pgsql.xml --testsuite Feature)
+      ;;
+    *)
+      printf 'Unknown P00 PostgreSQL qualification mode: %s\n' "$mode" >&2
+      exit 64
+      ;;
+  esac
+  candidate_database=none
+  candidate_role=none
+  candidate_lifecycle=unknown
+  on_exit() {
+    status="$?"
+    trap - EXIT
+    if [[ "$status" -ne 0 && "$candidate_database" != none ]]; then
+      printf 'P00_QUALIFICATION_RETAINED database=%s role=%s lifecycle=%s\n' \
+        "$candidate_database" "$candidate_role" "$candidate_lifecycle" >&2
+    fi
+    exit "$status"
+  }
+  trap on_exit EXIT
+  provisioning_status=ERROR
+  set +e
+  IFS='|' read -r provisioning_status DB_URL candidate_database candidate_role candidate_lifecycle < <(
+    P00_ROOT="$ROOT" php -r '
+      require getenv("P00_ROOT")."/backend/vendor/autoload.php";
+      try {
+        $lease = Tests\Support\PostgresSubstitutionHarness::fromEnvironment()->candidate();
+        $url = $lease->environment("provisioning-migrate")["P00_E2E_DB_URL"];
+        echo "OK|", $url, "|", $lease->database(), "|", $lease->role(), "|", $lease->lifecycleId(), "\n";
+      } catch (App\Support\E2eProvisioningException $error) {
+        echo "ORPHAN||", $error->database, "|", $error->role, "|", $error->lifecycleId, "\n";
+      }
+    '
+  )
+  read_status="$?"
+  set -e
+  if [[ "$provisioning_status" == ORPHAN ]]; then
+    exit 66
+  fi
+  if [[ "$read_status" -ne 0 || "$provisioning_status" != OK || -z "$DB_URL" \
+    || "$candidate_database" == none || "$candidate_role" == none ]]; then
+    printf '%s\n' 'P00_QUALIFICATION_REFUSED candidate provisioning failed' >&2
+    exit 66
+  fi
+  export DB_URL
+  P00_PG_QUALIFICATION_NONCE_SHA256="$(php -r 'echo hash("sha256", random_bytes(32));')"
+  [[ "$P00_PG_QUALIFICATION_NONCE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+  export P00_PG_QUALIFICATION_NONCE_SHA256
+  (
+    cd "$ROOT/backend"
+    DB_CONNECTION=pgsql P00_PG_QUALIFICATION_PHASE=qualification-provisioning \
+      php artisan migrate --force --no-interaction
+  )
+  P00_ROOT="$ROOT" php -r '
+    require getenv("P00_ROOT")."/backend/vendor/autoload.php";
+    $profile = App\Support\PostgresConnectionProfile::fromUrl(getenv("DB_URL") ?: "");
+    $pdo = $profile->pdo();
+    App\Support\PostgresQualificationGuard::assertPdo(
+      $pdo, $profile, getenv("P00_PG_INSTANCE_NONCE_SHA256") ?: "",
+    );
+    App\Support\PostgresQualificationGuard::activateCandidate(
+      $pdo, getenv("P00_PG_QUALIFICATION_NONCE_SHA256") ?: "",
+    );
+  '
+  export P00_PG_SCHEMA_READY=1
+  export P00_PG_QUALIFIED_CANDIDATE=1
+  export DB_CONNECTION=pgsql
+  export P00_PG_QUALIFICATION_PHASE=qualification
+  if [[ "$mode" == wrong-live-nonce ]]; then
+    export P00_PG_INSTANCE_NONCE_SHA256="$wrong_nonce"
+    export P00_PG_ATTESTATION_PATH="$wrong_attestation"
+    export P00_PG_ATTESTATION_SHA256="$wrong_attestation_sha256"
+  fi
+  cd "$ROOT/backend"
+  "${command[@]}"
+  ```
+
+  Make it executable. There is no arbitrary-command mode, so a caller cannot use the runner to print `DB_URL` or boot outside qualification. The structured provisioning channel is captured directly into shell variables and never echoed or persisted. A typed post-create failure returns only `ORPHAN`, database, role and lifecycle; the EXIT trap records that nonsecret identity. The runner refuses inherited candidate state, so nesting or reuse fails closed. `qualification-provisioning` validates the exact PDO and complete empty user schema, seals it, and runs ordinary forward migrations on that same connection. A separately verified exact PDO then creates the single candidate-bound activation row as the final setup mutation. Bootstrap requires the runner marker, 64-hex activation nonce and exact row before binding authority. No path calls `migrate:fresh` or `db:wipe`; cleanup may address only the attested service lifecycle.
 
 - [ ] **Create executable qualification substitution, PDO-replacement and reconnect proofs.**
 
-  Extend `PostgresSubstitutionHarness` with this closed test-only setter; it never prints or returns the previous value:
+  The test-only bootstrap hook above runs only when `P00_PG_TEST_SUBSTITUTE_URL_PATH` is explicitly present. It binds and verifies the preliminary PDO first, emits a nonsecret READY barrier, waits on stdin, consumes and deletes the mode-0600 substitute URL file, then changes `DB_URL` before PHPUnit constructs its first application. The production branch never sets this variable.
 
-  ```php
-      public function setEnvironment(string $name, string $value): void
-      {
-          if ($name !== 'DB_URL' || $value === '' || str_contains($value, "\n")) {
-              throw new RuntimeException('P00_TEST_ENVIRONMENT_REFUSED');
-          }
-          if (! putenv($name.'='.$value)) {
-              throw new RuntimeException('P00_TEST_ENVIRONMENT_REFUSED');
-          }
-          $_ENV[$name] = $value;
-          $_SERVER[$name] = $value;
-      }
-  ```
-
-  `backend/tests/LivePostgres/PostgresQualificationLiveGuardTest.php` remains outside all default suites and is invoked explicitly:
+  `backend/tests/LivePostgres/QualificationBootstrapProbeTest.php` is the mutation probe. Reaching its body is failure:
 
   ```php
   <?php
 
   namespace Tests\LivePostgres;
 
-  use Illuminate\Contracts\Console\Kernel;
-  use Illuminate\Support\Facades\DB;
+  use Illuminate\Foundation\Testing\RefreshDatabase;
+  use Tests\TestCase;
+
+  final class QualificationBootstrapProbeTest extends TestCase
+  {
+      use RefreshDatabase;
+
+      public function test_first_feature_application_must_never_reach_mutation(): void
+      {
+          self::fail('Qualification application boot accepted the substituted endpoint.');
+      }
+  }
+  ```
+
+  `backend/tests/LivePostgres/PostgresQualificationLiveGuardTest.php` runs under the default non-PostgreSQL PHPUnit bootstrap and orchestrates the real guarded qualification child, so substitution occurs after that child's preliminary bootstrap and before its first Feature application:
+
+  ```php
+  <?php
+
+  namespace Tests\LivePostgres;
+
+  use App\Support\PostgresConnectionProfile;
+  use App\Support\PostgresQualificationGuard;
+  use Illuminate\Database\Connectors\ConnectionFactory;
   use RuntimeException;
+  use Symfony\Component\Process\InputStream;
+  use Symfony\Component\Process\Process;
   use Tests\Support\PostgresSubstitutionHarness;
   use Tests\TestCase;
 
@@ -4214,31 +4609,86 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       public function test_bootstrap_authority_reconnect_and_pdo_replacement_fail_closed(): void
       {
           $harness = PostgresSubstitutionHarness::fromEnvironment();
+          $expected = $harness->candidate();
+          $qualificationNonceSha256 = hash('sha256', random_bytes(32));
+          $harness->activateQualification($expected, $qualificationNonceSha256);
           $decoy = $harness->candidate();
           $canary = $harness->installCanary($decoy);
           $decoyUrl = $decoy->environment('provisioning-migrate')['P00_E2E_DB_URL'];
-          $originalUrl = (string) getenv('DB_URL');
+          $substitutePath = tempnam(sys_get_temp_dir(), 'p00-pg-substitute-');
+          self::assertIsString($substitutePath);
+          try {
+              self::assertTrue(chmod($substitutePath, 0600));
+              self::assertSame(strlen($decoyUrl), file_put_contents($substitutePath, $decoyUrl, LOCK_EX));
+              $input = new InputStream;
+              $barrierOutput = '';
+              $expectedUrl = $expected->environment('provisioning-migrate')['P00_E2E_DB_URL'];
+              $process = new Process(
+                  [
+                      PHP_BINARY, 'vendor/bin/phpunit', '-c', 'phpunit.pgsql.xml',
+                      'tests/LivePostgres/QualificationBootstrapProbeTest.php',
+                  ],
+                  base_path(),
+                  array_merge($_SERVER, $_ENV, [
+                      'DB_URL' => $expectedUrl,
+                      'P00_PG_SCHEMA_READY' => '1',
+                      'P00_PG_QUALIFIED_CANDIDATE' => '1',
+                      'P00_PG_QUALIFICATION_NONCE_SHA256' => $qualificationNonceSha256,
+                      'P00_PG_TEST_SUBSTITUTE_URL_PATH' => $substitutePath,
+                  ]),
+              );
+              $process->setInput($input);
+              $process->setTimeout(60);
+              $process->start();
+              self::assertTrue($process->waitUntil(
+                  static function (string $type, string $buffer) use (&$barrierOutput): bool {
+                      if ($type === Process::OUT) {
+                          $barrierOutput .= $buffer;
+                      }
+                      return str_contains($barrierOutput, "P00_PG_BOOTSTRAP_BARRIER READY\n");
+                  },
+              ));
+              $input->write("GO\n");
+              $input->close();
+              $process->wait();
+              self::assertFalse($process->isSuccessful());
+              self::assertStringContainsString(
+                  'P00_PG_BOOTSTRAP_AUTHORITY_REFUSED',
+                  $process->getOutput().$process->getErrorOutput(),
+              );
+          } finally {
+              if (file_exists($substitutePath) || is_link($substitutePath)) {
+                  self::assertTrue(unlink($substitutePath));
+              }
+          }
+          self::assertSame($canary, $harness->canaryFingerprint($decoy));
+          self::assertFalse($harness->activationExists($expected));
 
-          $connection = DB::connection();
-          $this->expectMarker('P00_RECONNECT_REFUSED', static fn () => $connection->reconnect());
+          $lost = $harness->candidate();
+          $lostFingerprint = $harness->installCanary($lost);
+          $profile = $harness->profile($lost);
+          $connection = app(ConnectionFactory::class)->make(
+              $profile->laravelConfiguration(), 'qualification-live-guard',
+          );
+          $profile->assertLaravelConfiguration($connection, 'qualification-live-guard');
+          $pdo = $connection->getPdo();
+          PostgresQualificationGuard::assertPdo(
+              $pdo, $profile, (string) env('P00_PG_INSTANCE_NONCE_SHA256'),
+          );
+          PostgresConnectionProfile::sealVerifiedPdo($connection, $pdo);
+          $backendPid = (int) $connection->scalar('SELECT pg_backend_pid()');
+          $harness->terminateBackend($lost, $backendPid);
+          $this->expectMarker(
+              'P00_RECONNECT_REFUSED',
+              static fn () => $connection->statement('CREATE TABLE forbidden_qualification_lost_write (id integer)'),
+          );
+          self::assertSame($lostFingerprint, $harness->canaryFingerprint($lost));
+
           $connection->setPdo($harness->pdo($decoy));
           $this->expectMarker(
               'P00_PDO_SUBSTITUTION_REFUSED',
-              static fn () => $connection->statement('CREATE TABLE forbidden_qualification_write (id integer)'),
+              static fn () => $connection->statement('CREATE TABLE forbidden_qualification_replacement (id integer)'),
           );
-
-          try {
-              $harness->setEnvironment('DB_URL', $decoyUrl);
-              try {
-                  $fresh = require base_path('bootstrap/app.php');
-                  $fresh->make(Kernel::class)->bootstrap();
-                  self::fail('Qualification endpoint substitution was accepted.');
-              } catch (RuntimeException $error) {
-                  self::assertSame('P00_PG_BOOTSTRAP_AUTHORITY_REFUSED', $error->getMessage());
-              }
-          } finally {
-              $harness->setEnvironment('DB_URL', $originalUrl);
-          }
           self::assertSame($canary, $harness->canaryFingerprint($decoy));
       }
 
@@ -4254,41 +4704,82 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   }
   ```
 
-  The executable test uses two independently provisioned candidates and direct URL substitution—never DNS, proxy, shared-host mutation or mocks. The decoy canary fingerprint must be identical before and after every refusal. The existing valid-PG16 wrong-live-nonce invocation remains mandatory, so success cannot be inferred from URL binding alone.
+  The executable test uses independent create-only candidates and the bootstrap stdin barrier—never DNS, proxy, shared-host mutation or mocks. It proves the exact post-bootstrap/pre-first-Feature interval, kills a real guarded backend before a mutating query to exercise Laravel's automatic lost-connection path, and replaces a sealed raw PDO. Every canary must be byte-identical after refusal. The valid-PG16 wrong-live-nonce invocation remains mandatory, so success cannot be inferred from URL binding alone.
 
 - [ ] **Verify the safety failures and commit the lane separately.**
 
   ```bash
   cd backend
-  DB_URL=sqlite://unsafe vendor/bin/phpunit -c phpunit.pgsql.xml --testsuite PostgreSQL; test "$?" = 2
-  DB_URL=postgresql://dorzak_p00:dorzak_p00@127.0.0.1:55432/dorzak_p00 vendor/bin/phpunit -c phpunit.pgsql.xml --testsuite PostgreSQL; test "$?" = 2
+  chmod +x ../scripts/quality/run-qualified-postgres
+  set +e
+  arbitrary_output="$(../scripts/quality/run-qualified-postgres printenv 2>&1)"
+  arbitrary_status="$?"
+  DB_URL=sqlite://unsafe vendor/bin/phpunit -c phpunit.pgsql.xml --testsuite PostgreSQL
+  unsafe_driver_status="$?"
+  DB_URL=postgresql://dorzak_p00:dorzak_p00@127.0.0.1:55432/dorzak_p00 vendor/bin/phpunit -c phpunit.pgsql.xml --testsuite PostgreSQL
+  unsafe_database_status="$?"
+  set -e
+  test "$arbitrary_status" = 64
+  test "$arbitrary_output" = 'Unknown P00 PostgreSQL qualification mode: printenv'
+  test "$unsafe_driver_status" = 2
+  test "$unsafe_database_status" = 2
   php -r 'require "vendor/autoload.php"; foreach ([
-    "postgresql://u:p@127.0.0.1/db_test?unknown=x",
-    "postgresql://u:p@127.0.0.1/db_test?sslmode=require&sslmode=prefer",
-    "postgresql://u:p@127.0.0.1/db_test?sslmode=unsupported",
-    "postgresql://u:p@127.0.0.1/db_test#fragment",
-    "postgresql://u:p@127.0.0.1/db%ZZ_test",
-    "postgresql://u:p%3Bsslmode=require@127.0.0.1/db_test",
-    "postgresql://u:p@bad host/db_test",
+    "sqlite://unsafe",
+    "postgresql://user:pass@127.0.0.1/db_live",
+    "postgresql://user:pass@127.0.0.1/db_test?unknown=x",
+    "postgresql://user:pass@127.0.0.1/db_test?sslmode=require&sslmode=prefer",
+    "postgresql://user:pass@127.0.0.1/db_test?sslmode=unsupported",
+    "postgresql://user:pass@127.0.0.1/db_test#fragment",
+    "postgresql://user:pass@127.0.0.1/db%ZZ_test",
+    "postgresql://user:pass%3Bsslmode=require@127.0.0.1/db_test",
+    "postgresql://user:pass@bad host/db_test",
   ] as $url) { try { App\Support\PostgresConnectionProfile::fromUrl($url); exit(1); } catch (RuntimeException) {} }'
+  php <<'PHP'
+  <?php
+  require 'vendor/autoload.php';
+  use App\Support\PostgresConnectionProfile;
+  use Illuminate\Database\ConfigurationUrlParser;
+  use Illuminate\Database\PostgresConnection;
+  $cases = [
+      ['postgresql://user:pass@localhost/db_test?sslmode=disable', 'disable'],
+      ['postgresql://user:pass@127.0.0.1:55432/db_test?sslmode=allow', 'allow'],
+      ['postgresql://user:pass@[2001:db8::1]/db_test?sslmode=prefer', 'prefer'],
+      ['postgresql://user:pass@localhost/db_test?sslmode=require', 'require'],
+      ['postgresql://user:pass@localhost/db_test?sslmode=verify-ca', 'verify-ca'],
+      ['postgresql://user:pass@localhost/db_test?sslmode=verify-full', 'verify-full'],
+  ];
+  foreach ($cases as [$url, $sslmode]) {
+      $profile = PostgresConnectionProfile::fromUrl($url);
+      if ($profile->sslmode !== $sslmode) exit(1);
+      $resolved = (new ConfigurationUrlParser)->parseConfiguration([
+          'url' => $url, 'driver' => 'pgsql', 'host' => 'ignored.test', 'port' => 5432,
+          'database' => 'ignored_test', 'username' => 'ignored', 'password' => 'ignored',
+          'charset' => 'utf8', 'prefix' => '', 'prefix_indexes' => true,
+          'search_path' => 'public', 'name' => 'pgsql',
+      ]);
+      $connection = new PostgresConnection(
+          static fn () => throw new RuntimeException('PDO must not be resolved.'),
+          $resolved['database'], '', $resolved,
+      );
+      $profile->assertLaravelConfiguration($connection, 'pgsql');
+  }
+  PHP
   mkdir -p ../.artifacts/p00
   wrong_nonce="$(printf '0%.0s' {1..64})"
-  wrong_attestation=../.artifacts/p00/postgresql-wrong-live-nonce.json
+  wrong_attestation="$(cd ../.artifacts/p00 && pwd -P)/postgresql-wrong-live-nonce.json"
   jq --arg nonce "$wrong_nonce" '.instanceNonceSha256 = $nonce' "$P00_PG_ATTESTATION_PATH" > "$wrong_attestation"
   set +e
-  P00_PG_INSTANCE_NONCE_SHA256="$wrong_nonce" \
-  P00_PG_ATTESTATION_PATH="$wrong_attestation" \
-  P00_PG_ATTESTATION_SHA256="$(shasum -a 256 "$wrong_attestation" | awk '{print $1}')" \
-  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml --testsuite Feature
+  ../scripts/quality/run-qualified-postgres wrong-live-nonce \
+    "$wrong_nonce" "$wrong_attestation" \
+    "$(shasum -a 256 "$wrong_attestation" | awk '{print $1}')"
   wrong_nonce_status="$?"
   set -e
   test "$wrong_nonce_status" = 2
-  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml \
-    tests/LivePostgres/PostgresQualificationLiveGuardTest.php
-  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml --testsuite PostgreSQL
+  php artisan test tests/LivePostgres/PostgresQualificationLiveGuardTest.php
+  ../scripts/quality/run-qualified-postgres environment
   ```
 
-  Expected: every unsafe invocation exits `2` from bootstrap before PHPUnit can construct a Feature application or mutate. The wrong-nonce command uses the valid approved PostgreSQL 16 `_test` endpoint with a matching test attestation but wrong expected live nonce. The explicit live test proves endpoint substitution, automatic reconnect and raw-PDO replacement all fail before mutation and preserve the canary. Approved PostgreSQL 16 reports one pass. Unsupported or duplicate `sslmode`, fragments, malformed encoding, unsafe authority components and every unknown option receive the same pre-mutation refusal.
+  Expected: the arbitrary `printenv` mode exits `64` with the exact nonsecret message before provisioning. Both direct PHPUnit bypass attempts exit `2` because no runner marker/activation is present, before a Feature application or mutation. The closed parser proof independently rejects each unsafe URL for its intended branch, accepts all six `sslmode` values, and proves Laravel-resolved configuration for an omitted default port plus bracketed IPv6. The wrong-nonce mode provisions, migrates and activates normally, then gives only the fixed guarded PHPUnit child a matching test attestation with the wrong expected live nonce. The default-bootstrap live orchestrator proves endpoint substitution, automatic reconnect and raw-PDO replacement all fail before mutation and preserve every canary. The fresh approved PostgreSQL 16 packet reports one pass.
 
   ```bash
   git add -- backend/phpunit.pgsql.xml backend/app/Support/PostgresConnectionProfile.php \
@@ -4296,8 +4787,10 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     backend/app/Providers/AppServiceProvider.php backend/tests/Support/postgres-bootstrap.php \
     backend/tests/Support/PostgresSubstitutionHarness.php \
     backend/tests/Postgres/PostgresEnvironmentTest.php \
-    backend/tests/LivePostgres/PostgresQualificationLiveGuardTest.php
-  test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = 8
+    backend/tests/LivePostgres/PostgresQualificationLiveGuardTest.php \
+    backend/tests/LivePostgres/QualificationBootstrapProbeTest.php \
+    scripts/quality/run-qualified-postgres
+  test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = 10
   git commit -m "test(backend): add guarded PostgreSQL 16 lane"
   ```
 
@@ -4305,9 +4798,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   ```bash
   cd backend
-  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml \
-    tests/Feature/Catalog/ProductApiTest.php tests/Feature/Customer/CustomerApiTest.php \
-    --filter='/test_(search_matches_name_and_sku|search_matches_name_email_phone)/'
+  ../scripts/quality/run-qualified-postgres search
   ```
 
   Expected: lowercase `hoodie` and `sarah` each return count `0` where current tests require `1`; PostgreSQL `LIKE` is case-sensitive.
@@ -4341,8 +4832,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   ```bash
   cd backend
   php artisan test tests/Feature/Catalog/ProductApiTest.php tests/Feature/Customer/CustomerApiTest.php --filter='/test_(search_matches_name_and_sku|search_matches_name_email_phone)/'
-  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml tests/Feature/Catalog/ProductApiTest.php tests/Feature/Customer/CustomerApiTest.php --filter='/test_(search_matches_name_and_sku|search_matches_name_email_phone)/'
-  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml
+  ../scripts/quality/run-qualified-postgres search
+  ../scripts/quality/run-qualified-postgres full
   ```
 
   Expected: before the model patch SQLite reports `2 passed` and PostgreSQL reports exactly `2 failed`; after the patch both focused runs report `2 passed`. Full PostgreSQL reports `447 passed` (the 446 SQLite-visible tests plus the PostgreSQL environment test).
@@ -4364,7 +4855,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - Create: `backend/tests/Support/concurrency-worker.php`
 - Create: `backend/tests/Postgres/OrderAndStockConcurrencyTest.php`
 
-**Interfaces:** `ProcessBarrier::run(string $operation, array $payloads): array` starts independent PHP processes, waits for every actor to flush `READY`, sends `GO` to all input streams, applies a 15-second timeout, and returns JSON outcomes. No actor uses timing sleeps. Operations are `create-order` and `redeem-wallet`.
+**Interfaces:** `ProcessBarrier::run(string $operation, array $payloads): array` starts independent PHP processes with the closed inherited qualification environment, waits for every actor to flush `READY`, sends `GO` to all input streams, applies a 15-second timeout, and returns JSON outcomes. Each child runs the same attestation/bootstrap authority binding before its first Laravel application, validates and seals its own exact PDO, and cannot reconnect. No actor uses timing sleeps. Operations are `create-order` and `redeem-wallet`. The parent uses `DatabaseTruncation` on the runner's already migrated unique candidate: setup rows are committed and visible to children, while no path wipes, disconnects or uses a parent transaction.
 
 - [ ] **Write three PostgreSQL tests against the missing barrier.**
 
@@ -4385,13 +4876,15 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   use App\Models\WalletEntry;
   use App\Services\WalletService;
   use App\Support\StoreContext;
-  use Illuminate\Foundation\Testing\DatabaseMigrations;
+  use Illuminate\Foundation\Testing\DatabaseTruncation;
   use Tests\Support\ProcessBarrier;
   use Tests\TestCase;
 
   final class OrderAndStockConcurrencyTest extends TestCase
   {
-      use DatabaseMigrations;
+      use DatabaseTruncation;
+
+      protected array $exceptTables = ['p00_qualification_activation'];
 
       public function test_two_completed_orders_receive_distinct_numbers_and_atomic_stock_deductions(): void
       {
@@ -4492,7 +4985,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   ```bash
   cd backend
-  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml tests/Postgres/OrderAndStockConcurrencyTest.php
+  ../scripts/quality/run-qualified-postgres concurrency
   ```
 
   Expected failure: `Class "Tests\Support\ProcessBarrier" not found`.
@@ -4514,6 +5007,26 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       /** @return list<array<string, mixed>> */
       public static function run(string $operation, array $payloads): array
       {
+          $qualification = [];
+          foreach ([
+              'DB_URL', 'P00_PG_IDENTITY', 'P00_PG_ATTESTATION_PATH',
+              'P00_PG_ATTESTATION_SHA256', 'P00_PG_INSTANCE_NONCE_SHA256',
+              'P00_PG_QUALIFICATION_NONCE_SHA256',
+              'P00_PG_QUALIFICATION_PHASE', 'P00_PG_SCHEMA_READY',
+              'P00_PG_QUALIFIED_CANDIDATE',
+          ] as $name) {
+              $value = getenv($name);
+              if (! is_string($value) || $value === '') {
+                  throw new RuntimeException('Concurrency qualification environment is incomplete.');
+              }
+              $qualification[$name] = $value;
+          }
+          if ($qualification['P00_PG_QUALIFICATION_PHASE'] !== 'qualification'
+              || $qualification['P00_PG_SCHEMA_READY'] !== '1'
+              || $qualification['P00_PG_QUALIFIED_CANDIDATE'] !== '1'
+              || getenv('P00_PG_TEST_SUBSTITUTE_URL_PATH') !== false) {
+              throw new RuntimeException('Concurrency qualification environment is unsafe.');
+          }
           $actors = [];
           foreach ($payloads as $payload) {
               $input = new InputStream;
@@ -4522,15 +5035,21 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
                   __DIR__.'/concurrency-worker.php',
                   $operation,
                   base64_encode(json_encode($payload, JSON_THROW_ON_ERROR)),
-              ], dirname(__DIR__, 2), null, null, 15);
+              ], dirname(__DIR__, 2), array_merge($_SERVER, $_ENV, $qualification), null, 15);
               $process->setInput($input);
               $process->start();
               $actors[] = [$process, $input];
           }
 
           foreach ($actors as [$process]) {
+              $readyOutput = '';
               $ready = $process->waitUntil(
-                  static fn (string $type, string $buffer): bool => str_contains($buffer, "READY\n"),
+                  static function (string $type, string $buffer) use (&$readyOutput): bool {
+                      if ($type === Process::OUT) {
+                          $readyOutput .= $buffer;
+                      }
+                      return str_contains($readyOutput, "READY\n");
+                  },
               );
               if (! $ready) {
                   throw new RuntimeException('Concurrency actor exited before READY.');
@@ -4569,7 +5088,13 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   use App\Support\StoreContext;
   use Illuminate\Contracts\Console\Kernel;
 
-  require dirname(__DIR__, 2).'/vendor/autoload.php';
+  if ((getenv('P00_PG_QUALIFICATION_PHASE') ?: '') !== 'qualification'
+      || getenv('P00_PG_SCHEMA_READY') !== '1'
+      || getenv('P00_PG_QUALIFIED_CANDIDATE') !== '1') {
+      fwrite(STDERR, "P00_CONCURRENCY_WORKER_REFUSED\n");
+      exit(2);
+  }
+  require __DIR__.'/postgres-bootstrap.php';
   $app = require dirname(__DIR__, 2).'/bootstrap/app.php';
   $app->make(Kernel::class)->bootstrap();
 
@@ -4610,12 +5135,12 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
 - [ ] **Run the complete concurrency file and both database aggregates.**
 
-  The complete test above uses `DatabaseMigrations` so committed rows are visible to child processes. Do not replace it with `RefreshDatabase`, an HTTP wrapper, a parent transaction, clock delays, or retry loops.
+  The complete test uses `DatabaseTruncation` and excludes only `p00_qualification_activation`; losing that row would make every child fail closed. The qualification bootstrap has already set `RefreshDatabaseState::$migrated = true`, so Laravel truncates application tables through the same sealed PDO and never enters `migrate:fresh`; fixtures are then committed and visible to child processes. Every focused or aggregate invocation gets a separate freshly provisioned candidate. Do not replace this with `DatabaseMigrations`, `RefreshDatabase`, an HTTP wrapper, a parent transaction, clock delays, retry loops, `migrate:fresh` or `db:wipe`.
 
   ```bash
   cd backend
-  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml tests/Postgres/OrderAndStockConcurrencyTest.php
-  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml
+  ../scripts/quality/run-qualified-postgres concurrency
+  ../scripts/quality/run-qualified-postgres full
   php artisan test
   ```
 
@@ -4642,7 +5167,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - Create: `scripts/quality/test-run-p00.sh`
 - Create: `scripts/quality/run-postgres-16`
 
-**Interfaces:** `p00-contract.json` is the sole versioned provenance for six ordered jobs, exact test totals, the 216,700-byte gzip ceiling, and the accepted-open Vite large-chunk warning. `scripts/quality/run-p00 --list` emits exactly those jobs; invoking one requires an exact control-bound `P00_RUNNER_ROLE`/`P00_RUNNER_CLASS` pair and writes `$P00_ARTIFACT_DIR/<job>.json`. `node scripts/quality/p00.mjs aggregate <dir>` accepts exactly six passing same-SHA/same-complete-portable-input/same-role results and refuses a role/class swap. The same module measures bundles, records portable PostgreSQL identity/policy plus per-run observations, builds Task 17's seven sibling evidence payloads plus manifest/schema through failure-cleaned atomic publication, and validates hashes, identities, counts, debt, reviews, CI runs, closed schemas and whole-value secret rejection.
+**Interfaces:** `p00-contract.json` is the sole versioned provenance for six ordered jobs, exact test totals, the 216,700-byte gzip ceiling, and the accepted-open Vite large-chunk warning. `scripts/quality/run-p00 --list` emits exactly those jobs; invoking one requires an exact control-bound `P00_RUNNER_ROLE`/`P00_RUNNER_CLASS` pair and writes `$P00_ARTIFACT_DIR/<job>/result.json` plus that job's closed raw-artifact set. The PostgreSQL job always enters through Task 11's `run-qualified-postgres`, so every local/CI packet gets a distinct empty create-only candidate and `run-postgres-16` refuses direct or reusable URLs. `node scripts/quality/p00.mjs aggregate <dir>` accepts exactly six passing same-SHA/same-complete-portable-input/same-role results and refuses a role/class swap. The same module measures bundles, records portable PostgreSQL identity/policy plus per-run observations, builds Task 17's seven sibling evidence payloads plus manifest/schema through failure-cleaned atomic publication, and validates hashes, identities, counts, debt, reviews, CI runs, closed schemas and whole-value secret rejection.
 
 - [ ] **Write the dispatcher, bundle, aggregate, and evidence tests first.**
 
@@ -5097,7 +5622,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
         (cd "$ROOT/backend" && vendor/bin/phpunit -c phpunit.xml --log-junit "$JOB_ARTIFACTS/sqlite.junit.xml")
         ;;
       postgresql-16)
-        "$ROOT/scripts/quality/run-postgres-16"
+        "$ROOT/scripts/quality/run-qualified-postgres" quality-job
         ;;
       frontend)
         (
@@ -5157,7 +5682,12 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   ~~~bash
   #!/usr/bin/env bash
   set -euo pipefail
-  : "${DB_URL:?DB_URL is required}"
+  if [[ "${P00_PG_QUALIFIED_CANDIDATE:-}" != 1 || "${P00_PG_SCHEMA_READY:-}" != 1 \
+    || ! "${P00_PG_QUALIFICATION_NONCE_SHA256:-}" =~ ^[0-9a-f]{64}$ \
+    || -z "${DB_URL:-}" || -n "${P00_PG_TEST_SUBSTITUTE_URL_PATH:-}" ]]; then
+    printf '%s\n' 'P00_POSTGRES_JOB_REFUSED unqualified candidate' >&2
+    exit 65
+  fi
   ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
   ARTIFACTS="${P00_JOB_ARTIFACT_DIR:?P00_JOB_ARTIFACT_DIR is required}"
   test ! -L "$ARTIFACTS"
@@ -6871,12 +7401,12 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
     '    scripts/quality/run-p00 composer-validation',
     '    scripts/quality/run-p00 php-style-static',
     '    scripts/quality/run-p00 sqlite',
-    '    DB_URL="$P00_PG_DB_URL" scripts/quality/run-p00 postgresql-16',
+    '    scripts/quality/run-p00 postgresql-16',
     '    scripts/quality/run-p00 frontend',
     '    scripts/quality/run-p00 playwright',
     '    node scripts/quality/p00.mjs aggregate .artifacts/p00',
     '',
-    'P00_PG_DB_URL comes from the approved secret store. Never commit or print it. Measured versions, counts, hashes, immutable PostgreSQL identity, bundle result and CI identities live in [P00 evidence](docs/superpowers/evidence/p00/manifest.json); this README does not duplicate measured values.',
+    'The PostgreSQL job obtains a unique create-only candidate from the approved attested supervisor and never accepts, commits or prints a reusable database URL. Measured versions, counts, hashes, immutable PostgreSQL identity, bundle result and CI identities live in [P00 evidence](docs/superpowers/evidence/p00/manifest.json); this README does not duplicate measured values.',
     '',
     'The frontend media contract is origin-relative /storage/<disk-relative-key>. The serving frontend origin must route /storage/* to Laravel.',
   ]);
@@ -6912,13 +7442,13 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
     '',
     '## PostgreSQL 16 qualification',
     '',
-    'Obtain DB_URL from the approved secret store without echoing it. Its database name must end _test, and P00_PG_IDENTITY, the closed attestation hash and P00_PG_INSTANCE_NONCE_SHA256 selected in Task 0 must match the live connection:',
+    'The approved attested supervisor creates a unique empty _test database and least-privilege role for every invocation. P00_PG_IDENTITY, the closed attestation hash and P00_PG_INSTANCE_NONCE_SHA256 selected in Task 0 must match the live connection:',
     '',
     '    export P00_RUNNER_ROLE=local',
     '    export P00_RUNNER_CLASS="$(jq -r .execution.runnerClasses.local "$P00_CONTROL_RECORD")"',
-    '    DB_URL="$P00_PG_DB_URL" scripts/quality/run-p00 postgresql-16',
+    '    scripts/quality/run-p00 postgresql-16',
     '',
-    'The bootstrap rejects a non-PostgreSQL URL, a non-test database, a non-immutable attestation, a mismatched live provisioner nonce and any server major other than 16 before migrations.',
+    'The provisioning guard rejects a non-PostgreSQL candidate, non-test database, mismatched live nonce or wrong server major before migration. The PHPUnit bootstrap then independently rebinds the exact attestation, authority and live fingerprint before any test application or mutation.',
     '',
     '## Quality evidence',
     '',
@@ -6951,9 +7481,9 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
     '    vendor/bin/pint --test',
     '    composer analyse',
     '    composer test:sqlite',
-    '    DB_URL="$P00_PG_DB_URL" composer test:postgres',
+    '    composer test:postgres',
     '',
-    'The PostgreSQL database name must end _test. Supply DB_URL at runtime from the approved secret store and never commit or print it. Supply the approved immutable identity, closed attestation hash and provisioner nonce separately; tests/Support/postgres-bootstrap.php verifies all of them through the actual DB_URL before migrations.',
+    'The PostgreSQL database name must end _test. The guarded runner provisions a new candidate and passes its credential URL only in process memory; callers may not supply or reuse DB_URL. Supply the approved immutable identity, closed attestation hash, supervisor credentials and provisioner nonce separately; tests/Support/postgres-bootstrap.php verifies the actual candidate before any test mutation.',
     '',
     'Measured test counts, runtimes, lockfile hashes and database identity are recorded in [P00 evidence](../docs/superpowers/evidence/p00/manifest.json), not hard-coded here.',
   ]);
@@ -6972,10 +7502,10 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
   const qualified = document([
     '# Production target is PostgreSQL 16 (docs 04 — partial unique indexes, reporting).',
     '# SQLite in-memory is the fast PHPUnit lane; PostgreSQL 16 is the complete qualification lane.',
-    '# The qualification database name must end _test.',
-    '# DB_URL is supplied at runtime from the approved secret store and is never committed.',
+    '# Every qualification invocation provisions a new empty database whose name ends _test.',
+    '# DB_URL is internal guarded-runner state; callers must not supply, print, persist or reuse it.',
     '# P00_PG_IDENTITY, attestation hash and instance nonce are separate approved inputs.',
-    '# tests/Support/postgres-bootstrap.php rejects a wrong scheme, database, identity, nonce or major before migrations.',
+    '# Provisioning rejects unsafe candidates before migration; PHPUnit bootstrap rebinds the exact live authority before tests.',
   ]);
   if (environment.split(stale).length !== 2) {
     throw new Error('Expected exactly one stale backend database guidance block');
@@ -7091,7 +7621,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
   (cd "$P00_FRESH_CHECKOUT" && npm ci && npx playwright install chromium)
   ```
 
-  The source is the clean execution worktree, so an unpushed CODE_SHA is locally obtainable without selecting or trusting a remote. --no-local forces independent Git objects and rejects hard-link optimization. Provision the approved immutable PostgreSQL 16 input and export DB_URL without logging it, then:
+  The source is the clean execution worktree, so an unpushed CODE_SHA is locally obtainable without selecting or trusting a remote. `--no-local` forces independent Git objects and rejects hard-link optimization. Provision the approved immutable PostgreSQL 16 service and its attested create-only supervisor inputs; do not export a reusable `DB_URL`. The guarded runner issues the fresh qualification candidate internally:
 
   ```bash
   cd "$P00_FRESH_CHECKOUT"
@@ -7122,9 +7652,16 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
      and (.largeChunkDebt.affectedFiles | length) > 0' \
     "$P00_LOCAL_ARTIFACTS/frontend/bundle.json"
   test -z "$(git status --short --untracked-files=normal)"
+  cd "$P00_EXECUTION_WORKTREE"
+  test "$(pwd -P)" = "$P00_EXECUTION_WORKTREE"
+  test "$(git rev-parse --show-toplevel)" = "$P00_EXECUTION_WORKTREE"
+  test "$(git branch --show-current)" = "$P00_EXECUTION_BRANCH"
+  test "$(git rev-parse HEAD)" = "$CODE_SHA"
+  test "$INTEGRATED_SHA" = "$CODE_SHA"
+  test -z "$(git status --short --untracked-files=normal)"
   ```
 
-  Expected: six jobs and aggregate pass at CODE_SHA; counts are read from the versioned contract (SQLite 446, PostgreSQL 450, frontend unit 8, browser 9); zero failures/retries/skips; the observed PostgreSQL server is major 16 under the exact immutable identity/attestation; bundle gzip is at most 216700 while the exact large-chunk warning remains measured accepted-open debt; checkout stays clean because raw outputs are ignored. Rerun all Task 0 protected-state checks at this writer boundary.
+  Expected: six jobs and aggregate pass at CODE_SHA; counts are read from the versioned contract (SQLite 446, PostgreSQL 450, frontend unit 8, browser 9); zero failures/retries/skips; the observed PostgreSQL server is major 16 under the exact immutable identity/attestation; bundle gzip is at most 216700 while the exact large-chunk warning remains measured accepted-open debt; the detached checkout stays clean because raw outputs are ignored. `P00_LOCAL_ARTIFACTS` remains an absolute path to that fresh result, but the shell returns to the clean named execution worktree at exact CODE_SHA before any push, CI normalization, evidence publication or commit. Rerun all Task 0 protected-state checks at this writer boundary.
 
 - [ ] **Push the exact integrated SHA and obtain two new CI runs.**
 
@@ -7221,6 +7758,9 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
 - [ ] **Commit only the eight final evidence paths.**
 
   ```bash
+  test "$(pwd -P)" = "$P00_EXECUTION_WORKTREE"
+  test "$(git rev-parse HEAD)" = "$CODE_SHA"
+  test "$(git branch --show-current)" = "$P00_EXECUTION_BRANCH"
   git add -- docs/superpowers/evidence/p00/README.md \
     docs/superpowers/evidence/p00/manifest.schema.json \
     docs/superpowers/evidence/p00/manifest.json \
@@ -7261,6 +7801,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
   test "$(realpath "$P00_EXECUTION_WORKTREE")" = "$P00_EXECUTION_WORKTREE"
   test "$(git -C "$P00_EXECUTION_WORKTREE" rev-parse --show-toplevel)" = "$P00_EXECUTION_WORKTREE"
   test "$(git -C "$P00_EXECUTION_WORKTREE" branch --show-current)" = "$P00_EXECUTION_BRANCH"
+  test "$(git -C "$P00_EXECUTION_WORKTREE" rev-parse HEAD)" = "$EVIDENCE_SHA"
   test "$(git -C "$P00_USER_WORKTREE" branch --show-current)" = "$P00_USER_BRANCH"
   test "$(git -C "$P00_USER_WORKTREE" rev-parse HEAD)" = "$P00_USER_HEAD"
   test "$(git -C "$P00_USER_WORKTREE" worktree list --porcelain \
