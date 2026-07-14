@@ -22,7 +22,7 @@ This document turns the consolidated owner decisions and product-baseline review
 - which local and external products are implementation sources, references, or inspiration only;
 - how Dorzak prevents duplicated work, conflicting authority, unsafe copying, and unreviewed code.
 
-It is a roadmap and architecture design, not an executable implementation plan. Each P00–P19 program still receives its own approved design and file-by-file TDD plan immediately before implementation. This prevents a large plan from becoming stale while the foundation evolves.
+It is a roadmap and architecture design, not an executable implementation plan. Each P00–P19 program and the mandatory shared WP-M2 Contract Freeze work package receive an approved design and file-by-file TDD plan immediately before implementation. This prevents a large plan from becoming stale while the foundation evolves.
 
 ---
 
@@ -657,9 +657,9 @@ Exit evidence:
 - P01 traceability is complete before M2 begins;
 - no ERP, plan, builder, homepage, or vertical behavior is included in the M1a first slice.
 
-### M2 — Cross-system contract freeze
+### M2 — WP-M2 Cross-system contract freeze
 
-**Programs:** shared prerequisites for P02, P03, P04, P17
+**Work package:** WP-M2, a mandatory shared prerequisite for P02, P03, P04, and P17
 
 **Parallelism:** one stream
 
@@ -737,13 +737,13 @@ Commercial exit evidence:
 - the selected provider path proves QAR/TND as applicable, hosted/tokenized checkout, recurring billing or an approved equivalent, 3DS, signatures/replay defense, refunds, disputes, settlement reports, sandbox quality, webhook behavior, residency/transfer terms, fees, support/SLA, and subscription versus merchant-payment eligibility;
 - owner and finance approve the provider and reconciliation evidence before a paid subscription is treated as launch-ready.
 
-### M4 — First ERP-owned Retail Pro tracer
+### M4 — First ERP-owned P04 retail integration tracer
 
-**Programs:** P04 plus a narrow P07 tracer
+**Programs:** P04 only; the retail fixture proves P04 integration behavior and is not production P07 scope
 
 **Parallelism:** one integration stream
 
-**Purpose:** prove the entire product chain before broad feature construction.
+**Purpose:** prove the ERP commerce integration chain before broad feature construction. P07 remains Not started until both P04 and P06 complete.
 
 Journey:
 
@@ -919,7 +919,7 @@ Outputs:
 
 Exit evidence:
 
-- every P00–P19 program is complete;
+- every P00–P19 program and mandatory WP-M2 work package is complete;
 - every required category × plan × country × locale path is green;
 - zero open Severity 1 or Severity 2 defects;
 - zero unresolved Critical or Important review findings;
@@ -1058,6 +1058,7 @@ The controller publishes this scorecard from evidence, never subjective percenta
 |---|---:|
 | Programs with approved design and executable plan | 20 of 20 |
 | Programs passing full Definition of Done | 20 of 20 |
+| Mandatory shared work packages with approved design/plan and full Definition of Done | 1 of 1: WP-M2 |
 | Required capability-matrix rows passing | 100 percent |
 | Required user stories traced to automated/human evidence | 100 percent |
 | Known Severity 1/2 defects | 0 |
@@ -1106,8 +1107,8 @@ To prevent duplicated or contradictory plans:
 
 1. **Product authority after written owner approval:** complete-launch PRD.
 2. **Technical authority after written owner approval:** this roadmap plus approved ADRs and CONTEXT.md.
-3. **Program design:** one design per P00–P19.
-4. **Executable plan:** one file-by-file TDD plan per program or bounded subsystem.
+3. **Program/work-package design:** one design per P00–P19 program plus mandatory WP-M2 and any approved bounded slice.
+4. **Executable plan:** one file-by-file TDD plan per approved program/work package or bounded subsystem.
 5. **Task brief and progress ledger:** exact current execution evidence.
 6. **Code, migrations, tests, runbooks, and release evidence:** implemented truth.
 
@@ -1117,6 +1118,15 @@ If two documents disagree, the higher level wins until it is deliberately amende
 
 ## 20. Approval consequence
 
-The owner should explicitly approve both the complete-launch PRD review candidate and this roadmap. Those approvals authorize the next planning artifact only: the P00 baseline stabilization design and executable plan. They do not authorize editing ERPNext or any supplied source repository, starting broad feature implementation in the dirty checkout, selecting a payment provider without due diligence, or publicly releasing a partial product.
+Approval of the session/control model may authorize a fresh read-only P00 task to inspect the review-candidate baseline and roadmap and present a non-authoritative proposed P00 design. It does not authorize writing or committing that design.
 
-The first implementation authorization should occur only after P00 is approved and a clean worktree is created with the owner’s consent.
+The owner must explicitly approve both the complete-launch PRD review candidate and this roadmap before they become formal execution authority.
+
+Separate staged approvals are required for:
+
+1. writing and committing the P00 design;
+2. writing and committing the exact P00 implementation plan;
+3. preserving the current user change and creating the clean integration branch/worktree;
+4. starting P00 execution.
+
+These approvals do not authorize editing ERPNext or any supplied source repository, starting broad feature implementation in the dirty checkout, selecting a payment provider without due diligence, or publicly releasing a partial product.
