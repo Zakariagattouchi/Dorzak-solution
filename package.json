@@ -5,10 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test:e2e": "playwright test",
-    "check-vite": "ps -ef | grep vite"
+    "format": "prettier --no-error-on-unmatched-pattern --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,tsx}\" playwright.config.ts vite.config.ts vitest.config.ts tsconfig.json package.json \"scripts/**/*.mjs\"",
+    "format:check": "prettier --no-error-on-unmatched-pattern --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,tsx}\" playwright.config.ts vite.config.ts vitest.config.ts tsconfig.json package.json \"scripts/**/*.mjs\"",
+    "lint": "eslint src tests playwright.config.ts vite.config.ts vitest.config.ts --ext .ts,.tsx --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "bundle:check": "node scripts/quality/p00.mjs bundle dist 216700",
+    "quality:frontend": "npm run format:check && npm run lint && npm run typecheck && npm run test:unit && npm run build && npm run bundle:check",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "iconoir-react": "^7.11.1",
@@ -21,12 +28,24 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.42.1",
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/jest-dom": "6.6.3",
+    "@testing-library/react": "16.1.0",
+    "@testing-library/user-event": "14.5.2",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^20.11.24",
     "@types/react": "^18.2.64",
     "@types/react-dom": "^18.2.21",
+    "@typescript-eslint/eslint-plugin": "6.21.0",
+    "@typescript-eslint/parser": "6.21.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "axe-core": "4.10.2",
+    "eslint": "8.57.1",
+    "eslint-plugin-react-hooks": "4.6.2",
+    "jsdom": "25.0.1",
+    "prettier": "3.4.2",
     "typescript": "^5.2.2",
-    "vite": "^5.1.6"
+    "vite": "^5.1.6",
+    "vitest": "2.1.9"
   }
 }
