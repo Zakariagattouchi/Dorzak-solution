@@ -34,4 +34,3 @@ Any mismatch stops before mutation, preserves prior fixtures and every noncandid
 ## Approval and implementation gate
 
 This erratum becomes authority only when the Control Room records the owner's approval against its exact commit and SHA-256. P00 execution remains prohibited until the implementation plan matches this contract, receives zero Critical/Important findings, and is separately approved.
-

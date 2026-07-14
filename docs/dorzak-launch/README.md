@@ -32,4 +32,3 @@ docs/superpowers/evidence/          measured completion evidence
 ~~~
 
 Owner drafts and supplied source repositories remain in their current locations until a separately approved ingestion task classifies them. They are never moved, overwritten or silently promoted to authority.
-

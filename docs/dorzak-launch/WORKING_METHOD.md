@@ -42,4 +42,3 @@ Every implementation slice ends with:
 - a compact handoff and Control Register update.
 
 Internal milestones may be demonstrated and verified, but Dorzak is not released publicly until M9 and every required plan and merchant category is complete.
-
