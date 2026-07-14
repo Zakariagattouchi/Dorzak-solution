@@ -31,9 +31,9 @@ class DemoSeederParityTest extends TestCase
     public function test_store_and_subscription(): void
     {
         $store = Store::firstWhere('name', 'Dorzak Merchant');
-        $this->assertSame('USD', $store->currency);
+        $this->assertSame('QAR', $store->currency);
         $this->assertSame('8.50', (string) $store->tax_rate);
-        $this->assertSame('PRO', $store->subscription->plan->value);
+        $this->assertSame('PRO', $store->subscription->plan->code);
         $this->assertSame('dorzak-merchant', $store->storefrontSetting->slug);
     }
 
@@ -54,6 +54,11 @@ class DemoSeederParityTest extends TestCase
         $this->assertSame(3, Order::count());
 
         foreach (Order::with('items')->get() as $order) {
+            $this->assertSame(
+                'QAR',
+                $order->currency_code,
+                "Order {$order->order_number} currency mismatch",
+            );
             $subtotal = (float) $order->items->sum('line_total');
             $expectedTotal = round($subtotal - (float) $order->discount + (float) $order->tax_amount + (float) $order->delivery_fee, 2);
             $this->assertSame(number_format($expectedTotal, 2, '.', ''), (string) $order->total, "Order {$order->order_number} total mismatch");
