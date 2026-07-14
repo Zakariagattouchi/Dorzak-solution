@@ -4,7 +4,7 @@
 
 **Goal:** Establish a reproducible, reviewable P00 baseline in which the current Dorzak merchant application has explicit media and Qatar/QAR contracts, deterministic full-stack browser coverage, frontend and backend quality lanes, PostgreSQL 16 qualification, provider-neutral CI commands, architecture/runbook evidence, and a fail-closed final gate.
 
-**Architecture:** Preserve the current React/Vite merchant surface and Laravel 13 modular monolith. Keep SQLite as fast feedback, add PostgreSQL 16 as the qualification database, run Playwright against a dedicated destructive-safe E2E fixture, and expose one provider-neutral quality dispatcher that a later owner-selected CI adapter wraps. P00 documents the future Organization/ERPNext authority boundaries but does not implement P01 or later roadmap work.
+**Architecture:** Preserve the current React/Vite merchant surface and Laravel 13 modular monolith. Keep in-memory SQLite as the fast PHPUnit lane, add PostgreSQL 16 as the qualification database, and run Playwright against a create-only, per-run PostgreSQL database/role capability on an attested P00-only service. No browser-fixture step resets, drops, renames, unlinks, or reuses a database. Expose one provider-neutral quality dispatcher that a later owner-selected CI adapter wraps. P00 documents the future Organization/ERPNext authority boundaries but does not implement P01 or later roadmap work.
 
 **Tech Stack:** PHP at the exact owner-approved production pin; Laravel 13.18.1; Composer 2; PHPUnit 12; Pint 1.29.3; Larastan 3.10; PHPStan 2.2; PostgreSQL 16; Node at the exact owner-approved production pin; npm lockfile v3; React 18; TypeScript 5; Vite 5; Vitest 2; Testing Library; axe-core; ESLint 8; Prettier 3; Playwright Chromium.
 
@@ -12,6 +12,7 @@
 
 - This document is an implementation plan, not implementation or execution authority. Do not run Task 1 or any later task until Task 0 passes in full under a separate Control Room execution lease.
 - Approved design authority is `docs/superpowers/specs/2026-07-14-dorzak-p00-baseline-stabilization-design.md` at commit `ea7b8258083231c6a9b7aa7c00d89009e29e696e`, SHA-256 `861dc58732d304d45837785d9ac74ff13dd3c44d46e467d531dbb55b408115e8`.
+- Safety erratum gate: that approved design describes a destructive SQLite browser-fixture reset, while this corrected plan uses a create-only PostgreSQL capability because stock Laravel/SQLite cannot satisfy the registered pathname-race requirement. This correction lease does not authorize changing the design or treating the artifacts as identical. Before any P00 execution, the Control Room must durably record an exact design erratum covering the Task 4–5 create-only PostgreSQL contract, obtain exact owner approval of that erratum and this matching plan revision, and update the execution-entry record. Until then Task 0 must fail.
 - The planning-only product input is commit `cc4085cbca11e89257ae8535438db6cfe3dd75cc`, SHA-256 `7ae650f4b04c0fe1e234d4fa41cd4fac673abe1139853f4397f2286da24992f2`. The planning-only roadmap input is artifact commit `069f4833190c75866494e7ba51bff3021070c0bf`, SHA-256 `e9aa2c7970f9edf08f03177458cb496f979a30dbf3cf7fd96480c0c3b9a5cc60`. The current plan-writing exception is not execution authority and does not approve either input program-wide.
 - The mandatory serialized order is: preservation/entry preflight; runtime pins; baseline contracts; deterministic browser; frontend quality; backend/PHP quality; PostgreSQL; CI/performance; context/ADRs/runbooks/evidence; independent review and final verification.
 - Never reuse the stale linked worktree. Never run `git add -A`, `git add .`, a broad checkout/reset/clean, or an unscoped formatter. Every task below has one staging allowlist and one focused commit.
@@ -42,6 +43,7 @@ The future execution lease must bind the following shell variables to literal va
 | `P00_REMOTE_NAME` / `P00_REMOTE_URL` | Owner-approved canonical Git remote and its exact URL |
 | `P00_CI_PROVIDER` | Owner-approved provider identifier |
 | `P00_PHP_VERSION` / `P00_NODE_VERSION` | Exact production versions, each with three numeric components |
+| `P00_COMPOSER_VERSION` / `P00_NPM_VERSION` | Exact approved Composer and npm versions, each with three numeric components |
 | `P00_MEDIA_METHOD` | Exactly `dedicated_commit` or `reviewed_patch` |
 | `P00_MEDIA_REVIEWED_DIFF_SHA256` | Hash of the reviewed full-index MediaUrl diff |
 | `P00_MEDIA_ARTIFACT_ID` | Preserved commit SHA or durable patch SHA-256 |
@@ -58,6 +60,10 @@ The future execution lease must bind the following shell variables to literal va
 | `P00_PG_IDENTITY` | Immutable OCI reference with `@sha256:<64-hex>`, or approved external resource/revision/fingerprint identity |
 | `P00_PG_ATTESTATION_PATH` / `P00_PG_ATTESTATION_SHA256` | Sanitized immutable-service attestation and its 64-hex hash; never a mutable sentinel |
 | `P00_PG_DB_URL` | Secret runtime connection URL for the approved PostgreSQL 16 test service; never committed, printed, or embedded in evidence |
+| `P00_PG_INSTANCE_NONCE_SHA256` | Approved 64-hex hash of the provisioner-created live service nonce exposed by `current_setting('dorzak.instance_nonce_sha256')` |
+| `P00_E2E_SUPERVISOR_DB_URL` | Secret supervisor URL for the dedicated, no-real-data P00 E2E service; never committed, printed, or embedded in evidence |
+| `P00_E2E_SERVICE_LIFECYCLE_ID` | Exact immutable provisioner/container lifecycle identifier from the attestation; cleanup may address only this value |
+| `P00_E2E_SERVICE_ATTESTATION_PATH` / `P00_E2E_SERVICE_ATTESTATION_SHA256` | Sanitized E2E-service attestation proving PG16, immutable image/resource identity, no real data, isolated credential issuance, noncandidate access denial, and the lifecycle ID |
 | `P00_FRESH_CHECKOUT` | New absolute path used only by final fresh-checkout verification |
 
 Guarded decisions are not substitute values. If the provider is GitHub, a later approved amendment may add a GitHub Actions file. If it is GitLab or another provider, that provider's native exact file and API commands must be approved instead. Task 14 stops until that amendment exists; no current task names a provider-native file.
@@ -69,7 +75,7 @@ Guarded decisions are not substitute values. If the provider is GitHub, a later 
 | Control Room / preservation lease | Execution record; MediaUrl preserved commit or patch evidence; canonical remote/provider/pins/base/worktree decisions | Plan approval |
 | Runtime owner | `.php-version`, `.node-version` | Task 0 |
 | Contract owner | `backend/tests/Unit/Support/MediaUrlTest.php`, `backend/tests/Feature/Commerce/CommerceImprovementsTest.php`, `backend/tests/Feature/DemoSeederParityTest.php`; conditional `MediaUrl.php` branch only under Task 2's guard | Task 1 |
-| Browser fixture owner | `ResetE2eDatabase.php`, `E2ESeeder.php`, two E2E PHP tests | Task 3 |
+| Browser fixture owner | `E2eDatabaseLease.php`, `ServeE2e.php`, `E2ESeeder.php`, the `e2e` database connection and boot guard, and two E2E PHP tests | Task 3 |
 | Browser harness/journey owner | `playwright.config.ts`, `vite.config.ts`, `tests/e2e/**`, `TextInput.tsx`, `SelectInput.tsx`, `POSPage.tsx` | Task 4 |
 | Frontend manifest owner | Task 6 owns `package.json`, `package-lock.json`, `tsconfig.json`, Vitest/ESLint/Prettier config, and test setup; Task 8 is the sole later mechanical formatter and must leave both npm manifests byte-identical | Task 5 |
 | Frontend behavior owner | Focused unit/component tests and production seams explicitly named in Tasks 7–8 | Task 6 |
@@ -100,7 +106,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
 - [ ] **Verify formal authorities, not the planning exception.**
 
-  The durable record must separately approve: this exact plan/hash; the product baseline at `cc4085cbca11e89257ae8535438db6cfe3dd75cc`; the roadmap with `069f4833190c75866494e7ba51bff3021070c0bf`; canonical remote; provider; exact PHP/Node pins; completed MediaUrl preservation; resulting base/worktree; and P00 execution. Search the record and inspect it manually:
+  The durable record must separately approve: the exact safety design erratum replacing destructive SQLite E2E reset with the Task 4–5 create-only PostgreSQL contract; this exact matching plan/hash; the product baseline at `cc4085cbca11e89257ae8535438db6cfe3dd75cc`; the roadmap with `069f4833190c75866494e7ba51bff3021070c0bf`; canonical remote; provider; exact PHP/Node/Composer/npm pins; completed MediaUrl preservation; resulting base/worktree; and P00 execution. Search the record and inspect it manually:
 
   ```bash
   plan=docs/superpowers/plans/2026-07-14-dorzak-p00-baseline-stabilization.md
@@ -109,8 +115,30 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   test "$(git log -1 --format=%H -- "$plan")" = "$P00_APPROVED_PLAN_COMMIT"
   test "$(shasum -a 256 "$plan" | awk '{print $1}')" = "$P00_APPROVED_PLAN_SHA256"
   test "$(git show "$P00_APPROVED_PLAN_COMMIT:$plan" | shasum -a 256 | awk '{print $1}')" = "$P00_APPROVED_PLAN_SHA256"
-  test -z "$(rg -n 'BLOCKED_BY_OWNER_DECISION ci_provider_adapter' "$plan" || true)"
-  rg -n 'cc4085cbca11e89257ae8535438db6cfe3dd75cc|069f4833190c75866494e7ba51bff3021070c0bf|formal owner approval|P00 execution' "$P00_CONTROL_RECORD"
+  set +e
+  node --input-type=module - "$plan" <<'NODE'
+  import { readFileSync } from 'node:fs';
+  const text = readFileSync(process.argv[2], 'utf8');
+  const section = text.match(/^### Task 14:[\s\S]*?(?=^### Task 15:)/m)?.[0];
+  if (!section) process.exit(2);
+  const records = [...section.matchAll(/```json\n([\s\S]*?)\n```/g)]
+    .map((match) => JSON.parse(match[1]))
+    .filter((value) => value?.schemaVersion === 1 && 'adapterPaths' in value && 'state' in value);
+  if (records.length !== 1) process.exit(2);
+  const value = records[0];
+  const keys = ['adapterPaths','immutableDependencyIdentities','normalizerSha256','normalizerTestSha256','provider','pushAndRunCommandsSha256','requiredStatus','requiredStatusCommandsSha256','schemaVersion','state','twoRunCommandsSha256'];
+  if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(keys)) process.exit(2);
+  if (value.state === 'pending') process.exit(42);
+  if (value.state !== 'approved' || !Array.isArray(value.adapterPaths) || value.adapterPaths.length === 0
+      || !Array.isArray(value.immutableDependencyIdentities) || value.immutableDependencyIdentities.length === 0
+      || !value.provider || !value.requiredStatus
+      || !['normalizerSha256','normalizerTestSha256','pushAndRunCommandsSha256','requiredStatusCommandsSha256','twoRunCommandsSha256']
+        .every((key) => /^[0-9a-f]{64}$/.test(value[key]))) process.exit(2);
+  NODE
+  ci_decision_status="$?"
+  set -e
+  test "$ci_decision_status" = 0
+  rg -n 'create-only PostgreSQL|design erratum|cc4085cbca11e89257ae8535438db6cfe3dd75cc|069f4833190c75866494e7ba51bff3021070c0bf|formal owner approval|P00 execution' "$P00_CONTROL_RECORD"
   ```
 
   Expected: the first command exits `0`; the plan hash equals `P00_APPROVED_PLAN_SHA256`; all four authority patterns are present in explicit approval clauses. Presence without explicit approval fails the gate.
@@ -124,6 +152,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   printf '%s\n' "$P00_MEDIA_REVIEWED_DIFF_SHA256" | rg -x '[0-9a-f]{64}'
   printf '%s\n' "$P00_PHP_VERSION" | rg -x '[0-9]+\.[0-9]+\.[0-9]+'
   printf '%s\n' "$P00_NODE_VERSION" | rg -x '[0-9]+\.[0-9]+\.[0-9]+'
+  printf '%s\n' "$P00_COMPOSER_VERSION" | rg -x '[0-9]+\.[0-9]+\.[0-9]+'
+  printf '%s\n' "$P00_NPM_VERSION" | rg -x '[0-9]+\.[0-9]+\.[0-9]+'
   test -n "$P00_REMOTE_NAME"
   test -n "$P00_REMOTE_URL"
   test -n "$P00_CI_PROVIDER"
@@ -133,6 +163,9 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   printf '%s\n' "$P00_WORKTREE_IDENTITY_SHA256" | rg -x '[0-9a-f]{64}'
   printf '%s\n' "$P00_PROTECTED_CONTENT_MANIFEST_SHA256" | rg -x '[0-9a-f]{64}'
   printf '%s\n' "$P00_PG_ATTESTATION_SHA256" | rg -x '[0-9a-f]{64}'
+  printf '%s\n' "$P00_PG_INSTANCE_NONCE_SHA256" | rg -x '[0-9a-f]{64}'
+  printf '%s\n' "$P00_E2E_SERVICE_ATTESTATION_SHA256" | rg -x '[0-9a-f]{64}'
+  test -n "$P00_E2E_SERVICE_LIFECYCLE_ID"
   case "$P00_PG_IDENTITY_KIND" in
     oci) printf '%s\n' "$P00_PG_IDENTITY" | rg -x '[^[:space:]@]+@sha256:[0-9a-f]{64}' ;;
     external-attestation) printf '%s\n' "$P00_PG_IDENTITY" | rg -x 'external:[A-Za-z0-9._/-]+@[A-Za-z0-9._:-]+#sha256:[0-9a-f]{64}' ;;
@@ -140,7 +173,10 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   esac
   test -f "$P00_PG_ATTESTATION_PATH"
   test "$(shasum -a 256 "$P00_PG_ATTESTATION_PATH" | awk '{print $1}')" = "$P00_PG_ATTESTATION_SHA256"
-  php -r '$a=json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); if (($a["schemaVersion"] ?? null) !== 1 || ($a["kind"] ?? null) !== $argv[2] || ($a["identity"] ?? null) !== $argv[3] || ($a["serverMajor"] ?? null) !== 16 || ($a["immutable"] ?? null) !== true) { exit(1); }' "$P00_PG_ATTESTATION_PATH" "$P00_PG_IDENTITY_KIND" "$P00_PG_IDENTITY"
+  php -r '$a=json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); if (($a["schemaVersion"] ?? null) !== 2 || ($a["kind"] ?? null) !== $argv[2] || ($a["identity"] ?? null) !== $argv[3] || ($a["serverMajor"] ?? null) !== 16 || ($a["immutable"] ?? null) !== true || ($a["instanceNonceSha256"] ?? null) !== $argv[4] || array_keys($a) !== ["schemaVersion","kind","identity","serverMajor","immutable","instanceNonceSha256"]) { exit(1); }' "$P00_PG_ATTESTATION_PATH" "$P00_PG_IDENTITY_KIND" "$P00_PG_IDENTITY" "$P00_PG_INSTANCE_NONCE_SHA256"
+  test -f "$P00_E2E_SERVICE_ATTESTATION_PATH"
+  test "$(shasum -a 256 "$P00_E2E_SERVICE_ATTESTATION_PATH" | awk '{print $1}')" = "$P00_E2E_SERVICE_ATTESTATION_SHA256"
+  php -r '$a=json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); if (array_keys($a) !== ["schemaVersion","identity","serverMajor","immutable","instanceNonceSha256","lifecycleId","supervisorDatabase","supervisorRole","containsRealData","canIssueIsolatedCredentials","noncandidateAccessDenied"] || $a["schemaVersion"] !== 1 || $a["identity"] !== $argv[2] || $a["serverMajor"] !== 16 || $a["immutable"] !== true || $a["instanceNonceSha256"] !== $argv[3] || $a["lifecycleId"] !== $argv[4] || ! is_string($a["supervisorDatabase"]) || $a["supervisorDatabase"] === "" || ! is_string($a["supervisorRole"]) || $a["supervisorRole"] === "" || $a["containsRealData"] !== false || $a["canIssueIsolatedCredentials"] !== true || $a["noncandidateAccessDenied"] !== true) { exit(1); }' "$P00_E2E_SERVICE_ATTESTATION_PATH" "$P00_PG_IDENTITY" "$P00_PG_INSTANCE_NONCE_SHA256" "$P00_E2E_SERVICE_LIFECYCLE_ID"
   ```
 
   Expected: every command exits `0`. No semantic version range is accepted.
@@ -266,7 +302,18 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   if (($manifest['schemaVersion'] ?? null) !== 1 || ($manifest['userWorktree'] ?? null) !== $root) {
       $fail('manifest header mismatch');
   }
-  $statusLines = array_values(array_filter(explode("\n", trim($git(['status', '--short', '--untracked-files=normal'])))));
+  $statusOutput = $git(['status', '--porcelain=v1', '-z', '--untracked-files=normal']);
+  if ($statusOutput !== '' && ! str_ends_with($statusOutput, "\0")) {
+      $fail('porcelain output is not NUL terminated');
+  }
+  $statusLines = $statusOutput === '' ? [] : explode("\0", substr($statusOutput, 0, -1));
+  foreach ($statusLines as $statusLine) {
+      if (strlen($statusLine) < 4 || $statusLine[2] !== ' '
+          || in_array($statusLine[0], ['R', 'C'], true)
+          || in_array($statusLine[1], ['R', 'C'], true)) {
+          $fail('unsupported porcelain status record');
+      }
+  }
   sort($statusLines, SORT_STRING);
   if (count($statusLines) !== 16 || hash('sha256', implode("\n", $statusLines)."\n") !== ($manifest['statusSha256'] ?? null)) {
       $fail('status identity mismatch');
@@ -312,6 +359,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   }
   fwrite(STDOUT, "P00_PROTECTED_CONTENT PASS entries=16\n");
   PHP
+
+  php -r '$raw=" M tracked.php\0?? untracked\0"; $rows=explode("\0", substr($raw,0,-1)); sort($rows,SORT_STRING); if ($rows !== [" M tracked.php","?? untracked"]) exit(1);'
   ```
 
   The Control Room creates the JSON manifest before execution with exact `schemaVersion`, `userWorktree`, registered `statusSha256`, and 16 sorted entries. Each entry contains exact `status`, repository-relative `path`, `kind`, `classification=owner-approved-nonsecret`, and `sha256`. A path that cannot safely receive that classification stops execution; secret content is never hashed into committed evidence.
@@ -473,7 +522,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   php artisan test
   ```
 
-  Expected: focused tests pass; full suite reports `444 passed` at this boundary (the registered 443 plus one new test).
+  Expected: both focused files pass. The full suite contains 444 tests and intentionally exits nonzero with exactly `443 passed, 1 failed`; the sole failure is `Tests\\Feature\\DemoSeederParityTest::test_store_and_subscription`. Any other failure stops. Task 3 owns that already-characterized stale assertion, so Task 2 must not absorb it.
 
 - [ ] **Stage the exact proven allowlist and commit.**
 
@@ -505,12 +554,19 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   Expected failure: expected `USD`, actual `QAR`.
 
-- [ ] **Replace the stale assertion and extend order parity.**
+- [ ] **Replace the complete stale store/subscription test and extend order parity.**
 
-  Use this exact store assertion:
+  Replace `test_store_and_subscription()` completely so the real `Plan.code` contract is exercised:
 
   ```php
-  $this->assertSame('QAR', $store->currency);
+  public function test_store_and_subscription(): void
+  {
+      $store = Store::firstWhere('name', 'Dorzak Merchant');
+      $this->assertSame('QAR', $store->currency);
+      $this->assertSame('8.50', (string) $store->tax_rate);
+      $this->assertSame('PRO', $store->subscription->plan->code);
+      $this->assertSame('dorzak-merchant', $store->storefrontSetting->slug);
+  }
   ```
 
   Replace `test_three_orders_with_consistent_money()` with:
@@ -553,165 +609,282 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   Run the global writer-boundary checks.
 
-### Task 4: Add a destructive-safe, dedicated E2E database fixture
+### Task 4: Add a create-only, capability-isolated PostgreSQL E2E fixture
 
 **Files:**
-- Create: `backend/app/Console/Commands/ResetE2eDatabase.php`
+- Create: `backend/app/Support/E2eSupervisor.php`
+- Create: `backend/app/Support/PdoE2eSupervisor.php`
+- Create: `backend/app/Support/E2eDatabaseLease.php`
+- Create: `backend/app/Console/Commands/ServeE2e.php`
 - Create: `backend/database/seeders/E2ESeeder.php`
-- Create: `backend/tests/Feature/E2E/E2EResetGuardTest.php`
+- Modify: `backend/config/database.php`
+- Modify: `backend/app/Providers/AppServiceProvider.php`
+- Create: `backend/tests/Feature/E2E/E2EProvisioningGuardTest.php`
 - Create: `backend/tests/Feature/E2E/E2ESeederTest.php`
 
-**Interfaces:** `php artisan e2e:reset` exits `1` unless `APP_ENV=e2e`, the default connection is SQLite, and the configured database is the one lexical value returned by `database_path('dorzak-e2e.sqlite')`. `E2eDatabaseLease::acquire()` rejects a non-canonical parent, symlink, directory/special file, multiply linked file, configuration alias, unmarked pre-existing file, failed exclusive create, lock conflict, or any device/inode/link/realpath change. A missing file is opened with exclusive-create mode; a safe existing regular single-link SQLite file must contain the exact command-owned identity marker. The same open descriptor remains locked and is revalidated immediately before migration, before seeding, and after seeding. The fixture owns `owner@e2e.dorzak.test / e2e-password`, one Qatar/QAR PRO store, and one deterministic variant product. It calls `PlanSeeder`, never `DemoSeeder`.
+**Interfaces:** Playwright uses `php artisan e2e:serve`, never `migrate:fresh`, `db:wipe`, a file SQLite database, or a stable database pointer. `App\Support\E2eDatabaseLease::acquire()` opens one already-attested supervisor connection to a dedicated no-real-data PostgreSQL 16 service, re-verifies its immutable identity through the live provisioner nonce, and creates a cryptographically unique database plus login role. It never reuses, resets, drops, renames, or unlinks anything. The role is `NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`, can connect only to its candidate database, and owns no other database. The command runs only `artisan migrate --database=e2e --force`, seeds, then inserts the activation nonce and fixture-contract hash as the final mutation. The server starts only after a read-only verification of database, role, PostgreSQL major, service nonce, activation nonce, and contract hash; its boot guard repeats that verification on the exact `e2e` Laravel connection. Failure leaves every prior fixture/server and every noncandidate database unchanged. Cleanup addresses only the attested immutable service/container lifecycle ID; cleanup failure records this candidate as an orphan and never broadens deletion. If the approved service attestation cannot prove no real data and isolated credentials, Task 0 requires a new ephemeral digest-pinned PostgreSQL 16 service for that run.
 
-- [ ] **Write both tests before the command and seeder.**
+- [ ] **Write the provisioning and fixture tests first.**
 
-  `E2EResetGuardTest.php`:
+  `E2EProvisioningGuardTest.php`:
 
   ```php
   <?php
 
   namespace Tests\Feature\E2E;
 
-  use App\Console\Commands\E2eDatabaseLease;
-  use App\Console\Commands\ResetE2eDatabase;
+  use App\Console\Commands\ServeE2e;
+  use App\Support\E2eDatabaseLease;
+  use App\Support\E2eSupervisor;
   use Closure;
   use RuntimeException;
   use Tests\TestCase;
 
-  final class E2EResetGuardTest extends TestCase
+  final class E2EProvisioningGuardTest extends TestCase
   {
-      private string $temporaryRoot;
-
-      protected function setUp(): void
+      public function test_create_only_capability_refuses_substitution_and_never_resets_existing_state(): void
       {
-          parent::setUp();
-          $this->temporaryRoot = sys_get_temp_dir().'/dorzak-e2e-'.bin2hex(random_bytes(8));
-          self::assertTrue(mkdir($this->temporaryRoot, 0700));
+          $attestation = FakeE2eSupervisor::attestation();
+          $expected = [
+              'environment' => 'e2e',
+              'identity' => $attestation['identity'],
+              'nonce' => $attestation['instanceNonceSha256'],
+              'lifecycle' => $attestation['lifecycleId'],
+              'contract' => str_repeat('c', 64),
+          ];
+
+          foreach ([
+              ['environment', 'testing'],
+              ['driver', 'sqlite'],
+              ['identity', 'wrong-service'],
+              ['serverMajor', 15],
+              ['instanceNonceSha256', str_repeat('0', 64)],
+              ['database', 'wrong-control'],
+              ['role', 'wrong-supervisor'],
+          ] as [$field, $value]) {
+              $supervisor = new FakeE2eSupervisor();
+              $input = $expected;
+              if ($field === 'environment') {
+                  $input['environment'] = $value;
+              } else {
+                  $supervisor->facts[$field] = $value;
+              }
+              $this->assertRefused(fn () => $this->acquire($supervisor, $attestation, $input));
+              self::assertSame(0, $supervisor->createCalls, "wrong {$field} mutated the service");
+          }
+
+          $collision = new FakeE2eSupervisor();
+          $collision->collision = true;
+          $this->assertRefused(fn () => $this->acquire($collision, $attestation, $expected));
+          self::assertSame(0, $collision->createCalls);
+
+          $substitution = new FakeE2eSupervisor();
+          $substitution->substituteServiceAfterCreate = true;
+          $this->assertRefused(fn () => $this->acquire($substitution, $attestation, $expected));
+          self::assertSame(['control' => 'unchanged', 'priorServer' => 'running'], $substitution->protectedState);
+          self::assertFalse($substitution->activated);
+
+          $first = new FakeE2eSupervisor();
+          $second = new FakeE2eSupervisor();
+          $leaseA = $this->acquire($first, $attestation, $expected, '11');
+          $leaseB = $this->acquire($second, $attestation, $expected, '22');
+          self::assertNotSame($leaseA->database(), $leaseB->database());
+          self::assertSame([], $first->noncandidateDatabasesWithAccess($first->createdRole, $leaseA->database()));
+          self::assertSame([], $second->noncandidateDatabasesWithAccess($second->createdRole, $leaseB->database()));
+
+          foreach ([['migrate', '44'], ['db:seed', '55']] as [$failingCommand, $fill]) {
+              $failureSupervisor = new FakeE2eSupervisor();
+              $failureLease = $this->acquire($failureSupervisor, $attestation, $expected, $fill);
+              $this->assertRefused(fn () => ServeE2e::prepare(
+                  $failureLease,
+                  function (array $command, array $environment) use ($failingCommand): void {
+                      self::assertSame('provisioning', $environment['P00_E2E_PHASE']);
+                      if (in_array($failingCommand, $command, true)) {
+                          throw new RuntimeException($failingCommand.' failed');
+                      }
+                  },
+              ));
+              self::assertFalse($failureSupervisor->activated);
+              self::assertSame(['control' => 'unchanged', 'priorServer' => 'running'], $failureSupervisor->protectedState);
+              self::assertSame('unchanged', $failureSupervisor->noncandidateFingerprint());
+          }
+
+          $leaseC = $this->acquire(new FakeE2eSupervisor(), $attestation, $expected, '33');
+          $successful = [];
+          ServeE2e::prepare($leaseC, function (array $command, array $environment) use (&$successful): void {
+              $successful[] = $command;
+              self::assertSame('provisioning', $environment['P00_E2E_PHASE']);
+          });
+          $leaseC->assertActive();
+          self::assertSame([
+              [PHP_BINARY, 'artisan', 'migrate', '--database=e2e', '--force', '--no-interaction'],
+              [PHP_BINARY, 'artisan', 'db:seed', '--database=e2e', '--class=Database\\Seeders\\E2ESeeder', '--force', '--no-interaction'],
+          ], $successful);
+          self::assertStringNotContainsString(
+              'migrate:fresh db:wipe drop unlink rename reset',
+              implode(' ', array_merge(...$successful)),
+          );
+
+          $leaseC->supervisorForTest()->candidateSubstitution = true;
+          $this->assertRefused(fn () => $leaseC->assertActive());
       }
 
-      protected function tearDown(): void
-      {
-          $this->removeTree($this->temporaryRoot);
-          parent::tearDown();
-      }
+      private function acquire(
+          FakeE2eSupervisor $supervisor,
+          array $attestation,
+          array $expected,
+          string $fill = 'aa',
+      ): E2eDatabaseLease {
+          $bytes = [
+              hex2bin(str_repeat($fill, 16)),
+              str_repeat('p', 32),
+              str_repeat('n', 32),
+          ];
 
-      public function test_database_lease_creates_only_the_exact_regular_single_link_and_detects_aliases_and_races(): void
-      {
-          $target = $this->temporaryRoot.'/dorzak-e2e.sqlite';
+          return E2eDatabaseLease::acquire(
+              $expected['environment'],
+              $supervisor,
+              $attestation,
+              $expected['identity'],
+              $expected['nonce'],
+              $expected['lifecycle'],
+              $expected['contract'],
+              static function (int $length) use (&$bytes): string {
+                  $value = array_shift($bytes);
+                  if (! is_string($value) || strlen($value) !== $length) {
+                      throw new RuntimeException('test entropy contract mismatch');
+                  }
 
-          $this->assertRefused(fn () => ResetE2eDatabase::acquireDatabase('testing', 'sqlite', $target, $target));
-          $this->assertRefused(fn () => ResetE2eDatabase::acquireDatabase('e2e', 'pgsql', $target, $target));
-          $this->assertRefused(fn () => ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', ':memory:', $target));
-          $this->assertRefused(fn () => ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $this->temporaryRoot.'/alias.sqlite', $target));
-
-          $lease = ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $target, $target);
-          self::assertFileExists($target);
-          self::assertSame(1, lstat($target)['nlink']);
-          $lease->assertUnchanged();
-          $lease->close();
-
-          $this->assertRefused(fn () => ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $target, $target));
-          self::assertTrue(unlink($target));
-          $database = new \PDO('sqlite:'.$target);
-          $database->exec('CREATE TABLE p00_e2e_identity (marker TEXT PRIMARY KEY)');
-          $statement = $database->prepare('INSERT INTO p00_e2e_identity (marker) VALUES (?)');
-          self::assertTrue($statement->execute([E2eDatabaseLease::MARKER]));
-          unset($statement, $database);
-
-          $lease = ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $target, $target);
-          $lease->assertUnchanged();
-          $lease->close();
-
-          $lease = ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $target, $target);
-          $this->assertRefused(fn () => ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $target, $target));
-          $lease->assertUnchanged();
-          $lease->close();
-
-          self::assertTrue(unlink($target));
-          file_put_contents($target, 'ordinary single-link file');
-          $this->assertRefused(fn () => ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $target, $target));
-          self::assertTrue(unlink($target));
-
-          $victim = $this->temporaryRoot.'/victim.sqlite';
-          file_put_contents($victim, 'never mutate this file');
-          self::assertTrue(symlink($victim, $target));
-          $this->assertRefused(fn () => ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $target, $target));
-          self::assertSame('never mutate this file', file_get_contents($victim));
-          self::assertTrue(unlink($target));
-
-          self::assertTrue(link($victim, $target));
-          $this->assertRefused(fn () => ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $target, $target));
-          self::assertSame('never mutate this file', file_get_contents($victim));
-          self::assertTrue(unlink($target));
-
-          self::assertTrue(mkdir($target, 0700));
-          $this->assertRefused(fn () => ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $target, $target));
-          self::assertTrue(rmdir($target));
-
-          $socket = stream_socket_server('unix://'.$target, $errorCode, $errorMessage);
-          self::assertIsResource($socket, $errorMessage);
-          $this->assertRefused(fn () => ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $target, $target));
-          fclose($socket);
-          self::assertTrue(unlink($target));
-
-          $realParent = $this->temporaryRoot.'/real';
-          $aliasParent = $this->temporaryRoot.'/alias';
-          self::assertTrue(mkdir($realParent, 0700));
-          self::assertTrue(symlink($realParent, $aliasParent));
-          $aliasedTarget = $aliasParent.'/dorzak-e2e.sqlite';
-          $this->assertRefused(fn () => ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $aliasedTarget, $aliasedTarget));
-
-          $raceParent = $this->temporaryRoot.'/race-parent';
-          $movedParent = $this->temporaryRoot.'/race-parent-moved';
-          self::assertTrue(mkdir($raceParent, 0700));
-          $parentTarget = $raceParent.'/dorzak-e2e.sqlite';
-          $parentLease = ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $parentTarget, $parentTarget);
-          self::assertTrue(rename($raceParent, $movedParent));
-          self::assertTrue(mkdir($raceParent, 0700));
-          file_put_contents($parentTarget, 'parent replacement');
-          $this->assertRefused(fn () => $parentLease->assertUnchanged());
-          $parentLease->close();
-
-          $lease = ResetE2eDatabase::acquireDatabase('e2e', 'sqlite', $target, $target);
-          $moved = $this->temporaryRoot.'/moved.sqlite';
-          self::assertTrue(rename($target, $moved));
-          file_put_contents($target, 'replacement');
-          $this->assertRefused(fn () => $lease->assertUnchanged());
-          $lease->close();
+                  return $value;
+              },
+          );
       }
 
       private function assertRefused(Closure $attempt): void
       {
           try {
-              $result = $attempt();
-              if ($result instanceof E2eDatabaseLease) {
-                  $result->close();
-              }
-              self::fail('Unsafe E2E database identity was accepted.');
+              $attempt();
+              self::fail('Unsafe E2E operation was accepted.');
           } catch (RuntimeException) {
               self::assertTrue(true);
           }
       }
+  }
 
-      private function removeTree(string $path): void
+  final class FakeE2eSupervisor implements E2eSupervisor
+  {
+      public array $facts;
+      public bool $collision = false;
+      public bool $substituteServiceAfterCreate = false;
+      public bool $candidateSubstitution = false;
+      public bool $activated = false;
+      public ?string $activationNonceSha256 = null;
+      public ?string $fixtureContractSha256 = null;
+      public int $createCalls = 0;
+      public string $createdRole = '';
+      public array $protectedState = ['control' => 'unchanged', 'priorServer' => 'running'];
+
+      public function __construct()
       {
-          $stat = @lstat($path);
-          if (! is_array($stat)) {
-              return;
+          $attestation = self::attestation();
+          $this->facts = [
+              'driver' => 'pgsql',
+              'identity' => $attestation['identity'],
+              'serverMajor' => 16,
+              'instanceNonceSha256' => $attestation['instanceNonceSha256'],
+              'database' => $attestation['supervisorDatabase'],
+              'role' => $attestation['supervisorRole'],
+          ];
+      }
+
+      public static function attestation(): array
+      {
+          return [
+              'schemaVersion' => 1,
+              'identity' => 'registry.example.test/postgres@sha256:'.str_repeat('a', 64),
+              'serverMajor' => 16,
+              'immutable' => true,
+              'instanceNonceSha256' => str_repeat('b', 64),
+              'lifecycleId' => 'container:p00-e2e-fixture-1',
+              'supervisorDatabase' => 'postgres',
+              'supervisorRole' => 'p00_supervisor',
+              'containsRealData' => false,
+              'canIssueIsolatedCredentials' => true,
+              'noncandidateAccessDenied' => true,
+          ];
+      }
+
+      public function facts(): array
+      {
+          if ($this->substituteServiceAfterCreate && $this->createCalls > 0) {
+              return [...$this->facts, 'instanceNonceSha256' => str_repeat('f', 64)];
           }
-          if (is_link($path) || is_file($path)) {
-              unlink($path);
-              return;
-          }
-          foreach (array_diff(scandir($path) ?: [], ['.', '..']) as $child) {
-              $this->removeTree($path.'/'.$child);
-          }
-          rmdir($path);
+
+          return $this->facts;
+      }
+
+      public function candidateExists(string $database, string $role): bool
+      {
+          return $this->collision;
+      }
+
+      public function noncandidateFingerprint(): string
+      {
+          return 'unchanged';
+      }
+
+      public function createCandidate(string $database, string $role, string $password): void
+      {
+          $this->createCalls++;
+          $this->createdRole = $role;
+      }
+
+      public function candidateUrl(string $database, string $role, string $password): string
+      {
+          return "postgresql://{$role}:secret@fixture.test/{$database}";
+      }
+
+      public function noncandidateDatabasesWithAccess(string $role, string $candidate): array
+      {
+          return [];
+      }
+
+      public function candidateFacts(string $url): array
+      {
+          parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+          $database = basename((string) parse_url($url, PHP_URL_PATH));
+          $role = (string) parse_url($url, PHP_URL_USER);
+
+          return [
+              'driver' => 'pgsql',
+              'database' => $this->candidateSubstitution ? 'substituted' : $database,
+              'role' => $role,
+              'serverMajor' => 16,
+              'instanceNonceSha256' => str_repeat('b', 64),
+              'superuser' => false,
+              'createdb' => false,
+              'createrole' => false,
+              'bypassrls' => false,
+              'replication' => false,
+              'activationNonceSha256' => $this->activated ? $this->activationNonceSha256 : null,
+              'fixtureContractSha256' => $this->activated ? $this->fixtureContractSha256 : null,
+          ];
+      }
+
+      public function activate(
+          string $url,
+          string $activationNonceSha256,
+          string $fixtureContractSha256,
+          string $serviceNonceSha256,
+      ): void {
+          $this->activated = true;
+          $this->activationNonceSha256 = $activationNonceSha256;
+          $this->fixtureContractSha256 = $fixtureContractSha256;
       }
   }
   ```
 
-  `E2ESeederTest.php`:
+  `E2ESeederTest.php` remains one test and uses the real model contract:
 
   ```php
   <?php
@@ -754,229 +927,646 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   ```bash
   cd backend
-  php artisan test tests/Feature/E2E/E2EResetGuardTest.php tests/Feature/E2E/E2ESeederTest.php
+  php artisan test tests/Feature/E2E/E2EProvisioningGuardTest.php tests/Feature/E2E/E2ESeederTest.php
   ```
 
-  Expected failure: both referenced classes are absent.
+  Expected failure: `App\Support\E2eDatabaseLease`, `App\Support\E2eSupervisor`, and `Database\Seeders\E2ESeeder` do not exist.
 
-- [ ] **Create the fail-closed command.**
+- [ ] **Create the exact PSR-4 lease API and PDO supervisor.**
+
+  `backend/app/Support/E2eSupervisor.php`:
+
+  ```php
+  <?php
+
+  namespace App\Support;
+
+  interface E2eSupervisor
+  {
+      public function facts(): array;
+
+      public function candidateExists(string $database, string $role): bool;
+
+      public function noncandidateFingerprint(): string;
+
+      public function createCandidate(string $database, string $role, string $password): void;
+
+      public function candidateUrl(string $database, string $role, string $password): string;
+
+      public function noncandidateDatabasesWithAccess(string $role, string $candidate): array;
+
+      public function candidateFacts(string $url): array;
+
+      public function activate(
+          string $url,
+          string $activationNonceSha256,
+          string $fixtureContractSha256,
+          string $serviceNonceSha256,
+      ): void;
+  }
+  ```
+
+  `backend/app/Support/E2eDatabaseLease.php`:
+
+  ```php
+  <?php
+
+  namespace App\Support;
+
+  use Closure;
+  use PDO;
+  use RuntimeException;
+
+  final class E2eDatabaseLease
+  {
+      private const ATTESTATION_KEYS = [
+          'schemaVersion',
+          'identity',
+          'serverMajor',
+          'immutable',
+          'instanceNonceSha256',
+          'lifecycleId',
+          'supervisorDatabase',
+          'supervisorRole',
+          'containsRealData',
+          'canIssueIsolatedCredentials',
+          'noncandidateAccessDenied',
+      ];
+
+      private function __construct(
+          private readonly E2eSupervisor $supervisor,
+          private readonly string $database,
+          private readonly string $role,
+          private readonly string $url,
+          private readonly string $identity,
+          private readonly string $serviceNonceSha256,
+          private readonly string $lifecycleId,
+          private readonly string $activationNonceSha256,
+          private readonly string $fixtureContractSha256,
+      ) {}
+
+      public static function acquire(
+          string $environment,
+          E2eSupervisor $supervisor,
+          array $attestation,
+          string $approvedIdentity,
+          string $approvedServiceNonceSha256,
+          string $approvedLifecycleId,
+          string $fixtureContractSha256,
+          ?Closure $randomBytes = null,
+      ): self {
+          if ($environment !== 'e2e'
+              || array_keys($attestation) !== self::ATTESTATION_KEYS
+              || $attestation['schemaVersion'] !== 1
+              || $attestation['identity'] !== $approvedIdentity
+              || $attestation['serverMajor'] !== 16
+              || $attestation['immutable'] !== true
+              || $attestation['instanceNonceSha256'] !== $approvedServiceNonceSha256
+              || $attestation['lifecycleId'] !== $approvedLifecycleId
+              || $attestation['containsRealData'] !== false
+              || $attestation['canIssueIsolatedCredentials'] !== true
+              || $attestation['noncandidateAccessDenied'] !== true
+              || ! preg_match('/^[0-9a-f]{64}$/', $fixtureContractSha256)) {
+              throw new RuntimeException('E2E service authority is incomplete or unsafe.');
+          }
+
+          self::assertSupervisorFacts($supervisor->facts(), $attestation);
+          $before = $supervisor->noncandidateFingerprint();
+          $entropy = $randomBytes ?? random_bytes(...);
+          $suffix = bin2hex($entropy(16));
+          $database = 'p00_e2e_'.$suffix;
+          $role = 'p00_e2e_r_'.$suffix;
+          $password = rtrim(strtr(base64_encode($entropy(32)), '+/', '-_'), '=');
+          $activationNonceSha256 = hash('sha256', $entropy(32));
+
+          if ($supervisor->candidateExists($database, $role)) {
+              throw new RuntimeException('E2E candidate collision refused; no name is reused.');
+          }
+          $supervisor->createCandidate($database, $role, $password);
+          self::assertSupervisorFacts($supervisor->facts(), $attestation);
+          if (! hash_equals($before, $supervisor->noncandidateFingerprint())) {
+              throw new RuntimeException('Noncandidate database metadata changed.');
+          }
+          if ($supervisor->noncandidateDatabasesWithAccess($role, $database) !== []) {
+              throw new RuntimeException('Candidate role can access a noncandidate database.');
+          }
+
+          $url = $supervisor->candidateUrl($database, $role, $password);
+          $lease = new self(
+              $supervisor,
+              $database,
+              $role,
+              $url,
+              $approvedIdentity,
+              $approvedServiceNonceSha256,
+              $approvedLifecycleId,
+              $activationNonceSha256,
+              $fixtureContractSha256,
+          );
+          $lease->assertCandidate(false);
+
+          return $lease;
+      }
+
+      public function database(): string
+      {
+          return $this->database;
+      }
+
+      public function lifecycleId(): string
+      {
+          return $this->lifecycleId;
+      }
+
+      public function environment(string $phase): array
+      {
+          return [
+              'APP_ENV' => 'e2e',
+              'DB_CONNECTION' => 'e2e',
+              'P00_E2E_PHASE' => $phase,
+              'P00_E2E_DB_URL' => $this->url,
+              'P00_E2E_DATABASE' => $this->database,
+              'P00_E2E_ROLE' => $this->role,
+              'P00_PG_IDENTITY' => $this->identity,
+              'P00_PG_INSTANCE_NONCE_SHA256' => $this->serviceNonceSha256,
+              'P00_E2E_ACTIVATION_NONCE_SHA256' => $this->activationNonceSha256,
+              'P00_E2E_FIXTURE_CONTRACT_SHA256' => $this->fixtureContractSha256,
+              'P00_E2E_SERVICE_LIFECYCLE_ID' => $this->lifecycleId,
+          ];
+      }
+
+      public function activate(): void
+      {
+          $this->assertCandidate(false);
+          $this->supervisor->activate(
+              $this->url,
+              $this->activationNonceSha256,
+              $this->fixtureContractSha256,
+              $this->serviceNonceSha256,
+          );
+          $this->assertActive();
+      }
+
+      public function assertActive(): void
+      {
+          $this->assertCandidate(true);
+      }
+
+      public function supervisorForTest(): E2eSupervisor
+      {
+          if (! app()->environment('testing')) {
+              throw new RuntimeException('Test seam is unavailable outside tests.');
+          }
+
+          return $this->supervisor;
+      }
+
+      public static function assertBootConnection(
+          PDO $pdo,
+          string $database,
+          string $role,
+          string $serviceNonceSha256,
+          string $activationNonceSha256,
+          string $fixtureContractSha256,
+      ): void {
+          $row = $pdo->query(
+              "SELECT current_database() AS database, current_user AS role,
+              current_setting('server_version_num')::int / 10000 AS server_major,
+              current_setting('dorzak.instance_nonce_sha256') AS service_nonce_sha256,
+              activation_nonce_sha256, fixture_contract_sha256
+              FROM p00_e2e_activation WHERE singleton = true",
+          )->fetch(PDO::FETCH_ASSOC);
+          if (! is_array($row)
+              || $row['database'] !== $database
+              || $row['role'] !== $role
+              || (int) $row['server_major'] !== 16
+              || $row['service_nonce_sha256'] !== $serviceNonceSha256
+              || $row['activation_nonce_sha256'] !== $activationNonceSha256
+              || $row['fixture_contract_sha256'] !== $fixtureContractSha256) {
+              throw new RuntimeException('Active E2E connection identity mismatch.');
+          }
+      }
+
+      private function assertCandidate(bool $active): void
+      {
+          $facts = $this->supervisor->candidateFacts($this->url);
+          $expectedKeys = [
+              'driver', 'database', 'role', 'serverMajor', 'instanceNonceSha256',
+              'superuser', 'createdb', 'createrole', 'bypassrls', 'replication',
+              'activationNonceSha256', 'fixtureContractSha256',
+          ];
+          if (array_keys($facts) !== $expectedKeys
+              || $facts['driver'] !== 'pgsql'
+              || $facts['database'] !== $this->database
+              || $facts['role'] !== $this->role
+              || $facts['serverMajor'] !== 16
+              || $facts['instanceNonceSha256'] !== $this->serviceNonceSha256
+              || $facts['superuser'] !== false
+              || $facts['createdb'] !== false
+              || $facts['createrole'] !== false
+              || $facts['bypassrls'] !== false
+              || $facts['replication'] !== false
+              || $facts['activationNonceSha256'] !== ($active ? $this->activationNonceSha256 : null)
+              || $facts['fixtureContractSha256'] !== ($active ? $this->fixtureContractSha256 : null)) {
+              throw new RuntimeException('E2E candidate capability identity mismatch.');
+          }
+      }
+
+      private static function assertSupervisorFacts(array $facts, array $attestation): void
+      {
+          if (array_keys($facts) !== ['driver', 'identity', 'serverMajor', 'instanceNonceSha256', 'database', 'role']
+              || $facts['driver'] !== 'pgsql'
+              || $facts['identity'] !== $attestation['identity']
+              || $facts['serverMajor'] !== 16
+              || $facts['instanceNonceSha256'] !== $attestation['instanceNonceSha256']
+              || $facts['database'] !== $attestation['supervisorDatabase']
+              || $facts['role'] !== $attestation['supervisorRole']) {
+              throw new RuntimeException('Live E2E supervisor does not match its attestation.');
+          }
+      }
+  }
+  ```
+
+  `backend/app/Support/PdoE2eSupervisor.php`:
+
+  ```php
+  <?php
+
+  namespace App\Support;
+
+  use PDO;
+  use RuntimeException;
+
+  final class PdoE2eSupervisor implements E2eSupervisor
+  {
+      private PDO $pdo;
+
+      public function __construct(
+          private readonly string $supervisorUrl,
+          private readonly string $identity,
+      ) {
+          $this->pdo = self::connect($supervisorUrl);
+      }
+
+      public function facts(): array
+      {
+          $row = $this->pdo->query(
+              "SELECT current_database() AS database, current_user AS role,
+              current_setting('server_version_num')::int / 10000 AS server_major,
+              current_setting('dorzak.instance_nonce_sha256') AS instance_nonce_sha256",
+          )->fetch(PDO::FETCH_ASSOC);
+
+          return [
+              'driver' => $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME),
+              'identity' => $this->identity,
+              'serverMajor' => (int) $row['server_major'],
+              'instanceNonceSha256' => $row['instance_nonce_sha256'],
+              'database' => $row['database'],
+              'role' => $row['role'],
+          ];
+      }
+
+      public function candidateExists(string $database, string $role): bool
+      {
+          $statement = $this->pdo->prepare(
+              'SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = :database)
+               OR EXISTS(SELECT 1 FROM pg_roles WHERE rolname = :role)',
+          );
+          $statement->execute(['database' => $database, 'role' => $role]);
+
+          return (bool) $statement->fetchColumn();
+      }
+
+      public function noncandidateFingerprint(): string
+      {
+          $rows = $this->pdo->query(
+              "SELECT 'database' AS kind, datname AS name, datallowconn::text AS value
+               FROM pg_database WHERE datname NOT LIKE 'p00_e2e_%'
+               UNION ALL
+               SELECT 'role', rolname, concat_ws(':', rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls)
+               FROM pg_roles WHERE rolname NOT LIKE 'p00_e2e_r_%'
+               ORDER BY kind, name",
+          )->fetchAll(PDO::FETCH_ASSOC);
+
+          return hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+      }
+
+      public function createCandidate(string $database, string $role, string $password): void
+      {
+          $databaseIdentifier = self::identifier($database);
+          $roleIdentifier = self::identifier($role);
+          $passwordLiteral = $this->pdo->quote($password);
+          $this->pdo->exec(
+              "CREATE ROLE {$roleIdentifier} LOGIN PASSWORD {$passwordLiteral}
+               NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS",
+          );
+          $this->pdo->exec(
+              "CREATE DATABASE {$databaseIdentifier} OWNER {$roleIdentifier} TEMPLATE template0 ENCODING 'UTF8'",
+          );
+          $this->pdo->exec("REVOKE ALL ON DATABASE {$databaseIdentifier} FROM PUBLIC");
+          $this->pdo->exec("GRANT CONNECT, TEMPORARY ON DATABASE {$databaseIdentifier} TO {$roleIdentifier}");
+      }
+
+      public function candidateUrl(string $database, string $role, string $password): string
+      {
+          $parts = self::urlParts($this->supervisorUrl);
+          $host = str_contains($parts['host'], ':') ? '['.$parts['host'].']' : $parts['host'];
+          $query = $parts['sslmode'] === null ? '' : '?sslmode='.rawurlencode($parts['sslmode']);
+
+          return sprintf(
+              'postgresql://%s:%s@%s:%d/%s%s',
+              rawurlencode($role),
+              rawurlencode($password),
+              $host,
+              $parts['port'],
+              rawurlencode($database),
+              $query,
+          );
+      }
+
+      public function noncandidateDatabasesWithAccess(string $role, string $candidate): array
+      {
+          $statement = $this->pdo->prepare(
+              "SELECT datname FROM pg_database
+               WHERE datname <> :candidate AND datallowconn
+                 AND has_database_privilege(:role, datname, 'CONNECT')
+               ORDER BY datname",
+          );
+          $statement->execute(['candidate' => $candidate, 'role' => $role]);
+
+          return $statement->fetchAll(PDO::FETCH_COLUMN);
+      }
+
+      public function candidateFacts(string $url): array
+      {
+          $pdo = self::connect($url);
+          $row = $pdo->query(
+              "SELECT current_database() AS database, current_user AS role,
+              current_setting('server_version_num')::int / 10000 AS server_major,
+              current_setting('dorzak.instance_nonce_sha256') AS instance_nonce_sha256,
+              CASE WHEN rolsuper THEN 1 ELSE 0 END AS rolsuper,
+              CASE WHEN rolcreatedb THEN 1 ELSE 0 END AS rolcreatedb,
+              CASE WHEN rolcreaterole THEN 1 ELSE 0 END AS rolcreaterole,
+              CASE WHEN rolbypassrls THEN 1 ELSE 0 END AS rolbypassrls,
+              CASE WHEN rolreplication THEN 1 ELSE 0 END AS rolreplication
+              FROM pg_roles WHERE rolname = current_user",
+          )->fetch(PDO::FETCH_ASSOC);
+          $activation = ['activation_nonce_sha256' => null, 'fixture_contract_sha256' => null];
+          if ($pdo->query("SELECT to_regclass('public.p00_e2e_activation')")->fetchColumn() !== null) {
+              $activation = $pdo->query(
+                  'SELECT activation_nonce_sha256, fixture_contract_sha256
+                   FROM p00_e2e_activation WHERE singleton = true',
+              )->fetch(PDO::FETCH_ASSOC);
+          }
+
+          return [
+              'driver' => $pdo->getAttribute(PDO::ATTR_DRIVER_NAME),
+              'database' => $row['database'],
+              'role' => $row['role'],
+              'serverMajor' => (int) $row['server_major'],
+              'instanceNonceSha256' => $row['instance_nonce_sha256'],
+              'superuser' => (int) $row['rolsuper'] === 1,
+              'createdb' => (int) $row['rolcreatedb'] === 1,
+              'createrole' => (int) $row['rolcreaterole'] === 1,
+              'bypassrls' => (int) $row['rolbypassrls'] === 1,
+              'replication' => (int) $row['rolreplication'] === 1,
+              'activationNonceSha256' => $activation['activation_nonce_sha256'],
+              'fixtureContractSha256' => $activation['fixture_contract_sha256'],
+          ];
+      }
+
+      public function activate(
+          string $url,
+          string $activationNonceSha256,
+          string $fixtureContractSha256,
+          string $serviceNonceSha256,
+      ): void {
+          $pdo = self::connect($url);
+          $pdo->exec(
+              'CREATE TABLE p00_e2e_activation (
+                  singleton boolean PRIMARY KEY CHECK (singleton),
+                  activation_nonce_sha256 char(64) NOT NULL,
+                  fixture_contract_sha256 char(64) NOT NULL,
+                  service_nonce_sha256 char(64) NOT NULL
+              )',
+          );
+          $statement = $pdo->prepare(
+              'INSERT INTO p00_e2e_activation
+               (singleton, activation_nonce_sha256, fixture_contract_sha256, service_nonce_sha256)
+               VALUES (true, :activation, :contract, :service)',
+          );
+          $statement->execute([
+              'activation' => $activationNonceSha256,
+              'contract' => $fixtureContractSha256,
+              'service' => $serviceNonceSha256,
+          ]);
+      }
+
+      private static function connect(string $url): PDO
+      {
+          $parts = self::urlParts($url);
+          $dsn = "pgsql:host={$parts['host']};port={$parts['port']};dbname={$parts['database']}";
+          if ($parts['sslmode'] !== null) {
+              $dsn .= ";sslmode={$parts['sslmode']}";
+          }
+
+          return new PDO($dsn, $parts['user'], $parts['password'], [
+              PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+              PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+              PDO::ATTR_STRINGIFY_FETCHES => false,
+          ]);
+      }
+
+      private static function urlParts(string $url): array
+      {
+          $parts = parse_url($url);
+          parse_str($parts['query'] ?? '', $query);
+          if (! is_array($parts)
+              || ! in_array($parts['scheme'] ?? null, ['postgres', 'postgresql'], true)
+              || ! isset($parts['host'], $parts['user'], $parts['pass'], $parts['path'])
+              || array_diff(array_keys($query), ['sslmode']) !== []) {
+              throw new RuntimeException('PostgreSQL supervisor URL shape is invalid.');
+          }
+          $database = rawurldecode(ltrim($parts['path'], '/'));
+          if ($database === '' || str_contains($database, '/')) {
+              throw new RuntimeException('PostgreSQL database name is invalid.');
+          }
+
+          return [
+              'host' => $parts['host'],
+              'port' => (int) ($parts['port'] ?? 5432),
+              'user' => rawurldecode($parts['user']),
+              'password' => rawurldecode($parts['pass']),
+              'database' => $database,
+              'sslmode' => $query['sslmode'] ?? null,
+          ];
+      }
+
+      private static function identifier(string $value): string
+      {
+          if (! preg_match('/^[a-z][a-z0-9_]{1,62}$/', $value)) {
+              throw new RuntimeException('Unsafe PostgreSQL identifier.');
+          }
+
+          return '"'.$value.'"';
+      }
+  }
+  ```
+
+- [ ] **Create the supervisor command, dedicated connection, and boot guard.**
+
+  `backend/app/Console/Commands/ServeE2e.php`:
 
   ```php
   <?php
 
   namespace App\Console\Commands;
 
+  use App\Support\E2eDatabaseLease;
+  use App\Support\PdoE2eSupervisor;
   use Database\Seeders\E2ESeeder;
   use Illuminate\Console\Command;
-  use Illuminate\Support\Facades\DB;
   use RuntimeException;
+  use Symfony\Component\Process\Process;
+  use Throwable;
 
-  final class E2eDatabaseLease
+  final class ServeE2e extends Command
   {
-      public const MARKER = 'DORZAK_P00_E2E_DATABASE_V1';
+      protected $signature = 'e2e:serve {--host=127.0.0.1} {--port=8000}';
 
-      /** @param resource $handle */
-      public function __construct(
-          private $handle,
-          private readonly string $path,
-          private readonly string $canonicalParent,
-          /** @var array{dev:int, ino:int} */
-          private readonly array $identity,
-          /** @var array{dev:int, ino:int} */
-          private readonly array $parentIdentity,
-      ) {}
-
-      public function assertUnchanged(): void
-      {
-          clearstatcache(true, $this->path);
-          $pathStat = @lstat($this->path);
-          $parentStat = @lstat(dirname($this->path));
-          $handleStat = is_resource($this->handle) ? @fstat($this->handle) : false;
-          if (! is_array($pathStat) || ! is_array($parentStat) || ! is_array($handleStat)
-              || ! self::isRegular($pathStat) || ! self::isRegular($handleStat)
-              || ! self::isDirectory($parentStat)
-              || $pathStat['nlink'] !== 1 || $handleStat['nlink'] !== 1
-              || $pathStat['dev'] !== $this->identity['dev'] || $pathStat['ino'] !== $this->identity['ino']
-              || $handleStat['dev'] !== $this->identity['dev'] || $handleStat['ino'] !== $this->identity['ino']
-              || $parentStat['dev'] !== $this->parentIdentity['dev']
-              || $parentStat['ino'] !== $this->parentIdentity['ino']
-              || realpath(dirname($this->path)) !== $this->canonicalParent
-              || realpath($this->path) !== $this->path) {
-              throw new RuntimeException('E2E database identity changed or became unsafe.');
-          }
-      }
-
-      public function close(): void
-      {
-          if (is_resource($this->handle)) {
-              flock($this->handle, LOCK_UN);
-              fclose($this->handle);
-          }
-      }
-
-      public function __destruct()
-      {
-          $this->close();
-      }
-
-      /** @param array<string|int, mixed> $stat */
-      public static function isRegular(array $stat): bool
-      {
-          return (($stat['mode'] ?? 0) & 0170000) === 0100000;
-      }
-
-      /** @param array<string|int, mixed> $stat */
-      public static function isDirectory(array $stat): bool
-      {
-          return (($stat['mode'] ?? 0) & 0170000) === 0040000;
-      }
-
-      /** @param resource $handle */
-      public static function containsOwnershipMarker($handle, int $size): bool
-      {
-          if ($size < 16 || $size > 134217728 || fseek($handle, 0) !== 0) {
-              return false;
-          }
-          if (fread($handle, 16) !== "SQLite format 3\0" || fseek($handle, 0) !== 0) {
-              return false;
-          }
-          $overlap = '';
-          while (! feof($handle)) {
-              $chunk = fread($handle, 65536);
-              if ($chunk === false) {
-                  return false;
-              }
-              $window = $overlap.$chunk;
-              if (str_contains($window, self::MARKER)) {
-                  return fseek($handle, 0) === 0;
-              }
-              $overlap = substr($window, -strlen(self::MARKER));
-          }
-
-          return false;
-      }
-  }
-
-  final class ResetE2eDatabase extends Command
-  {
-      protected $signature = 'e2e:reset';
-
-      protected $description = 'Reset only the named Dorzak E2E SQLite database';
-
-      public static function acquireDatabase(
-          string $environment,
-          string $connection,
-          string $configuredDatabase,
-          string $lexicalTarget,
-      ): E2eDatabaseLease
-      {
-          if ($environment !== 'e2e' || $connection !== 'sqlite' || $configuredDatabase !== $lexicalTarget) {
-              throw new RuntimeException('E2E environment, connection, or lexical database target is invalid.');
-          }
-          $parent = dirname($lexicalTarget);
-          $canonicalParent = realpath($parent);
-          $parentBefore = @lstat($parent);
-          if ($canonicalParent === false || $canonicalParent !== $parent
-              || ! is_array($parentBefore) || ! E2eDatabaseLease::isDirectory($parentBefore)
-              || basename($lexicalTarget) !== 'dorzak-e2e.sqlite') {
-              throw new RuntimeException('E2E database parent or basename is not canonical.');
-          }
-
-          clearstatcache(true, $lexicalTarget);
-          $before = @lstat($lexicalTarget);
-          if (is_array($before)) {
-              if (! E2eDatabaseLease::isRegular($before) || $before['nlink'] !== 1) {
-                  throw new RuntimeException('Pre-existing E2E target is not a regular single-link file.');
-              }
-              $handle = @fopen($lexicalTarget, 'r+b');
-          } else {
-              $handle = @fopen($lexicalTarget, 'x+b');
-          }
-          if (! is_resource($handle) || ! flock($handle, LOCK_EX | LOCK_NB)) {
-              if (is_resource($handle)) {
-                  fclose($handle);
-              }
-              throw new RuntimeException('E2E database could not be exclusively opened and locked.');
-          }
-          $opened = fstat($handle);
-          $parentAfter = @lstat($parent);
-          if (! is_array($opened) || ! E2eDatabaseLease::isRegular($opened) || $opened['nlink'] !== 1) {
-              flock($handle, LOCK_UN);
-              fclose($handle);
-              throw new RuntimeException('Opened E2E target is not a regular single-link file.');
-          }
-          if (is_array($before) && ! E2eDatabaseLease::containsOwnershipMarker($handle, (int) $opened['size'])) {
-              flock($handle, LOCK_UN);
-              fclose($handle);
-              throw new RuntimeException('Pre-existing E2E target is not command-owned.');
-          }
-          if (is_array($before) && ($before['dev'] !== $opened['dev'] || $before['ino'] !== $opened['ino'])) {
-              flock($handle, LOCK_UN);
-              fclose($handle);
-              throw new RuntimeException('E2E target changed during inspection/open.');
-          }
-          if (! is_array($parentAfter) || ! E2eDatabaseLease::isDirectory($parentAfter)
-              || $parentBefore['dev'] !== $parentAfter['dev']
-              || $parentBefore['ino'] !== $parentAfter['ino']) {
-              flock($handle, LOCK_UN);
-              fclose($handle);
-              throw new RuntimeException('E2E parent changed during inspection/open.');
-          }
-          $lease = new E2eDatabaseLease(
-              $handle,
-              $lexicalTarget,
-              $canonicalParent,
-              ['dev' => $opened['dev'], 'ino' => $opened['ino']],
-              ['dev' => $parentAfter['dev'], 'ino' => $parentAfter['ino']],
-          );
-          $lease->assertUnchanged();
-
-          return $lease;
-      }
+      protected $description = 'Create and serve one attested PostgreSQL E2E capability';
 
       public function handle(): int
       {
-          $connection = (string) config('database.default');
-          $configuredDatabase = (string) config("database.connections.{$connection}.database");
-          $target = database_path('dorzak-e2e.sqlite');
+          $lease = null;
           try {
-              $lease = self::acquireDatabase(
-                  $this->laravel->environment(),
-                  $connection,
-                  $configuredDatabase,
-                  $target,
+              $host = (string) $this->option('host');
+              $port = filter_var($this->option('port'), FILTER_VALIDATE_INT);
+              if ($host !== '127.0.0.1' || $port === false || $port < 1024 || $port > 65535) {
+                  throw new RuntimeException('E2E listener must be a non-privileged loopback port.');
+              }
+
+              $attestationPath = (string) env('P00_E2E_SERVICE_ATTESTATION_PATH');
+              $attestationSha256 = (string) env('P00_E2E_SERVICE_ATTESTATION_SHA256');
+              if (! is_file($attestationPath)
+                  || ! hash_equals($attestationSha256, hash_file('sha256', $attestationPath))) {
+                  throw new RuntimeException('E2E service attestation is absent or changed.');
+              }
+              $attestation = json_decode(
+                  (string) file_get_contents($attestationPath),
+                  true,
+                  512,
+                  JSON_THROW_ON_ERROR,
               );
-          } catch (RuntimeException $exception) {
-              $this->error('E2E reset refused: environment or database identity is unsafe.');
+              $supervisor = new PdoE2eSupervisor(
+                  (string) env('P00_E2E_SUPERVISOR_DB_URL'),
+                  (string) env('P00_PG_IDENTITY'),
+              );
+              $lease = E2eDatabaseLease::acquire(
+                  $this->laravel->environment(),
+                  $supervisor,
+                  $attestation,
+                  (string) env('P00_PG_IDENTITY'),
+                  (string) env('P00_PG_INSTANCE_NONCE_SHA256'),
+                  (string) env('P00_E2E_SERVICE_LIFECYCLE_ID'),
+                  hash('sha256', E2ESeeder::CONTRACT_JSON),
+              );
+
+              self::prepare($lease, static function (array $command, array $environment): void {
+                  (new Process(
+                      $command,
+                      base_path(),
+                      array_merge($_SERVER, $_ENV, $environment),
+                  ))->setTimeout(300)->mustRun();
+              });
+
+              $environment = array_merge($_SERVER, $_ENV, $lease->environment('active'));
+              $server = new Process(
+                  [PHP_BINARY, 'artisan', 'serve', '--host=127.0.0.1', "--port={$port}", '--no-interaction'],
+                  base_path(),
+                  $environment,
+              );
+              $server->setTimeout(null);
+              $this->info("E2E_SERVE PASS database={$lease->database()} lifecycle={$lease->lifecycleId()}");
+              return $server->run(static function (string $type, string $buffer): void {
+                  fwrite($type === Process::ERR ? STDERR : STDOUT, $buffer);
+              });
+          } catch (Throwable) {
+              $database = $lease?->database() ?? 'none';
+              $lifecycle = $lease?->lifecycleId() ?? (string) env('P00_E2E_SERVICE_LIFECYCLE_ID', 'unknown');
+              $this->error("E2E_SERVE REFUSED orphan_database={$database} lifecycle={$lifecycle}");
               return self::FAILURE;
           }
+      }
 
-          try {
-              $lease->assertUnchanged();
-              if ($this->call('migrate:fresh', ['--force' => true]) !== self::SUCCESS) {
-                  return self::FAILURE;
-              }
-              $lease->assertUnchanged();
-              if ($this->call('db:seed', ['--class' => E2ESeeder::class, '--force' => true]) !== self::SUCCESS) {
-                  return self::FAILURE;
-              }
-              DB::statement('CREATE TABLE p00_e2e_identity (marker TEXT PRIMARY KEY)');
-              DB::table('p00_e2e_identity')->insert(['marker' => E2eDatabaseLease::MARKER]);
-              $lease->assertUnchanged();
-              $this->info('E2E_RESET PASS database=dorzak-e2e.sqlite');
-
-              return self::SUCCESS;
-          } catch (RuntimeException $exception) {
-              $this->error('E2E reset refused: database identity changed.');
-              return self::FAILURE;
-          } finally {
-              $lease->close();
-          }
+      public static function prepare(E2eDatabaseLease $lease, callable $runner): void
+      {
+          $environment = $lease->environment('provisioning');
+          $runner(
+              [PHP_BINARY, 'artisan', 'migrate', '--database=e2e', '--force', '--no-interaction'],
+              $environment,
+          );
+          $runner(
+              [PHP_BINARY, 'artisan', 'db:seed', '--database=e2e', '--class=Database\\Seeders\\E2ESeeder', '--force', '--no-interaction'],
+              $environment,
+          );
+          $lease->activate();
       }
   }
   ```
 
-- [ ] **Create the dedicated seeder.**
+  Add this exact connection immediately after the existing `pgsql` connection in `backend/config/database.php`:
+
+  ```php
+  'e2e' => [
+      'driver' => 'pgsql',
+      'url' => env('P00_E2E_DB_URL'),
+      'host' => '127.0.0.1',
+      'port' => '5432',
+      'database' => 'refused_without_P00_E2E_DB_URL',
+      'username' => 'refused_without_P00_E2E_DB_URL',
+      'password' => '',
+      'charset' => 'utf8',
+      'prefix' => '',
+      'prefix_indexes' => true,
+      'search_path' => 'public',
+      'sslmode' => 'prefer',
+  ],
+  ```
+
+  Apply this deterministic patch to `backend/app/Providers/AppServiceProvider.php`:
+
+  ```diff
+   use App\Services\PlanGate;
+  +use App\Support\E2eDatabaseLease;
+  +use Illuminate\Support\Facades\DB;
+   use Illuminate\Support\ServiceProvider;
+  +use RuntimeException;
+  @@
+       public function boot(): void
+       {
+  +        if ($this->app->environment('e2e')) {
+  +            $phase = (string) env('P00_E2E_PHASE');
+  +            if ($phase === 'active') {
+  +                E2eDatabaseLease::assertBootConnection(
+  +                    DB::connection('e2e')->getPdo(),
+  +                    (string) env('P00_E2E_DATABASE'),
+  +                    (string) env('P00_E2E_ROLE'),
+  +                    (string) env('P00_PG_INSTANCE_NONCE_SHA256'),
+  +                    (string) env('P00_E2E_ACTIVATION_NONCE_SHA256'),
+  +                    (string) env('P00_E2E_FIXTURE_CONTRACT_SHA256'),
+  +                );
+  +            } elseif (! in_array($phase, ['supervisor', 'provisioning'], true)) {
+  +                throw new RuntimeException('Unrecognized E2E boot phase.');
+  +            }
+  +        }
+  +
+           // Invalidate the public storefront cache when catalog data changes.
+  ```
+
+- [ ] **Create the deterministic Qatar/QAR fixture.**
+
+  `backend/database/seeders/E2ESeeder.php`:
 
   ```php
   <?php
@@ -996,6 +1586,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   final class E2ESeeder extends Seeder
   {
+      public const CONTRACT_JSON = '{"country":"Qatar","currency":"QAR","email":"owner@e2e.dorzak.test","plan":"PRO","productSku":"E2E-HOODIE","schemaVersion":1}';
+
       public function run(): void
       {
           $this->call(PlanSeeder::class);
@@ -1058,27 +1650,37 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   }
   ```
 
-- [ ] **Verify the guard, fixture, repeatability, and SQLite aggregate.**
+- [ ] **Verify create-only safety, fixture behavior, and the fast SQLite aggregate.**
 
   ```bash
   cd backend
-  php artisan test tests/Feature/E2E/E2EResetGuardTest.php tests/Feature/E2E/E2ESeederTest.php
-  APP_ENV=testing DB_CONNECTION=sqlite DB_DATABASE=:memory: php artisan e2e:reset --no-interaction; test "$?" = 1
+  php artisan test tests/Feature/E2E/E2EProvisioningGuardTest.php tests/Feature/E2E/E2ESeederTest.php
+  APP_ENV=testing P00_E2E_PHASE=supervisor php artisan e2e:serve --no-interaction; test "$?" = 1
+  rg -n 'migrate:fresh|db:wipe|\\bDROP\\b|unlink\\(|rename\\(' \
+    app/Support/E2eDatabaseLease.php app/Support/PdoE2eSupervisor.php app/Console/Commands/ServeE2e.php
+  test "$?" = 1
   php artisan test
   ```
 
-  Expected: `2 passed`; the guard test proves exclusive safe creation and refusal of wrong environment/connection/path, an unmarked ordinary file, lock conflict, symlink, hard link, directory, Unix socket, parent alias, parent replacement, and target replacement without invoking destructive work on those targets. The unsafe command prints the refusal and exits `1`; full SQLite reports `446 passed`.
+  Expected: `2 passed`; the refusal command exits `1` before mutation. The comprehensive guard test covers wrong environment/driver/service/major/control-database/supervisor-role/nonce, create collision, live-service substitution between attestation and creation, seed failure, prior-server preservation, candidate DSN substitution at activation, concurrent candidate isolation, least privilege, unchanged noncandidate metadata, and an exact spy proving only `migrate` and `db:seed` run. The forbidden-operation scan has no match. Full SQLite reports `446 passed`.
 
-- [ ] **Stage only the four files and commit.**
+  For the live browser run, Task 5 additionally proves the supervisor and candidate through the real PDO connection. The approved provisioner performs cleanup by exact `P00_E2E_SERVICE_LIFECYCLE_ID`; a failed cleanup records `orphan_database` and lifecycle ID without issuing SQL deletion. No P00 command contains a database/file destroy primitive.
+
+- [ ] **Stage only the nine files and commit.**
 
   ```bash
   git add -- \
-    backend/app/Console/Commands/ResetE2eDatabase.php \
+    backend/app/Support/E2eSupervisor.php \
+    backend/app/Support/PdoE2eSupervisor.php \
+    backend/app/Support/E2eDatabaseLease.php \
+    backend/app/Console/Commands/ServeE2e.php \
     backend/database/seeders/E2ESeeder.php \
-    backend/tests/Feature/E2E/E2EResetGuardTest.php \
+    backend/config/database.php \
+    backend/app/Providers/AppServiceProvider.php \
+    backend/tests/Feature/E2E/E2EProvisioningGuardTest.php \
     backend/tests/Feature/E2E/E2ESeederTest.php
-  test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = 4
-  git commit -m "test(e2e): add guarded Qatar fixture"
+  test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = 9
+  git commit -m "test(e2e): add create-only PostgreSQL fixture"
   ```
 
   Run the global writer-boundary checks.
@@ -1099,7 +1701,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - Replace: `tests/e2e/interactions.spec.ts`
 - Replace: `tests/e2e/localization.spec.ts`
 
-**Interfaces:** Playwright starts the guarded Laravel E2E reset/server and strict-port Vite server, uses one worker and zero retries, separates API authentication setup from a real UI login smoke, retains failure artifacts, and restores English/QAR after every journey. The existing seven journeys remain seven tests; setup and login smoke make the full run nine passing tests.
+**Interfaces:** Playwright starts the create-only attested Laravel/PostgreSQL E2E supervisor and strict-port Vite server, uses one worker and zero retries, separates API authentication setup from a real UI login smoke, retains failure artifacts, and restores English/QAR after every journey. The existing seven journeys remain seven tests; setup and login smoke make the full run nine passing tests. The supervisor variables are required inputs and never receive defaults in repository code.
 
 - [ ] **Run the new smoke path red against the current Vite-only harness.**
 
@@ -1120,7 +1722,6 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   export const merchantPassword = 'e2e-password';
   export const tokenKey = 'dorzak-token';
   export const storageStatePath = resolve('test-results/auth/merchant.json');
-  export const e2eDatabasePath = resolve('backend/database/dorzak-e2e.sqlite');
   ```
 
 - [ ] **Replace `playwright.config.ts` completely.**
@@ -1129,10 +1730,24 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   import { defineConfig, devices } from '@playwright/test';
   import {
     backendUrl,
-    e2eDatabasePath,
     frontendUrl,
     storageStatePath,
   } from './tests/e2e/support/e2e';
+
+  const required = (name: string): string => {
+    const value = process.env[name];
+    if (!value) throw new Error(`Missing required E2E input: ${name}`);
+    return value;
+  };
+
+  const e2eSupervisorEnv = Object.fromEntries([
+    'P00_E2E_SUPERVISOR_DB_URL',
+    'P00_E2E_SERVICE_LIFECYCLE_ID',
+    'P00_E2E_SERVICE_ATTESTATION_PATH',
+    'P00_E2E_SERVICE_ATTESTATION_SHA256',
+    'P00_PG_IDENTITY',
+    'P00_PG_INSTANCE_NONCE_SHA256',
+  ].map((name) => [name, required(name)]));
 
   export default defineConfig({
     testDir: './tests/e2e',
@@ -1166,17 +1781,17 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     ],
     webServer: [
       {
-        command: 'php artisan e2e:reset --no-interaction && php artisan serve --host=127.0.0.1 --port=8000',
+        command: 'php artisan e2e:serve --host=127.0.0.1 --port=8000 --no-interaction',
         cwd: './backend',
         url: `${backendUrl}/up`,
         reuseExistingServer: false,
         env: {
+          ...e2eSupervisorEnv,
           APP_ENV: 'e2e',
+          P00_E2E_PHASE: 'supervisor',
           APP_KEY: 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
           APP_URL: backendUrl,
           FRONTEND_URL: frontendUrl,
-          DB_CONNECTION: 'sqlite',
-          DB_DATABASE: e2eDatabasePath,
           CACHE_STORE: 'array',
           SESSION_DRIVER: 'array',
           QUEUE_CONNECTION: 'sync',
@@ -1585,7 +2200,11 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   });
 
   test('opens the current product creation dialog', async ({ page }) => {
-    await page.getByRole('button', { name: 'Add Product' }).click();
+    const posAddProduct = page
+      .getByRole('main')
+      .getByRole('button', { name: 'Add Product', exact: true });
+    await expect(posAddProduct).toHaveCount(1);
+    await posAddProduct.click();
     await expect(page.getByRole('dialog', { name: 'Create Production Product' })).toBeVisible();
     await expect(page).toHaveURL(/\/checkout$/);
   });
@@ -2736,7 +3355,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - Modify: `backend/app/Models/Product.php:96-107`
 - Modify: `backend/app/Models/Customer.php:47-58`
 
-**Interfaces:** The qualification lane consumes `DB_URL` with `postgres` or `postgresql` scheme, requires a database name ending `_test`, requires `pdo_pgsql`, and rejects any server outside major 16 before migrations. It runs Unit, Feature, and PostgreSQL suites. Search remains case-insensitive on SQLite and PostgreSQL.
+**Interfaces:** The qualification lane consumes the exact secret `DB_URL` plus the approved immutable identity/attestation/instance-nonce inputs, requires a `postgres` or `postgresql` URL whose database ends `_test`, requires `pdo_pgsql`, and rejects any live endpoint whose major or provisioner nonce differs before migrations. The bootstrap verifies through that exact `DB_URL`; `PostgresEnvironmentTest` repeats the database/major/nonce checks through Laravel's actual default connection. It runs Unit, Feature, and PostgreSQL suites. Search remains case-insensitive on SQLite and PostgreSQL.
 
 - [ ] **Create the guard test/config seam and prove it is absent.**
 
@@ -2774,14 +3393,41 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       $fail('pdo_pgsql is unavailable');
   }
 
+  $attestationPath = getenv('P00_PG_ATTESTATION_PATH') ?: '';
+  $attestationSha256 = getenv('P00_PG_ATTESTATION_SHA256') ?: '';
+  $identity = getenv('P00_PG_IDENTITY') ?: '';
+  $nonceSha256 = getenv('P00_PG_INSTANCE_NONCE_SHA256') ?: '';
+  if (! is_file($attestationPath)
+      || ! preg_match('/^[0-9a-f]{64}$/', $attestationSha256)
+      || ! hash_equals($attestationSha256, hash_file('sha256', $attestationPath))) {
+      $fail('approved PostgreSQL attestation is absent or changed');
+  }
+  $attestation = json_decode((string) file_get_contents($attestationPath), true, 512, JSON_THROW_ON_ERROR);
+  if (array_keys($attestation) !== ['schemaVersion', 'kind', 'identity', 'serverMajor', 'immutable', 'instanceNonceSha256']
+      || $attestation['schemaVersion'] !== 2
+      || $attestation['identity'] !== $identity
+      || $attestation['serverMajor'] !== 16
+      || $attestation['immutable'] !== true
+      || $attestation['instanceNonceSha256'] !== $nonceSha256) {
+      $fail('approved PostgreSQL identity is invalid');
+  }
+
   $host = (string) ($parts['host'] ?? '');
   $port = (int) ($parts['port'] ?? 5432);
   $user = rawurldecode((string) ($parts['user'] ?? ''));
   $password = rawurldecode((string) ($parts['pass'] ?? ''));
   $pdo = new PDO("pgsql:host={$host};port={$port};dbname={$database}", $user, $password, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-  $version = (int) $pdo->query('SHOW server_version_num')->fetchColumn();
+  $live = $pdo->query(
+      "SELECT current_database() AS database,
+      current_setting('server_version_num')::int AS server_version_num,
+      current_setting('dorzak.instance_nonce_sha256') AS instance_nonce_sha256",
+  )->fetch(PDO::FETCH_ASSOC);
+  $version = (int) $live['server_version_num'];
   if ($version < 160000 || $version >= 170000) {
       $fail('server major version must be 16');
+  }
+  if ($live['database'] !== $database || ! hash_equals($nonceSha256, $live['instance_nonce_sha256'])) {
+      $fail('live database or provisioner nonce does not match the approved endpoint');
   }
 
   fwrite(STDOUT, "P00_POSTGRES_GUARD PASS database={$database} server_version_num={$version}\n");
@@ -2847,9 +3493,18 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       public function test_lane_is_postgresql_16(): void
       {
           self::assertSame('pgsql', DB::connection()->getDriverName());
-          $version = (int) DB::selectOne('SHOW server_version_num')->server_version_num;
+          $url = parse_url((string) getenv('DB_URL'));
+          $expectedDatabase = ltrim((string) ($url['path'] ?? ''), '/');
+          $identity = DB::selectOne(
+              "SELECT current_database() AS database,
+              current_setting('server_version_num')::int AS server_version_num,
+              current_setting('dorzak.instance_nonce_sha256') AS instance_nonce_sha256",
+          );
+          $version = (int) $identity->server_version_num;
           self::assertGreaterThanOrEqual(160000, $version);
           self::assertLessThan(170000, $version);
+          self::assertSame($expectedDatabase, $identity->database);
+          self::assertSame((string) getenv('P00_PG_INSTANCE_NONCE_SHA256'), $identity->instance_nonce_sha256);
       }
   }
   ```
@@ -2877,8 +3532,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   ```bash
   cd backend
   DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml \
-    tests/Feature/Product/ProductApiTest.php tests/Feature/Customer/CustomerApiTest.php \
-    --filter='/test.*search/'
+    tests/Feature/Catalog/ProductApiTest.php tests/Feature/Customer/CustomerApiTest.php \
+    --filter='/test_(search_matches_name_and_sku|search_matches_name_email_phone)/'
   ```
 
   Expected: lowercase `hoodie` and `sarah` each return count `0` where current tests require `1`; PostgreSQL `LIKE` is case-sensitive.
@@ -2911,12 +3566,12 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   ```bash
   cd backend
-  php artisan test tests/Feature/Product/ProductApiTest.php tests/Feature/Customer/CustomerApiTest.php --filter=search
-  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml tests/Feature/Product/ProductApiTest.php tests/Feature/Customer/CustomerApiTest.php --filter=search
+  php artisan test tests/Feature/Catalog/ProductApiTest.php tests/Feature/Customer/CustomerApiTest.php --filter='/test_(search_matches_name_and_sku|search_matches_name_email_phone)/'
+  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml tests/Feature/Catalog/ProductApiTest.php tests/Feature/Customer/CustomerApiTest.php --filter='/test_(search_matches_name_and_sku|search_matches_name_email_phone)/'
   DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml
   ```
 
-  Expected: both focused database runs pass; full PostgreSQL reports `447 passed` (the 446 SQLite-visible tests plus the PostgreSQL environment test).
+  Expected: before the model patch SQLite reports `2 passed` and PostgreSQL reports exactly `2 failed`; after the patch both focused runs report `2 passed`. Full PostgreSQL reports `447 passed` (the 446 SQLite-visible tests plus the PostgreSQL environment test).
 
 - [ ] **Stage only the two models and commit the contract-preserving fix.**
 
@@ -3223,7 +3878,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   {
     "schemaVersion": 1,
     "jobs": [
-      { "name": "composer-validation", "command": "scripts/quality/run-p00 composer-validation", "testCount": 0 },
+      { "name": "composer-validation", "command": "scripts/quality/run-p00 composer-validation", "testCount": 11 },
       { "name": "php-style-static", "command": "scripts/quality/run-p00 php-style-static", "testCount": 0 },
       { "name": "sqlite", "command": "scripts/quality/run-p00 sqlite", "testCount": 446 },
       { "name": "postgresql-16", "command": "scripts/quality/run-p00 postgresql-16", "testCount": 450 },
@@ -3236,7 +3891,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       "debtStatus": "accepted-open",
       "warning": "(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.",
       "expectedOccurrences": 1
-    }
+    },
+    "qualitySelfTests": { "dispatcher": 2, "node": 9, "total": 11 }
   }
   ~~~
 
@@ -3245,18 +3901,20 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   ~~~js
   import assert from 'node:assert/strict';
   import { randomBytes } from 'node:crypto';
-  import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+  import { mkdtempSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
   import { tmpdir } from 'node:os';
   import { join } from 'node:path';
   import test from 'node:test';
   import {
     aggregateRequiredGates,
+    assertExactKeys,
     buildEvidence,
     contract,
     contractSha256,
     measureBundle,
     sha256,
     stableJson,
+    validateSchema,
     validateEvidence,
   } from './p00.mjs';
 
@@ -3266,40 +3924,76 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   const json = (path, value) => writeFileSync(path, stableJson(value));
   const inputs = () => ({
     contractSha256,
-    runtime: { php: '8.5.1', composer: '2.8.0', node: process.versions.node, npm: '10.9.0', zlib: process.versions.zlib },
+    runtime: { php: '8.5.1', composer: '2.8.0', node: process.versions.node, npm: '10.9.0' },
     lockfileSha256: { composer: sha64, npm: sha64 },
-    postgresql: { kind: 'oci', identity: 'registry.test/postgres@sha256:' + sha64, attestationSha256: sha64 },
-    playwright: { packageVersion: '1.57.0', chromiumSha256: sha64 },
+    postgresql: { kind: 'oci', identity: 'registry.test/postgres@sha256:' + sha64 },
+    playwright: { packageVersion: '1.57.0', chromiumRevision: '1234567' },
+    bundleAlgorithms: { assetSelection: 'html-module-entry-and-modulepreload-v1', gzip: 'node-zlib-level-9' },
   });
-  const record = (job) => {
+  const platformObservation = () => ({
+    os: 'linux', arch: 'x64', osRelease: 'test-kernel', runnerClass: 'ci-linux-x64',
+    zlib: '1.3.1', chromiumExecutableSha256: sha64,
+  });
+  const record = (job, root) => {
     const declared = inputs();
     const artifactNames = {
-      'composer-validation': [],
+      'composer-validation': ['dispatcherTap', 'p00NodeTap'],
       'php-style-static': [],
       sqlite: ['junit'],
       'postgresql-16': ['junit', 'postgresqlIdentity'],
       frontend: ['vitest', 'bundle', 'viteBuildLog'],
       playwright: ['playwrightJson'],
     };
+    const artifactPaths = {
+      dispatcherTap: 'dispatcher.tap', p00NodeTap: 'p00-node.tap', junit: job.name + '.junit.xml',
+      postgresqlIdentity: 'postgresql-identity.json', vitest: 'vitest.json', bundle: 'bundle.json',
+      viteBuildLog: 'vite-build.log', playwrightJson: 'playwright.json',
+    };
+    const directory = join(root, job.name);
+    mkdirSync(directory);
+    const log = 'log for ' + job.name + '\n';
+    writeFileSync(join(directory, 'job.log'), log);
+    const artifacts = Object.fromEntries(artifactNames[job.name].map((name) => {
+      const path = artifactPaths[name];
+      const bytes = name === 'dispatcherTap'
+        ? 'TAP version 13\nok 1 - list\nok 2 - invalid\n1..2\n'
+        : name === 'p00NodeTap'
+          ? 'TAP version 13\n' + Array.from({ length: 9 }, (_, index) => `ok ${index + 1} - node`).join('\n') + '\n1..9\n'
+          : name === 'junit'
+            ? `<testsuite tests="${job.testCount}" failures="0" errors="0" skipped="0"></testsuite>\n`
+            : name === 'vitest'
+              ? stableJson({ numTotalTests: 8, numFailedTests: 0, numPendingTests: 0 })
+              : name === 'playwrightJson'
+                ? stableJson({ stats: { expected: 9, unexpected: 0, flaky: 0, skipped: 0 } })
+                : name === 'postgresqlIdentity'
+                  ? stableJson({ placeholder: true })
+                  : name === 'bundle'
+                    ? stableJson({ placeholder: true })
+                    : 'artifact ' + job.name + ' ' + name + '\n';
+      writeFileSync(join(directory, path), bytes);
+      return [name, { path, sha256: sha256(bytes) }];
+    }));
     return {
       schemaVersion: 1, job: job.name, integratedSha: sha40, status: 'passed',
       command: job.command,
       exitCode: 0, retryAttempt: 1, testCount: job.testCount, failureCount: 0,
       unexplainedSkipCount: 0, durationMs: 10, contractSha256,
-      inputFingerprintSha256: sha256(stableJson(declared)), inputs: declared, logSha256: sha64,
-      artifacts: Object.fromEntries(artifactNames[job.name].map((name) => [name, sha64])),
+      inputFingerprintSha256: sha256(stableJson(declared)), inputs: declared, logSha256: sha256(log),
+      platformObservationFingerprintSha256: sha256(stableJson(platformObservation())),
+      platformObservation: platformObservation(),
+      artifacts,
     };
   };
   const resultSet = (directory, mutate = () => {}) => {
-    const records = contract.jobs.map(record);
+    const records = contract.jobs.map((job) => record(job, directory));
     mutate(records);
-    for (const value of records) json(join(directory, value.job + '.json'), value);
+    for (const value of records) json(join(directory, value.job, 'result.json'), value);
     return records;
   };
 
   test('contract freezes ordered jobs, counts, budget, and open Vite debt', () => {
     assert.deepEqual(contract.jobs.map((job) => [job.name, job.testCount]), [
-      ['composer-validation', 0], ['php-style-static', 0], ['sqlite', 446],
+      ['composer-validation', 11], ['php-style-static', 0], ['sqlite', 446],
       ['postgresql-16', 450], ['frontend', 8], ['playwright', 9],
     ]);
     assert.equal(contract.bundle.initialGzipLimitBytes, 216700);
@@ -3322,6 +4016,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
     writeFileSync(join(root, 'dist/index.html'), '<script type="module" src="../escape.js"></script>');
     assert.throws(() => measureBundle(join(root, 'dist'), 216700, null, join(root, 'escape-artifacts')));
+    writeFileSync(join(root, 'dist/assets/entry.js'), 'export {};');
+    writeFileSync(join(root, 'dist/assets/vendor.js'), 'export const value = 1;');
     writeFileSync(join(root, 'dist/index.html'), '<script type="module" src="/assets/vendor.js"></script>');
     assert.throws(() => measureBundle(join(root, 'dist'), 216700, null, join(root, 'no-debt-artifacts')));
     writeFileSync(join(root, 'dist/assets/entry.js'), randomBytes(600000));
@@ -3358,12 +4054,13 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const postgresqlObservation = {
       kind: inputs().postgresql.kind,
       identity: inputs().postgresql.identity,
-      attestationSha256: inputs().postgresql.attestationSha256,
+      attestationSha256: sha64,
+      instanceNonceSha256: sha64,
       serverVersionNum: 160000,
       databaseName: 'dorzak_test',
     };
-    json(join(local, 'postgresql-identity.json'), postgresqlObservation);
-    json(join(local, 'bundle.json'), {
+    json(join(local, 'postgresql-16/postgresql-identity.json'), postgresqlObservation);
+    json(join(local, 'frontend/bundle.json'), {
       schemaVersion: 1, gzipBytes: 210000, minifiedBytes: 500001,
       limitBytes: 216700, nodeVersion: process.versions.node, zlibVersion: process.versions.zlib,
       files: [{ path: 'assets/index.js', minifiedBytes: 500001, gzipBytes: 210000 }],
@@ -3373,6 +4070,13 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
         occurrenceCount: 1,
       },
     });
+    for (const [job, artifact] of [['postgresql-16', 'postgresqlIdentity'], ['frontend', 'bundle']]) {
+      const resultPath = join(local, job, 'result.json');
+      const result = JSON.parse(readFileSync(resultPath, 'utf8'));
+      const reference = result.artifacts[artifact];
+      reference.sha256 = sha256(readFileSync(join(local, job, reference.path)));
+      json(resultPath, result);
+    }
     const reviewJson = join(root, 'review.json');
     const reviewMarkdown = join(root, 'review.md');
     json(reviewJson, { schemaVersion: 1, baseSha: sha40, codeSha: sha40, critical: 0, important: 0, minor: [] });
@@ -3384,6 +4088,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       schemaVersion: 1, provider: 'approved-provider', runId, attempt: 1,
       integratedSha: sha40, contractSha256,
       inputFingerprintSha256: aggregate.inputFingerprintSha256,
+      platformObservationFingerprintSha256: aggregate.platformObservationFingerprintSha256,
+      platformObservation: aggregate.platformObservation,
       postgresqlObservation,
       requiredGate: { status: 'passed', jobs: 6 }, jobs: aggregate.jobs,
     });
@@ -3404,6 +4110,60 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       integratedSha: sha40, localDirectory: local, ciRunPaths: [ci1, ci2],
       reviewJsonPath: reviewJson, reviewMarkdownPath: reviewMarkdown,
     }));
+  });
+
+  test('aggregate rejects changed raw bytes, extra roots, and symlinks', () => {
+    const changed = temp('raw-changed');
+    const records = resultSet(changed);
+    const reference = Object.values(records.find((value) => value.job === 'sqlite').artifacts)[0];
+    writeFileSync(join(changed, 'sqlite', reference.path), 'tampered\n');
+    assert.throws(() => aggregateRequiredGates(changed));
+    const extra = temp('raw-extra');
+    resultSet(extra);
+    writeFileSync(join(extra, 'unexpected'), 'extra\n');
+    assert.throws(() => aggregateRequiredGates(extra));
+    const linked = temp('raw-link');
+    resultSet(linked);
+    symlinkSync(join(linked, 'sqlite'), join(linked, 'sqlite-alias'));
+    assert.throws(() => aggregateRequiredGates(linked));
+  });
+
+  test('aggregate cross-binds one portable input and platform observation', () => {
+    const directory = temp('platform-mismatch');
+    resultSet(directory, (values) => {
+      values[5].platformObservation.runnerClass = 'different-runner';
+      values[5].platformObservationFingerprintSha256 = sha256(stableJson(values[5].platformObservation));
+    });
+    assert.throws(() => aggregateRequiredGates(directory));
+  });
+
+  test('secret rejection covers keys, headers, query strings, URLs and token families', () => {
+    for (const value of [
+      { apiKey: 'x' }, { clientSecret: 'x' }, { accessToken: 'x' }, { dbUrl: 'x' },
+      'Cookie: sid=x', 'Authorization: Basic dXNlcjpwYXNz', '?token=x',
+      'postgresql://user:pass@example.test/db', 'AKIA1234567890ABCDEF',
+      'ghp_abcdefghijklmnopqrstuvwxyz', 'eyJabc.def.ghi',
+    ]) assert.throws(() => stableJson(value));
+  });
+
+  test('closed schema validator rejects missing, extra, type and pattern mutations', () => {
+    const schema = {
+      type: 'object', additionalProperties: false, required: ['sha'],
+      properties: { sha: { type: 'string', pattern: '^[0-9a-f]{4}$' } },
+    };
+    validateSchema(schema, { sha: 'abcd' });
+    assert.throws(() => validateSchema(schema, {}));
+    assert.throws(() => validateSchema(schema, { sha: 'abcd', extra: true }));
+    assert.throws(() => validateSchema(schema, { sha: 1 }));
+    assert.throws(() => validateSchema(schema, { sha: 'zzzz' }));
+  });
+
+  test('exact-key helper rejects unknown evidence fields', () => {
+    assertExactKeys({ schemaVersion: 1, state: 'passed' }, ['schemaVersion', 'state'], '$.sample');
+    assert.throws(() => assertExactKeys(
+      { schemaVersion: 1, state: 'passed', credential: 'x' },
+      ['schemaVersion', 'state'], '$.sample',
+    ));
   });
   ~~~
 
@@ -3438,23 +4198,30 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     composer-validation|php-style-static|sqlite|postgresql-16|frontend|playwright) ;;
     *) echo "Unknown P00 job: $job" >&2; exit 64 ;;
   esac
+  JOB_ARTIFACTS="$ARTIFACTS/$job"
+  test ! -L "$JOB_ARTIFACTS"
+  mkdir -p "$JOB_ARTIFACTS"
+  export P00_JOB_ARTIFACT_DIR="$JOB_ARTIFACTS"
+  export P00_JOB="$job"
   if [[ -n "$(git -C "$ROOT" status --short --untracked-files=normal)" ]]; then
     echo 'P00 job refused: checkout is not clean.' >&2
     exit 65
   fi
   started="$(node -p 'Date.now()')"
-  log="$ARTIFACTS/$job.log"
+  log="$JOB_ARTIFACTS/job.log"
 
   run_job() {
     case "$job" in
       composer-validation)
+        (cd "$ROOT" && sh scripts/quality/test-run-p00.sh | tee "$JOB_ARTIFACTS/dispatcher.tap")
+        (cd "$ROOT" && node --test --test-reporter=tap scripts/quality/p00.test.mjs | tee "$JOB_ARTIFACTS/p00-node.tap")
         (cd "$ROOT/backend" && composer validate --strict --no-check-publish)
         ;;
       php-style-static)
         (cd "$ROOT/backend" && vendor/bin/pint --test && composer analyse)
         ;;
       sqlite)
-        (cd "$ROOT/backend" && vendor/bin/phpunit -c phpunit.xml --log-junit "$ARTIFACTS/sqlite.junit.xml")
+        (cd "$ROOT/backend" && vendor/bin/phpunit -c phpunit.xml --log-junit "$JOB_ARTIFACTS/sqlite.junit.xml")
         ;;
       postgresql-16)
         "$ROOT/scripts/quality/run-postgres-16"
@@ -3465,13 +4232,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           npm run format:check
           npm run lint
           npm run typecheck
-          npm run test:unit -- --reporter=json --outputFile="$ARTIFACTS/vitest.json"
-          npm run build 2>&1 | tee "$ARTIFACTS/vite-build.log"
-          node scripts/quality/p00.mjs bundle dist 216700 "$ARTIFACTS/vite-build.log"
+          npm run test:unit -- --reporter=json --outputFile="$JOB_ARTIFACTS/vitest.json"
+          npm run build 2>&1 | tee "$JOB_ARTIFACTS/vite-build.log"
+          node scripts/quality/p00.mjs bundle dist 216700 "$JOB_ARTIFACTS/vite-build.log"
         )
         ;;
       playwright)
         (cd "$ROOT" && npm run test:e2e)
+        cp -- "$ROOT/test-results/results.json" "$JOB_ARTIFACTS/playwright.json"
         ;;
     esac
   }
@@ -3504,7 +4272,11 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   set -e
   [[ "$result" -eq 64 ]]
   [[ "$output" == 'Unknown P00 job: invalid-job' ]]
-  printf 'P00_DISPATCHER_TEST PASS jobs=6 invalid_exit=64\n'
+  printf '%s\n' \
+    'TAP version 13' \
+    'ok 1 - lists six ordered jobs' \
+    'ok 2 - invalid job exits 64' \
+    '1..2'
   ~~~
 
   `scripts/quality/run-postgres-16`:
@@ -3514,9 +4286,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   set -euo pipefail
   : "${DB_URL:?DB_URL is required}"
   ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-  ARTIFACTS="${P00_ARTIFACT_DIR:-$ROOT/.artifacts/p00}"
-  export P00_ARTIFACT_DIR="$ARTIFACTS"
-  mkdir -p "$ARTIFACTS"
+  ARTIFACTS="${P00_JOB_ARTIFACT_DIR:?P00_JOB_ARTIFACT_DIR is required}"
+  test ! -L "$ARTIFACTS"
   observation="$(php -r '
     $parts = parse_url(getenv("DB_URL") ?: "");
     if (!is_array($parts) || !in_array($parts["scheme"] ?? "", ["postgres", "postgresql"], true)) exit(2);
@@ -3528,11 +4299,13 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       rawurldecode((string) ($parts["pass"] ?? "")),
       [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
     );
-    echo $pdo->query("SHOW server_version_num")->fetchColumn(), "\n", $pdo->query("SELECT current_database()")->fetchColumn(), "\n";
+    $row = $pdo->query("SELECT current_setting('server_version_num')::int AS version, current_database() AS database, current_setting('dorzak.instance_nonce_sha256') AS nonce")->fetch(PDO::FETCH_ASSOC);
+    echo $row["version"], "\n", $row["database"], "\n", $row["nonce"], "\n";
   ')"
   server_version_num="$(printf '%s\n' "$observation" | sed -n '1p')"
   database_name="$(printf '%s\n' "$observation" | sed -n '2p')"
-  node "$ROOT/scripts/quality/p00.mjs" postgres-identity "$server_version_num" "$database_name"
+  instance_nonce_sha256="$(printf '%s\n' "$observation" | sed -n '3p')"
+  node "$ROOT/scripts/quality/p00.mjs" postgres-identity "$server_version_num" "$database_name" "$instance_nonce_sha256"
   exec "$ROOT/backend/vendor/bin/phpunit" \
     --configuration "$ROOT/backend/phpunit.pgsql.xml" \
     --log-junit "$ARTIFACTS/postgresql-16.junit.xml"
@@ -3569,12 +4342,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     writeFileSync,
   } from 'node:fs';
   import { dirname, join, relative, resolve } from 'node:path';
+  import { arch, platform, release } from 'node:os';
   import { fileURLToPath } from 'node:url';
   import { gzipSync } from 'node:zlib';
 
   const MODULE = fileURLToPath(import.meta.url);
   const ROOT = resolve(dirname(MODULE), '../..');
   const ARTIFACTS = () => resolve(process.env.P00_ARTIFACT_DIR || join(ROOT, '.artifacts/p00'));
+  const JOB_ARTIFACTS = () => resolve(process.env.P00_JOB_ARTIFACT_DIR || join(ARTIFACTS(), requiredEnvironment('P00_JOB')));
   const SHA40 = /^[0-9a-f]{40}$/;
   const SHA64 = /^[0-9a-f]{64}$/;
   const origins = new WeakMap();
@@ -3598,11 +4373,22 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   }
 
   function rejectSecrets(value, path = '$') {
+    const blockedKeys = new Set([
+      'authorization', 'proxyauthorization', 'cookie', 'setcookie', 'apikey',
+      'clientsecret', 'accesstoken', 'refreshtoken', 'idtoken', 'password',
+      'passwd', 'secret', 'token', 'dburl', 'databaseurl', 'dsn', 'credential',
+      'privatekey', 'connectionstring',
+    ]);
     if (typeof value === 'string') {
       invariant(!/-----BEGIN [A-Z ]*PRIVATE KEY-----/i.test(value), 'Private key at ' + path);
-      invariant(!/\bbearer\s+[A-Za-z0-9._~+\/=-]+/i.test(value), 'Bearer value at ' + path);
-      invariant(!/\b(?:password|token|secret|database_url)\s*[=:]\s*\S+/i.test(value), 'Secret assignment at ' + path);
+      invariant(!/\b(?:bearer|basic)\s+[A-Za-z0-9._~+\/=-]+/i.test(value), 'Authorization value at ' + path);
+      invariant(!/^(?:cookie|set-cookie)\s*:/im.test(value), 'Cookie header at ' + path);
+      invariant(!/\b(?:api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|id[_-]?token|password|passwd|secret|token|db[_-]?url|database[_-]?url|dsn|credential|private[_-]?key|connection[_-]?string)\s*[=:]\s*\S+/i.test(value), 'Secret assignment at ' + path);
+      invariant(!/[?&](?:api[_-]?key|token|secret|password|credential)=/i.test(value), 'Secret query key at ' + path);
       invariant(!/[a-z][a-z0-9+.-]*:\/\/[^\/\s:@]+:[^\/\s@]+@/i.test(value), 'Credential URL at ' + path);
+      invariant(!/\bAKIA[0-9A-Z]{16}\b/.test(value), 'AWS access key at ' + path);
+      invariant(!/\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/.test(value), 'GitHub token at ' + path);
+      invariant(!/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/.test(value), 'JWT at ' + path);
       return;
     }
     if (Array.isArray(value)) {
@@ -3611,7 +4397,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     }
     if (value && typeof value === 'object') {
       for (const [key, item] of Object.entries(value)) {
-        invariant(!/^(authorization|password|token|secret|database_url)$/i.test(key), 'Secret key at ' + path + '.' + key);
+        const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+        invariant(!blockedKeys.has(normalized), 'Secret key at ' + path + '.' + key);
         rejectSecrets(item, path + '.' + key);
       }
     }
@@ -3661,8 +4448,20 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const kind = requiredEnvironment('P00_PG_IDENTITY_KIND');
     const identity = requiredEnvironment('P00_PG_IDENTITY');
     const attestationSha256 = requiredEnvironment('P00_PG_ATTESTATION_SHA256');
+    const attestationPath = requiredEnvironment('P00_PG_ATTESTATION_PATH');
+    const instanceNonceSha256 = requiredEnvironment('P00_PG_INSTANCE_NONCE_SHA256');
     invariant(kind === 'oci' || kind === 'external-attestation', 'Unapproved PostgreSQL identity kind');
     invariant(SHA64.test(attestationSha256), 'PostgreSQL attestation hash is invalid');
+    invariant(SHA64.test(instanceNonceSha256), 'PostgreSQL instance nonce hash is invalid');
+    invariant(sha256(readFileSync(attestationPath)) === attestationSha256, 'PostgreSQL attestation bytes changed');
+    const attestation = readJson(attestationPath);
+    invariant(stableJson(Object.keys(attestation)) === stableJson([
+      'schemaVersion', 'kind', 'identity', 'serverMajor', 'immutable', 'instanceNonceSha256',
+    ]), 'PostgreSQL attestation keys are not closed');
+    invariant(attestation.schemaVersion === 2 && attestation.kind === kind
+      && attestation.identity === identity && attestation.serverMajor === 16
+      && attestation.immutable === true && attestation.instanceNonceSha256 === instanceNonceSha256,
+    'PostgreSQL attestation content mismatch');
     if (kind === 'oci') {
       invariant(/@sha256:[0-9a-f]{64}$/.test(identity), 'OCI PostgreSQL identity is mutable');
     } else {
@@ -3670,7 +4469,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
         'External PostgreSQL attestation identity is mutable');
     }
     rejectSecrets(identity, 'postgresql.identity');
-    return { kind, identity, attestationSha256 };
+    return { kind, identity, attestationSha256, instanceNonceSha256 };
   }
 
   function collectInputs() {
@@ -3679,23 +4478,42 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       "process.stdout.write(require('playwright').chromium.executablePath())",
     ]);
     const playwrightPackage = readJson(join(ROOT, 'node_modules/@playwright/test/package.json'));
-    return {
+    const browsers = readJson(join(ROOT, 'node_modules/playwright-core/browsers.json'));
+    const chromium = browsers.browsers.find((browser) => browser.name === 'chromium');
+    invariant(chromium && /^\d+$/.test(chromium.revision), 'Playwright Chromium revision is missing');
+    const portableInputs = {
       contractSha256,
       runtime: {
         php: command('php', ['-r', 'echo PHP_VERSION;']),
         composer: version('composer', ['--version'], join(ROOT, 'backend')),
         node: process.versions.node,
         npm: version('npm', ['--version']),
-        zlib: process.versions.zlib,
       },
       lockfileSha256: {
         composer: sha256(readFileSync(join(ROOT, 'backend/composer.lock'))),
         npm: sha256(readFileSync(join(ROOT, 'package-lock.json'))),
       },
-      postgresql: expectedPostgresqlIdentity(),
+      postgresql: (() => {
+        const value = expectedPostgresqlIdentity();
+        return { kind: value.kind, identity: value.identity };
+      })(),
       playwright: {
         packageVersion: playwrightPackage.version,
-        chromiumSha256: sha256(readFileSync(chromiumPath)),
+        chromiumRevision: chromium.revision,
+      },
+      bundleAlgorithms: { assetSelection: 'html-module-entry-and-modulepreload-v1', gzip: 'node-zlib-level-9' },
+    };
+    invariant(portableInputs.runtime.php === requiredEnvironment('P00_PHP_VERSION'), 'PHP pin mismatch');
+    invariant(portableInputs.runtime.composer === requiredEnvironment('P00_COMPOSER_VERSION'), 'Composer pin mismatch');
+    invariant(portableInputs.runtime.node === requiredEnvironment('P00_NODE_VERSION'), 'Node pin mismatch');
+    invariant(portableInputs.runtime.npm === requiredEnvironment('P00_NPM_VERSION'), 'npm pin mismatch');
+    return {
+      portableInputs,
+      platformObservation: {
+        os: platform(), arch: arch(), osRelease: release(),
+        runnerClass: requiredEnvironment('P00_RUNNER_CLASS'),
+        zlib: process.versions.zlib,
+        chromiumExecutableSha256: sha256(readFileSync(chromiumPath)),
       },
     };
   }
@@ -3758,7 +4576,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     distDirectory,
     limitBytes = contract.bundle.initialGzipLimitBytes,
     buildLogPath = null,
-    artifactDirectory = ARTIFACTS(),
+    artifactDirectory = JOB_ARTIFACTS(),
   ) {
     invariant(limitBytes === contract.bundle.initialGzipLimitBytes, 'Bundle limit cannot be changed');
     const pinnedNode = readFileSync(join(ROOT, '.node-version'), 'utf8').trim().replace(/^v/, '');
@@ -3834,7 +4652,22 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     };
   }
 
+  function tapCount(path) {
+    const lines = readFileSync(path, 'utf8').trimEnd().split('\n');
+    const plan = lines.at(-1)?.match(/^1\.\.(\d+)$/);
+    invariant(plan, 'TAP plan is missing: ' + path);
+    const count = Number(plan[1]);
+    invariant(lines.filter((line) => /^ok \d+\b/.test(line)).length === count, 'TAP pass count mismatch');
+    invariant(lines.every((line) => !/^not ok \d+\b/.test(line)), 'TAP failure present');
+    return count;
+  }
+
   function measuredCounts(job, directory) {
+    if (job === 'composer-validation') return {
+      testCount: tapCount(join(directory, 'dispatcher.tap')) + tapCount(join(directory, 'p00-node.tap')),
+      failureCount: 0,
+      unexplainedSkipCount: 0,
+    };
     if (job === 'sqlite') return junitCounts(join(directory, 'sqlite.junit.xml'));
     if (job === 'postgresql-16') return junitCounts(join(directory, 'postgresql-16.junit.xml'));
     if (job === 'frontend') {
@@ -3846,7 +4679,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       };
     }
     if (job === 'playwright') {
-      const report = readJson(join(ROOT, 'test-results/results.json'));
+      const report = readJson(join(directory, 'playwright.json'));
       invariant(report.stats && Number.isInteger(report.stats.expected), 'Playwright stats are missing');
       return {
         testCount: report.stats.expected + report.stats.unexpected + report.stats.flaky + report.stats.skipped,
@@ -3858,7 +4691,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   }
 
   const artifactNames = {
-    'composer-validation': [],
+    'composer-validation': ['dispatcherTap', 'p00NodeTap'],
     'php-style-static': [],
     sqlite: ['junit'],
     'postgresql-16': ['junit', 'postgresqlIdentity'],
@@ -3868,6 +4701,10 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   function artifactHashes(job, directory) {
     const paths = {
+      'composer-validation': {
+        dispatcherTap: join(directory, 'dispatcher.tap'),
+        p00NodeTap: join(directory, 'p00-node.tap'),
+      },
       sqlite: { junit: join(directory, 'sqlite.junit.xml') },
       'postgresql-16': {
         junit: join(directory, 'postgresql-16.junit.xml'),
@@ -3878,14 +4715,22 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
         bundle: join(directory, 'bundle.json'),
         viteBuildLog: join(directory, 'vite-build.log'),
       },
-      playwright: { playwrightJson: join(ROOT, 'test-results/results.json') },
+      playwright: { playwrightJson: join(directory, 'playwright.json') },
     };
     return Object.fromEntries(
-      Object.entries(paths[job] || {}).map(([name, path]) => [name, sha256(readFileSync(path))]),
+      Object.entries(paths[job] || {}).map(([name, path]) => [name, {
+        path: relative(directory, path), sha256: sha256(readFileSync(path)),
+      }]),
     );
   }
 
-  function assertRecord(record, expectedJob) {
+  function assertRecord(record, expectedJob, directory = null) {
+    assertExactKeys(record, [
+      'schemaVersion', 'job', 'command', 'integratedSha', 'status', 'exitCode',
+      'retryAttempt', 'testCount', 'failureCount', 'unexplainedSkipCount', 'durationMs',
+      'contractSha256', 'inputFingerprintSha256', 'inputs',
+      'platformObservationFingerprintSha256', 'platformObservation', 'logSha256', 'artifacts',
+    ], 'job[' + expectedJob + ']');
     const declared = contract.jobs.find((job) => job.name === expectedJob);
     invariant(declared, 'Unknown P00 job: ' + expectedJob);
     invariant(record.schemaVersion === 1 && record.job === expectedJob, 'Job record identity mismatch');
@@ -3901,16 +4746,34 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     invariant(Array.isArray(artifactNames[expectedJob]), 'Job artifact contract is missing');
     invariant(stableJson(Object.keys(record.artifacts).sort())
       === stableJson([...artifactNames[expectedJob]].sort()), 'Job artifact names mismatch');
-    invariant(Object.values(record.artifacts).every((hash) => SHA64.test(hash)), 'Job artifact hash is invalid');
+    invariant(Object.values(record.artifacts).every((reference) =>
+      reference && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(reference.path)
+      && SHA64.test(reference.sha256)), 'Job artifact reference is invalid');
+    if (directory !== null) {
+      const measured = measuredCounts(expectedJob, directory);
+      invariant(measured.testCount === record.testCount
+        && measured.failureCount === record.failureCount
+        && measured.unexplainedSkipCount === record.unexplainedSkipCount,
+      'Reporter-derived counts differ from job record');
+      invariant(sha256(readFileSync(join(directory, 'job.log'))) === record.logSha256, 'Job log bytes changed');
+      for (const reference of Object.values(record.artifacts)) {
+        const path = safeSibling(directory, reference.path);
+        const stat = lstatSync(path);
+        invariant(stat.isFile() && !stat.isSymbolicLink() && realpathSync(path) === path, 'Raw artifact is unsafe');
+        invariant(sha256(readFileSync(path)) === reference.sha256, 'Raw artifact bytes changed');
+      }
+    }
     invariant(record.inputFingerprintSha256 === sha256(stableJson(record.inputs)), 'Job input fingerprint mismatch');
+    invariant(record.platformObservationFingerprintSha256
+      === sha256(stableJson(record.platformObservation)), 'Job platform fingerprint mismatch');
   }
 
   function writeGateResult(job, exitCode, durationMs, logPath) {
     const declared = contract.jobs.find((item) => item.name === job);
     invariant(declared, 'Unknown P00 job: ' + job);
-    const inputs = collectInputs();
-    const counts = measuredCounts(job, ARTIFACTS());
-    if (job === 'frontend') assertBundle(readJson(join(ARTIFACTS(), 'bundle.json')));
+    const { portableInputs: inputs, platformObservation } = collectInputs();
+    const counts = measuredCounts(job, JOB_ARTIFACTS());
+    if (job === 'frontend') assertBundle(readJson(join(JOB_ARTIFACTS(), 'bundle.json')));
     const record = {
       schemaVersion: 1,
       job,
@@ -3927,24 +4790,41 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       contractSha256,
       inputFingerprintSha256: sha256(stableJson(inputs)),
       inputs,
+      platformObservationFingerprintSha256: sha256(stableJson(platformObservation)),
+      platformObservation,
       logSha256: sha256(readFileSync(logPath)),
-      artifacts: artifactHashes(job, ARTIFACTS()),
+      artifacts: artifactHashes(job, JOB_ARTIFACTS()),
     };
-    writeJson(join(ARTIFACTS(), job + '.json'), record);
+    writeJson(join(JOB_ARTIFACTS(), 'result.json'), record);
     if (record.status !== 'passed') throw new Error('P00 job result failed validation: ' + job);
     return record;
   }
 
   export function aggregateRequiredGates(resultsDirectory) {
+    const rootEntries = readdirSync(resultsDirectory).sort();
+    const jobNames = contract.jobs.map((job) => job.name).sort();
+    invariant(stableJson(rootEntries) === stableJson(jobNames), 'Aggregate root must contain exactly six job directories');
+    for (const name of rootEntries) {
+      const path = join(resultsDirectory, name);
+      const stat = lstatSync(path);
+      invariant(stat.isDirectory() && !stat.isSymbolicLink() && realpathSync(path) === path,
+        'Aggregate job directory is unsafe: ' + name);
+    }
     const records = contract.jobs.map((job) => {
-      const record = readJson(join(resultsDirectory, job.name + '.json'));
-      assertRecord(record, job.name);
+      const record = readJson(join(resultsDirectory, job.name, 'result.json'));
+      const directory = join(resultsDirectory, job.name);
+      const entries = readdirSync(directory).sort();
+      const expected = ['job.log', 'result.json', ...Object.values(record.artifacts).map((value) => value.path)].sort();
+      invariant(stableJson(entries) === stableJson(expected), 'Job directory has missing or extra files: ' + job.name);
+      assertRecord(record, job.name, directory);
       return record;
     });
     const shas = new Set(records.map((record) => record.integratedSha));
     const fingerprints = new Set(records.map((record) => record.inputFingerprintSha256));
+    const platformFingerprints = new Set(records.map((record) => record.platformObservationFingerprintSha256));
     invariant(shas.size === 1, 'P00 jobs used different SHAs');
     invariant(fingerprints.size === 1, 'P00 jobs used different declared inputs');
+    invariant(platformFingerprints.size === 1, 'P00 jobs used different platform observations');
     return {
       schemaVersion: 1,
       status: 'passed',
@@ -3953,6 +4833,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       contractSha256,
       inputFingerprintSha256: records[0].inputFingerprintSha256,
       inputs: records[0].inputs,
+      platformObservationFingerprintSha256: records[0].platformObservationFingerprintSha256,
+      platformObservation: records[0].platformObservation,
       testCount: records.reduce((total, record) => total + record.testCount, 0),
       failureCount: 0,
       unexplainedSkipCount: 0,
@@ -3960,18 +4842,20 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     };
   }
 
-  function postgresqlObservation(serverVersionNum, databaseName) {
+  function postgresqlObservation(serverVersionNum, databaseName, instanceNonceSha256) {
     const expected = expectedPostgresqlIdentity();
     const numericVersion = Number(serverVersionNum);
     invariant(Number.isInteger(numericVersion) && numericVersion >= 160000 && numericVersion < 170000, 'PostgreSQL is not major 16');
     invariant(/_test$/.test(databaseName), 'PostgreSQL database is not a test database');
+    invariant(instanceNonceSha256 === expected.instanceNonceSha256, 'Live PostgreSQL nonce mismatch');
     return { ...expected, serverVersionNum: numericVersion, databaseName };
   }
 
   function assertPostgresqlObservation(value, expectedInputs) {
     invariant(value.kind === expectedInputs.postgresql.kind, 'PostgreSQL identity kind mismatch');
     invariant(value.identity === expectedInputs.postgresql.identity, 'PostgreSQL immutable identity mismatch');
-    invariant(value.attestationSha256 === expectedInputs.postgresql.attestationSha256, 'PostgreSQL attestation mismatch');
+    invariant(SHA64.test(value.attestationSha256), 'PostgreSQL attestation hash is invalid');
+    invariant(SHA64.test(value.instanceNonceSha256), 'PostgreSQL nonce is invalid');
     invariant(Number.isInteger(value.serverVersionNum)
       && value.serverVersionNum >= 160000 && value.serverVersionNum < 170000, 'PostgreSQL major is not 16');
     invariant(typeof value.databaseName === 'string' && /_test$/.test(value.databaseName), 'PostgreSQL test database is invalid');
@@ -3984,6 +4868,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     value.jobs.forEach((record, index) => assertRecord(record, contract.jobs[index].name));
     invariant(value.jobs.every((record) => record.integratedSha === value.integratedSha), 'Aggregate SHA mismatch');
     invariant(value.jobs.every((record) => record.inputFingerprintSha256 === value.inputFingerprintSha256), 'Aggregate input mismatch');
+    invariant(value.jobs.every((record) => record.platformObservationFingerprintSha256
+      === value.platformObservationFingerprintSha256), 'Aggregate platform mismatch');
   }
 
   const fileReferenceSchema = {
@@ -3996,18 +4882,29 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     },
   };
 
+  const platformObservationSchema = {
+    type: 'object', additionalProperties: false,
+    required: ['os', 'arch', 'osRelease', 'runnerClass', 'zlib', 'chromiumExecutableSha256'],
+    properties: {
+      os: { type: 'string', minLength: 1 }, arch: { type: 'string', minLength: 1 },
+      osRelease: { type: 'string', minLength: 1 }, runnerClass: { type: 'string', minLength: 1 },
+      zlib: { type: 'string', minLength: 1 },
+      chromiumExecutableSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+    },
+  };
+
   const inputsSchema = {
     type: 'object',
     additionalProperties: false,
-    required: ['contractSha256', 'runtime', 'lockfileSha256', 'postgresql', 'playwright'],
+    required: ['contractSha256', 'runtime', 'lockfileSha256', 'postgresql', 'playwright', 'bundleAlgorithms'],
     properties: {
       contractSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
       runtime: {
         type: 'object',
         additionalProperties: false,
-        required: ['php', 'composer', 'node', 'npm', 'zlib'],
+        required: ['php', 'composer', 'node', 'npm'],
         properties: Object.fromEntries(
-          ['php', 'composer', 'node', 'npm', 'zlib'].map((name) => [name, { type: 'string', minLength: 1 }]),
+          ['php', 'composer', 'node', 'npm'].map((name) => [name, { type: 'string', minLength: 1 }]),
         ),
       },
       lockfileSha256: {
@@ -4022,20 +4919,27 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       postgresql: {
         type: 'object',
         additionalProperties: false,
-        required: ['kind', 'identity', 'attestationSha256'],
+        required: ['kind', 'identity'],
         properties: {
           kind: { enum: ['oci', 'external-attestation'] },
           identity: { type: 'string', minLength: 64 },
-          attestationSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
         },
       },
       playwright: {
         type: 'object',
         additionalProperties: false,
-        required: ['packageVersion', 'chromiumSha256'],
+        required: ['packageVersion', 'chromiumRevision'],
         properties: {
           packageVersion: { type: 'string', minLength: 1 },
-          chromiumSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+          chromiumRevision: { type: 'string', pattern: '^\\d+$' },
+        },
+      },
+      bundleAlgorithms: {
+        type: 'object', additionalProperties: false,
+        required: ['assetSelection', 'gzip'],
+        properties: {
+          assetSelection: { const: 'html-module-entry-and-modulepreload-v1' },
+          gzip: { const: 'node-zlib-level-9' },
         },
       },
     },
@@ -4061,11 +4965,12 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       postgresqlObservation: {
         type: 'object',
         additionalProperties: false,
-        required: ['kind', 'identity', 'attestationSha256', 'serverVersionNum', 'databaseName'],
+        required: ['kind', 'identity', 'attestationSha256', 'instanceNonceSha256', 'serverVersionNum', 'databaseName'],
         properties: {
           kind: { enum: ['oci', 'external-attestation'] },
           identity: { type: 'string', minLength: 64 },
           attestationSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+          instanceNonceSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
           serverVersionNum: { type: 'integer', minimum: 160000, maximum: 169999 },
           databaseName: { type: 'string', pattern: '_test$' },
         },
@@ -4076,18 +4981,26 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
         required: ['source', 'jobs'],
         properties: {
           source: { const: 'scripts/quality/p00-contract.json' },
-          jobs: { type: 'object', additionalProperties: { type: 'integer', minimum: 0 } },
+          jobs: {
+            type: 'object', additionalProperties: false,
+            required: ['composer-validation', 'php-style-static', 'sqlite', 'postgresql-16', 'frontend', 'playwright'],
+            properties: Object.fromEntries(contract.jobs.map((job) => [
+              job.name, { type: 'integer', minimum: 0, maximum: job.testCount },
+            ])),
+          },
         },
       },
       local: {
         type: 'object',
         additionalProperties: false,
-        required: ['path', 'sha256', 'status', 'integratedSha', 'inputFingerprintSha256'],
+        required: ['path', 'sha256', 'status', 'integratedSha', 'inputFingerprintSha256', 'platformObservationFingerprintSha256', 'platformObservation'],
         properties: {
           ...fileReferenceSchema.properties,
           status: { const: 'passed' },
           integratedSha: { type: 'string', pattern: '^[0-9a-f]{40}$' },
           inputFingerprintSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+          platformObservationFingerprintSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+          platformObservation: platformObservationSchema,
         },
       },
       bundle: {
@@ -4122,7 +5035,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
         items: {
           type: 'object',
           additionalProperties: false,
-          required: ['path', 'sha256', 'provider', 'runId', 'attempt', 'integratedSha', 'inputFingerprintSha256'],
+          required: ['path', 'sha256', 'provider', 'runId', 'attempt', 'integratedSha', 'inputFingerprintSha256', 'platformObservationFingerprintSha256', 'platformObservation'],
           properties: {
             ...fileReferenceSchema.properties,
             provider: { type: 'string', minLength: 1 },
@@ -4130,6 +5043,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
             attempt: { const: 1 },
             integratedSha: { type: 'string', pattern: '^[0-9a-f]{40}$' },
             inputFingerprintSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+            platformObservationFingerprintSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+            platformObservation: platformObservationSchema,
           },
         },
       },
@@ -4143,6 +5058,43 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     },
   };
 
+  export function assertExactKeys(value, keys, path) {
+    invariant(value !== null && typeof value === 'object' && !Array.isArray(value), path + ' must be an object');
+    invariant(stableJson(Object.keys(value).sort()) === stableJson([...keys].sort()), path + ' keys are not closed');
+  }
+
+  export function validateSchema(schema, value, path = '$') {
+    if ('const' in schema) invariant(Object.is(value, schema.const), path + ' const mismatch');
+    if (schema.enum) invariant(schema.enum.includes(value), path + ' enum mismatch');
+    if (schema.type === 'object') {
+      invariant(value !== null && typeof value === 'object' && !Array.isArray(value), path + ' type mismatch');
+      for (const key of schema.required || []) invariant(Object.hasOwn(value, key), path + '.' + key + ' is required');
+      if (schema.additionalProperties === false) {
+        invariant(Object.keys(value).every((key) => Object.hasOwn(schema.properties || {}, key)), path + ' has extra keys');
+      }
+      for (const [key, item] of Object.entries(value)) {
+        if (schema.properties?.[key]) validateSchema(schema.properties[key], item, path + '.' + key);
+        else if (schema.additionalProperties && typeof schema.additionalProperties === 'object') {
+          validateSchema(schema.additionalProperties, item, path + '.' + key);
+        }
+      }
+    } else if (schema.type === 'array') {
+      invariant(Array.isArray(value), path + ' type mismatch');
+      if (schema.minItems !== undefined) invariant(value.length >= schema.minItems, path + ' too short');
+      if (schema.maxItems !== undefined) invariant(value.length <= schema.maxItems, path + ' too long');
+      if (schema.uniqueItems) invariant(new Set(value.map(stableJson)).size === value.length, path + ' duplicates');
+      value.forEach((item, index) => validateSchema(schema.items, item, path + '[' + index + ']'));
+    } else if (schema.type === 'string') {
+      invariant(typeof value === 'string', path + ' type mismatch');
+      if (schema.minLength !== undefined) invariant(value.length >= schema.minLength, path + ' too short');
+      if (schema.pattern) invariant(new RegExp(schema.pattern).test(value), path + ' pattern mismatch');
+    } else if (schema.type === 'integer') {
+      invariant(Number.isInteger(value), path + ' type mismatch');
+      if (schema.minimum !== undefined) invariant(value >= schema.minimum, path + ' below minimum');
+      if (schema.maximum !== undefined) invariant(value <= schema.maximum, path + ' above maximum');
+    }
+  }
+
   function validateCiRun(run, aggregate, observation) {
     invariant(run.schemaVersion === 1, 'CI schema mismatch');
     invariant(typeof run.provider === 'string' && run.provider.length > 0, 'CI provider is missing');
@@ -4151,11 +5103,16 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     invariant(run.integratedSha === aggregate.integratedSha, 'CI SHA mismatch');
     invariant(run.contractSha256 === contractSha256, 'CI contract mismatch');
     invariant(run.inputFingerprintSha256 === aggregate.inputFingerprintSha256, 'CI input mismatch');
+    invariant(run.platformObservationFingerprintSha256
+      === sha256(stableJson(run.platformObservation)), 'CI platform fingerprint mismatch');
     invariant(run.requiredGate?.status === 'passed' && run.requiredGate?.jobs === 6, 'CI required gate failed');
     assertPostgresqlObservation(run.postgresqlObservation, aggregate.inputs);
-    invariant(stableJson(run.postgresqlObservation) === stableJson(observation), 'CI PostgreSQL observation mismatch');
     invariant(Array.isArray(run.jobs) && run.jobs.length === 6, 'CI jobs missing');
     run.jobs.forEach((record, index) => assertRecord(record, contract.jobs[index].name));
+    invariant(run.jobs.every((record) => record.platformObservationFingerprintSha256
+      === run.platformObservationFingerprintSha256
+      && stableJson(record.platformObservation) === stableJson(run.platformObservation)),
+    'CI jobs do not cross-bind one platform observation');
   }
 
   function safeSibling(directory, path) {
@@ -4197,12 +5154,12 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const localAggregate = aggregateRequiredGates(localDirectory);
     assertAggregate(localAggregate);
     invariant(localAggregate.integratedSha === integratedSha, 'Local matrix SHA mismatch');
-    const observation = readJson(join(localDirectory, 'postgresql-identity.json'));
+    const observation = readJson(join(localDirectory, 'postgresql-16', 'postgresql-identity.json'));
     assertPostgresqlObservation(observation, localAggregate.inputs);
-    const bundle = readJson(join(localDirectory, 'bundle.json'));
+    const bundle = readJson(join(localDirectory, 'frontend', 'bundle.json'));
     assertBundle(bundle);
     invariant(bundle.nodeVersion === localAggregate.inputs.runtime.node
-      && bundle.zlibVersion === localAggregate.inputs.runtime.zlib, 'Bundle runtime identity mismatch');
+      && bundle.zlibVersion === localAggregate.platformObservation.zlib, 'Bundle runtime identity mismatch');
     const review = readJson(reviewJsonPath);
     invariant(review.schemaVersion === 1 && review.baseSha === baseSha && review.codeSha === codeSha, 'Review range mismatch');
     invariant(review.critical === 0 && review.important === 0 && Array.isArray(review.minor), 'Review is not acceptable');
@@ -4212,6 +5169,9 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const runs = ciRunPaths.map(readJson);
     runs.forEach((run) => validateCiRun(run, localAggregate, observation));
     invariant(runs[0].runId !== runs[1].runId, 'CI run IDs must be distinct');
+    invariant(runs[0].platformObservationFingerprintSha256 === runs[1].platformObservationFingerprintSha256
+      && stableJson(runs[0].platformObservation) === stableJson(runs[1].platformObservation),
+    'The two CI runs used different platforms or Chromium executables');
 
     invariant(!existsSync(outputDirectory), 'Evidence output directory already exists');
     mkdirSync(outputDirectory, { recursive: true });
@@ -4261,6 +5221,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
         status: 'passed',
         integratedSha,
         inputFingerprintSha256: localAggregate.inputFingerprintSha256,
+        platformObservationFingerprintSha256: localAggregate.platformObservationFingerprintSha256,
+        platformObservation: localAggregate.platformObservation,
       },
       bundle: {
         ...file('bundle.json'),
@@ -4284,6 +5246,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
         attempt: run.attempt,
         integratedSha: run.integratedSha,
         inputFingerprintSha256: run.inputFingerprintSha256,
+        platformObservationFingerprintSha256: run.platformObservationFingerprintSha256,
+        platformObservation: run.platformObservation,
       })),
       files,
     };
@@ -4299,6 +5263,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const directory = manifestPath ? dirname(manifestPath) : origins.get(manifest);
     invariant(directory, 'Evidence directory is unknown');
     rejectSecrets(manifest);
+    validateSchema(evidenceSchema, manifest);
     invariant(manifest.schemaVersion === 1, 'Evidence schema mismatch');
     invariant(SHA40.test(manifest.BASE_SHA)
       && SHA40.test(manifest.CODE_SHA) && SHA40.test(manifest.INTEGRATED_SHA), 'Evidence SHA invalid');
@@ -4329,10 +5294,10 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     assertPostgresqlObservation(local.postgresqlObservation, manifest.inputs);
     invariant(stableJson(local.postgresqlObservation)
       === stableJson(manifest.postgresqlObservation), 'Local PostgreSQL observation mismatch');
-    const bundle = readJson(join(directory, 'bundle.json'));
+    const bundle = readJson(join(directory, 'frontend', 'bundle.json'));
     assertBundle(bundle);
     invariant(bundle.nodeVersion === manifest.inputs.runtime.node
-      && bundle.zlibVersion === manifest.inputs.runtime.zlib, 'Bundle evidence runtime mismatch');
+      && bundle.zlibVersion === local.platformObservation.zlib, 'Bundle evidence runtime mismatch');
     invariant(bundle.gzipBytes === manifest.bundle.gzipBytes, 'Bundle measurement mismatch');
     const runs = [
       readJson(join(directory, 'ci-run-1.json')),
@@ -4374,8 +5339,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       return;
     }
     if (action === 'postgres-identity') {
-      const value = postgresqlObservation(args[0], args[1]);
-      writeJson(join(ARTIFACTS(), 'postgresql-identity.json'), value);
+      const value = postgresqlObservation(args[0], args[1], args[2]);
+      writeJson(join(JOB_ARTIFACTS(), 'postgresql-identity.json'), value);
       print('P00_POSTGRESQL PASS major=16 database=' + value.databaseName
         + ' identity_sha256=' + sha256(value.identity));
       return;
@@ -4383,7 +5348,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     if (action === 'aggregate') {
       const directory = resolve(args[0]);
       const value = aggregateRequiredGates(directory);
-      writeJson(join(directory, 'required-gates.json'), value);
+      writeJson(directory + '.required-gates.json', value);
       print('P00_REQUIRED_GATES PASS jobs=6 sha=' + value.integratedSha);
       return;
     }
@@ -4434,7 +5399,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   git diff --check -- .gitignore scripts/quality
   ~~~
 
-  Expected: dispatcher prints P00_DISPATCHER_TEST PASS; all four Node subtests pass; absent evidence fails closed; diff check passes. The tests prove path escape rejection, the fixed 216700-byte budget, exact accepted-open large-chunk warning, count provenance, same-SHA/input identity, attempt one, secret and review rejection, sibling hashes, and two distinct CI runs.
+  Expected: dispatcher emits two passing TAP tests; all nine Node subtests pass, for eleven quality self-tests total; absent evidence fails closed; diff check passes. The tests prove path/symlink/extra-file rejection, raw-byte recomputation, the fixed 216700-byte budget, exact accepted-open large-chunk warning, closed schemas, count provenance, portable/platform identity boundaries, attempt one, broad secret and review rejection, sibling hashes, and two distinct CI runs.
 
 - [ ] **Stage only the seven quality-interface paths and commit.**
 
@@ -4467,7 +5432,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
      and .retryAttempt == 1 and .failureCount == 0 and .unexplainedSkipCount == 0
      and (.jobs | length) == 6
      and all(.jobs[]; .integratedSha == $sha and .retryAttempt == 1)' \
-    "$TASK13_ARTIFACTS/required-gates.json"
+    "$TASK13_ARTIFACTS.required-gates.json"
   WARNING_SHA="$(node -e "const c=require('./scripts/quality/p00-contract.json');const h=require('node:crypto').createHash('sha256').update(c.bundle.warning).digest('hex');process.stdout.write(h)")"
   jq -e --arg warning_sha "$WARNING_SHA" \
     '.limitBytes == 216700 and .gzipBytes <= .limitBytes
@@ -4475,7 +5440,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
      and .largeChunkDebt.messageSha256 == $warning_sha
      and .largeChunkDebt.occurrenceCount == 1
      and (.largeChunkDebt.affectedFiles | length) > 0' \
-    "$TASK13_ARTIFACTS/bundle.json"
+    "$TASK13_ARTIFACTS/frontend/bundle.json"
   test -z "$(git status --short --untracked-files=normal)"
   ~~~
 
@@ -4489,6 +5454,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
 **Interfaces:** Logical jobs are exactly `composer-validation`, `php-style-static`, `sqlite`, `postgresql-16`, `frontend`, `playwright`, and dependent `required-gates`. Every job uses a lockfile-only install, approved exact runtimes, immutable PostgreSQL 16 image, same checkout SHA, and provider-neutral scripts from Task 13. `required-gates` is the sole required aggregate status.
 
+The sole machine-readable decision record in this Task 14 section is currently:
+
+```json
+{"adapterPaths":[],"immutableDependencyIdentities":[],"normalizerSha256":null,"normalizerTestSha256":null,"provider":null,"pushAndRunCommandsSha256":null,"requiredStatus":null,"requiredStatusCommandsSha256":null,"schemaVersion":1,"state":"pending","twoRunCommandsSha256":null}
+```
+
+The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headings, selects exactly one record by its closed key set, returns `42` for this exact pending state, `0` only for a closed `approved` record with nonempty adapter/dependency arrays and five exact 64-hex content hashes, and `2` for every malformed or partial record. Its own source is outside the parsed section, so it cannot satisfy itself. The provider amendment must rerun the parser against fixtures for pending (`42`), approved (`0`), extra/missing/wrong-type/wrong-hash records (`2`) before replacing this record.
+
 - [ ] **Enforce the unresolved-input stop.**
 
   The current approved inputs do not select a CI provider, provider-native file, immutable action/plugin references, branch-protection API, or two-run API. Therefore no exact non-assumptive code/config snippet can be written in this plan. Stop this affected task until the Control Room durably records the provider decision and approves a focused amendment containing:
@@ -4501,17 +5474,20 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   - exact commands to trigger two new runs, not retries, and download their artifacts;
   - a complete provider-output normalizer that emits the Task 13 CI-run schema
     (schemaVersion, provider, runId, attempt, integratedSha, contractSha256,
-    inputFingerprintSha256, immutable PostgreSQL observation, requiredGate, and
-    the six canonical job records), plus complete fixtures and fail-closed tests;
+    portable input fingerprint, closed platform observation/fingerprint, immutable
+    PostgreSQL observation, requiredGate, and the six canonical job records),
+    reconstructs exactly six job directories from downloaded raw artifacts,
+    recomputes every log/artifact hash and reporter-derived count, rejects extras,
+    symlinks and escapes, and has complete fixtures and fail-closed tests;
   - exact staging allowlist and focused CI commit.
 
   A GitHub decision may authorize a `.github/workflows/...` file; absent that decision, creating one is prohibited. A different provider requires its own native artifact.
 
-  This is a hard serialized stop for Tasks 15, 16, and 17. Before any P00 execution starts, the exact current plan must be amended with the complete provider-specific content above, independently reviewed with zero Critical and zero Important findings, exactly owner-approved, and durably authorized by Control Room. That amendment must replace the unresolved marker, update P00_APPROVED_PLAN_COMMIT and P00_APPROVED_PLAN_SHA256 in Task 0, and retain every execution-entry prerequisite. Approval of the present correction or of plan writing does not authorize Task 0 or any execution task.
+  This is a hard serialized stop for Tasks 15, 16, and 17. Before any P00 execution starts, the exact current plan must be amended with the complete provider-specific content above, independently reviewed with zero Critical and zero Important findings, exactly owner-approved, and durably authorized by Control Room. That amendment must replace the pending decision record with the closed approved record, update P00_APPROVED_PLAN_COMMIT and P00_APPROVED_PLAN_SHA256 in Task 0, and retain every execution-entry prerequisite. Approval of the present correction or of plan writing does not authorize Task 0 or any execution task.
 
 - [ ] **Record no repository change at this gate.**
 
-  Expected current outcome: `BLOCKED_BY_OWNER_DECISION ci_provider_adapter`. There is no staging or commit before the amendment, and Tasks 15–17 must not start. No documentation-only exception bypasses this stop.
+  Expected current outcome: the Task 0 parser exits `42`, so execution stops. There is no staging or commit before the amendment, and Tasks 15–17 must not start. No documentation-only exception bypasses this stop.
 
 ### Task 15: Record repository context and the seven initial architecture decisions
 
@@ -4744,7 +5720,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   ```bash
   test -f README.md
-  rg -n 'npm ci|composer install.*no-progress|scripts/quality/run-p00|e2e:reset|PostgreSQL 16' README.md RUN.md backend/README.md
+  rg -n 'npm ci|composer install.*no-progress|scripts/quality/run-p00|e2e:serve|PostgreSQL 16' README.md RUN.md backend/README.md
   rg -n '179 tests|30 passing|tests always use SQLite' backend/README.md backend/.env.example
   ```
 
@@ -4779,6 +5755,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     '',
     '    cd backend && composer install --no-interaction --prefer-dist --no-progress',
     '    cd .. && npm ci',
+    '    npx playwright install chromium',
     '',
     '## Canonical quality entry points',
     '',
@@ -4812,6 +5789,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     'Terminal 2:',
     '',
     '    npm ci',
+    '    npx playwright install chromium',
     '    npm run dev -- --host 127.0.0.1 --strictPort',
     '',
     'Vite proxies both /api and /storage to Laravel. Every production frontend origin must likewise serve or proxy origin-relative /storage/* to Laravel; do not rewrite stored disk-relative keys into backend-origin URLs.',
@@ -4822,15 +5800,15 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     '',
     '    npm run test:e2e',
     '',
-    'Playwright sets APP_ENV=e2e. The Laravel reset command accepts only backend/database/dorzak-e2e.sqlite after canonical-path, regular-file, single-link, locked-file and repeated device/inode checks, then resets and seeds Qatar/QAR fixtures. Every other database or filesystem identity is refused. Do not invoke the destructive reset manually in a production-like environment.',
+    'Playwright invokes php artisan e2e:serve only with the owner-approved P00_E2E service inputs. The attested PostgreSQL 16 service must contain no real data, expose the approved provisioner nonce, and issue a unique least-privilege database/role capability for every run. The command migrates and seeds only that new candidate, activates it last, and never resets, drops, renames, unlinks or reuses a database. Cleanup may address only P00_E2E_SERVICE_LIFECYCLE_ID; cleanup failure records an orphan.',
     '',
     '## PostgreSQL 16 qualification',
     '',
-    'Obtain DB_URL from the approved secret store without echoing it. Its database name must end _test, and the immutable identity/attestation selected in Task 0 must match:',
+    'Obtain DB_URL from the approved secret store without echoing it. Its database name must end _test, and P00_PG_IDENTITY, the closed attestation hash and P00_PG_INSTANCE_NONCE_SHA256 selected in Task 0 must match the live connection:',
     '',
     '    DB_URL="$P00_PG_DB_URL" scripts/quality/run-p00 postgresql-16',
     '',
-    'The bootstrap rejects a non-PostgreSQL URL, a non-test database and any server major other than 16 before migrations.',
+    'The bootstrap rejects a non-PostgreSQL URL, a non-test database, a non-immutable attestation, a mismatched live provisioner nonce and any server major other than 16 before migrations.',
     '',
     '## Quality evidence',
     '',
@@ -4865,7 +5843,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     '    composer test:sqlite',
     '    DB_URL="$P00_PG_DB_URL" composer test:postgres',
     '',
-    'The PostgreSQL database name must end _test. Supply DB_URL at runtime from the approved secret store and never commit or print it. tests/Support/postgres-bootstrap.php rejects the wrong scheme, database identity or server major before migrations.',
+    'The PostgreSQL database name must end _test. Supply DB_URL at runtime from the approved secret store and never commit or print it. Supply the approved immutable identity, closed attestation hash and provisioner nonce separately; tests/Support/postgres-bootstrap.php verifies all of them through the actual DB_URL before migrations.',
     '',
     'Measured test counts, runtimes, lockfile hashes and database identity are recorded in [P00 evidence](../docs/superpowers/evidence/p00/manifest.json), not hard-coded here.',
   ]);
@@ -4886,7 +5864,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     '# SQLite in-memory is the fast PHPUnit lane; PostgreSQL 16 is the complete qualification lane.',
     '# The qualification database name must end _test.',
     '# DB_URL is supplied at runtime from the approved secret store and is never committed.',
-    '# tests/Support/postgres-bootstrap.php rejects a wrong scheme, database or major before migrations.',
+    '# P00_PG_IDENTITY, attestation hash and instance nonce are separate approved inputs.',
+    '# tests/Support/postgres-bootstrap.php rejects a wrong scheme, database, identity, nonce or major before migrations.',
   ]);
   if (environment.split(stale).length !== 2) {
     throw new Error('Expected exactly one stale backend database guidance block');
@@ -4900,7 +5879,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - [ ] **Verify all documented commands and stage only four paths.**
 
   ```bash
-  rg -n 'npm ci|composer install --no-interaction --prefer-dist --no-progress|/storage|APP_ENV=e2e|ends.*_test|Never reset' README.md RUN.md backend/README.md backend/.env.example
+  rg -n 'npm ci|npx playwright install chromium|composer install --no-interaction --prefer-dist --no-progress|/storage|APP_ENV=e2e|e2e:serve|ends.*_test|provisioner nonce|never resets' README.md RUN.md backend/README.md backend/.env.example
   test -z "$(rg -n '179 tests|30 passing|tests always use SQLite' backend/README.md backend/.env.example || true)"
   scripts/quality/run-p00 --list
   git diff --check -- README.md RUN.md backend/README.md backend/.env.example
@@ -4923,15 +5902,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - Create: `docs/superpowers/evidence/p00/bundle.json`
 - Create: `docs/superpowers/evidence/p00/independent-review.md`
 
-**Interfaces:** `CODE_SHA` is the clean reviewed implementation/docs commit before evidence. `INTEGRATED_SHA` is the exact code SHA pushed and tested twice; without an integration merge it equals `CODE_SHA`. The later evidence-only commit has a distinct `EVIDENCE_SHA` recorded by Control Room after commit, never embedded self-referentially in its payload. Both CI runs are new attempt-1 runs of the same `INTEGRATED_SHA` and declared inputs.
+**Interfaces:** `CODE_SHA` and `INTEGRATED_SHA` are one identity: the clean, independently reviewed implementation/docs commit pushed by exact SHA and tested locally and in both new attempt-one CI runs. They must always be equal. A merge, rebase, queue result, or any other code-identity change creates a new `CODE_SHA` and restarts independent review, fresh verification, push verification, and both CI runs; it is never recorded as a different `INTEGRATED_SHA`. The later evidence-only commit has a distinct `EVIDENCE_SHA` recorded by Control Room after commit and never embedded self-referentially in its payload.
 
 - [ ] **Require Task 14's approved/implemented adapter before closure.**
 
   This task cannot start under the present plan. First verify the later exact plan amendment and its Control Room record, independent review with zero Critical/Important findings, exact owner approval, updated P00_APPROVED_PLAN_COMMIT/P00_APPROVED_PLAN_SHA256, provider-native CI commit, canonical remote, sole required-gates status, immutable provider dependencies, exact approved runtimes, immutable PostgreSQL identity, complete provider normalizer, and exact two-run commands.
 
   ~~~bash
-  test -z "$(rg -n 'BLOCKED_BY_OWNER_DECISION ci_provider_adapter' \
-    docs/superpowers/plans/2026-07-14-dorzak-p00-baseline-stabilization.md || true)"
+  # First rerun every Task 0 command, including the scoped Task 14 decision-record parser.
   test "$(git rev-parse "$P00_APPROVED_PLAN_COMMIT^{commit}")" = "$P00_APPROVED_PLAN_COMMIT"
   test "$(git show "$P00_APPROVED_PLAN_COMMIT:docs/superpowers/plans/2026-07-14-dorzak-p00-baseline-stabilization.md" \
     | shasum -a 256 | awk '{print $1}')" = "$P00_APPROVED_PLAN_SHA256"
@@ -4939,7 +5917,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     | awk '{print $1}')" = "$P00_APPROVED_PLAN_SHA256"
   ~~~
 
-  Expected: every command exits 0. Any marker, hash, approval, review, CI-adapter or immutable-input mismatch stops Tasks 15–17 and all P00 execution. Rerun every Task 0 protected-state, MediaUrl relationship, approved-base and execution-worktree check before continuing.
+  Expected: the complete Task 0 gate and every command above exit 0. A pending/malformed Task 14 record, hash, approval, review, CI-adapter or immutable-input mismatch stops Tasks 15–17 and all P00 execution.
 
 - [ ] **Freeze the clean code identity.**
 
@@ -4949,13 +5927,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   CODE_SHA="$(git rev-parse HEAD)"
   printf '%s\n' "$CODE_SHA" | rg -x '[0-9a-f]{40}'
   INTEGRATED_SHA="$CODE_SHA"
+  test "$INTEGRATED_SHA" = "$CODE_SHA"
   git diff --check "$P00_BASE_SHA..$CODE_SHA"
   test "$(git branch --show-current)" = "$P00_EXECUTION_BRANCH"
   test "$(git rev-parse --show-toplevel)" = "$P00_EXECUTION_WORKTREE"
   git worktree list --porcelain | rg -Fx "worktree $P00_EXECUTION_WORKTREE"
   ```
 
-  Expected: clean named execution worktree on the approved branch, valid SHA, and no whitespace errors. Rerun the complete Task 0 protected checkout/content/MediaUrl checks here. Any later code, config, test, CI or runbook correction invalidates this identity and restarts review, fresh verification and both CI runs.
+  Expected: clean named execution worktree on the approved branch, one valid code/integrated SHA, and no whitespace errors. Rerun the complete Task 0 protected checkout/content/MediaUrl checks here. Any later commit or merge invalidates this identity and restarts review, fresh verification and both CI runs.
 
 - [ ] **Dispatch an independent read-only review of the exact range.**
 
@@ -5017,7 +5996,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
      and .failureCount == 0 and .unexplainedSkipCount == 0
      and (.jobs | length) == 6
      and all(.jobs[]; .integratedSha == $sha and .retryAttempt == 1)' \
-    "$P00_LOCAL_ARTIFACTS/required-gates.json"
+    "$P00_LOCAL_ARTIFACTS.required-gates.json"
   jq -e \
     '.serverVersionNum >= 160000 and .serverVersionNum < 170000
      and (.databaseName | endswith("_test"))
@@ -5029,7 +6008,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
      and .largeChunkDebt.status == "accepted-open"
      and .largeChunkDebt.occurrenceCount == 1
      and (.largeChunkDebt.affectedFiles | length) > 0' \
-    "$P00_LOCAL_ARTIFACTS/bundle.json"
+    "$P00_LOCAL_ARTIFACTS/frontend/bundle.json"
   test -z "$(git status --short --untracked-files=normal)"
   ```
 
@@ -5195,7 +6174,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 | Exact runtime pins and lockfile reproducibility | Tasks 1, 6, 10, 13, 17 |
 | Public media contract and origin `/storage` obligation | Tasks 2, 5, 16 |
 | Qatar/QAR demo/order/browser contract | Tasks 3–5, 7, 17 |
-| Guarded resettable fixture, Laravel+Vite health, auth setup, real login, seven journeys, one worker/zero retries | Tasks 4–5 |
+| Create-only capability-isolated PostgreSQL fixture, Laravel+Vite health, auth setup, real login, seven journeys, one worker/zero retries | Tasks 4–5 |
 | DTO/API/auth/settings/money/protected shell/accessible form unit coverage | Tasks 6–8 |
 | Frontend format/lint/type/unit/build/bundle | Tasks 6–8, 13, 17 |
 | Independent 16-file Pint cleanup and bounded Larastan debt | Tasks 9–10 |
@@ -5213,7 +6192,7 @@ Before plan approval and again after any approved amendment:
 - [ ] Trace every design Section 6–12 clause through the coverage table and exact task acceptance command.
 - [ ] Scan this file for banned indefinite markers, ellipses used as instructions, vague comparison phrases, broad staging, unbounded error repair, retries/quarantines/skips, and provider assumptions; require no matches.
 - [ ] Check every named path exists now or has one explicit creation task before first use.
-- [ ] Check interface names across PHP, TypeScript, shell, JSON and evidence (`e2e:reset`, `ProcessBarrier::run`, six job names, SHA identities) for exact consistency.
+- [ ] Check interface names across PHP, TypeScript, shell, JSON and evidence (`e2e:serve`, `E2eDatabaseLease::acquire`, `ProcessBarrier::run`, six job names, SHA identities) for exact consistency.
 - [ ] Check tasks are numbered 0–17 exactly once and retain mandatory order.
 - [ ] Check each writer has one staging allowlist, shared manifests/lockfiles/config/evidence have one serialized owner, and no command stages the original user-owned paths accidentally.
 - [ ] Check Task 14 remains a hard stop and Task 0/17 state that plan approval is not execution authority.
