@@ -6,13 +6,19 @@
 
 **Artifact SHA-256:** `a8c94d01af34c386e4291f97534c8251c5efa3ea20f11856c5b834009a27608d`
 
+**Latest corrected artifact commit:** `822a8ce5ca6dac3aa236ec0c14122b0cddcf5baa`
+
+**Latest corrected artifact SHA-256:** `29956aded8f629da414a9cd053507e8ae860bf96373796e796c52e50f2cc3ce3`
+
 **Review completed:** 2026-07-14 08:07:57 +03 (Asia/Qatar)
 
 **Review mode:** Independent read-only specification, repository, safety and executability review
 
 **Owner decision in force:** `Approved at baseline planning` authorizes exact P00 plan writing/correction only. It is not approval of this plan revision and grants no implementation or execution authority.
 
-**Verdict:** One Critical and nine Important findings require correction. The plan remains in Planning and may be modified only at its exact authorized path. P00 execution remains Not authorized.
+**Initial verdict:** One Critical and nine Important findings required correction.
+
+**Latest re-review verdict:** The corrected commit still has one Critical and fifteen Important findings. The plan remains in Planning and may be modified only at its exact authorized path. P00 execution remains Not authorized.
 
 ## Verified commit integrity
 
@@ -112,6 +118,43 @@ Task 17 names eight evidence files and required fields but does not give a compl
 - If that review reports zero Critical and zero Important findings, the Control Room must present the corrected commit and content hash for a new exact owner approval.
 - No MediaUrl preservation action, branch/worktree creation, dependency install, test/config/code/CI change, implementation task, P01 work or release is authorized.
 
+## Corrected-plan re-review — `822a8ce5ca6dac3aa236ec0c14122b0cddcf5baa`
+
+The corrected plan is a one-path commit with parent `5c4eca4c516de9771eaf9242f462c04dcbc2feaa`, 5,221 lines, 18 ordered tasks, 109 checkboxes and 276 balanced fence delimiters. `git show --check` passes, the index is empty, and the protected 16-entry path/status manifest remains SHA-256 `a797825ef1c504e70abec3dd1a82694cf4fddd76be1544ed716067a9c95d9ffa`.
+
+Three independent read-only reviews plus Control Room verification found the following remaining blockers.
+
+### Critical — The destructive SQLite reset still has a pathname race
+
+The lease locks and verifies one file descriptor, but Laravel/PDO later reopens the configured pathname for `migrate:fresh`. Rename, unlink, parent replacement and link substitution remain possible between the final check and that destructive open; advisory `flock` does not prevent them. The existing race tests substitute the target only before an explicit recheck and therefore do not prove that a substituted inode cannot receive migration or seeding. A failed migration also leaves an unmarked command-created database that the next invocation refuses.
+
+**Required correction:** Redesign the complete E2E database construction/publication flow so destructive work can touch only a newly command-owned candidate, no substituted/aliased inode or unrelated directory entry can be modified or removed at any race point, and failure preserves the previous usable fixture while safely discarding the candidate. Bind all migration and seeding work to the proven database identity instead of reopening an untrusted pathname. Add deterministic target- and parent-replacement tests inside the destructive-open interval plus migration/seed failure-recovery tests.
+
+### Important findings
+
+1. **E2E API and PSR-4 layout disagree.** The interface promises `E2eDatabaseLease::acquire()`, but acquisition is implemented as `ResetE2eDatabase::acquireDatabase()`, and the lease class is declared in `ResetE2eDatabase.php` rather than its own PSR-4 file. Make the published API, files, tests and staging counts exact and independently autoloadable.
+2. **Tasks 2–3 have false intermediate counts and leave a real stale assertion.** Task 2 cannot report 444 passing tests while the Demo failure remains. Task 3 changes USD/QAR but does not replace the repository's `plan->value` assertion with `plan->code`. Correct the exact red/green expectations and explicit patch.
+3. **One browser locator is ambiguous.** The unscoped `Add Product` role/name selector matches both POS and Topbar buttons. Scope it to the intended landmark/region or give the actions distinct accessible names, then test strict-mode uniqueness.
+4. **Task 11 names a nonexistent test path.** Replace every `tests/Feature/Product/ProductApiTest.php` occurrence with the actual `tests/Feature/Catalog/ProductApiTest.php` and retain exact red/green commands.
+5. **The Task 14 stop-marker checks match their own command literals.** Removing the intended marker cannot make Task 0 or Task 17 pass. Use a fail-closed structural gate whose sentinel is not reproduced by its verifier, and test pending and amended states.
+6. **Protected status verification strips a significant status byte.** `trim()` removes the leading space from the first current ` M` porcelain record, corrupting the registered hash and manifest match. Remove only terminal CR/LF bytes and prove exact two-column porcelain preservation.
+7. **PostgreSQL evidence is declared, not bound to the connection.** The runner observes only version/database and copies identity environment variables into evidence. Bind the actual `DB_URL` connection to independently verified OCI/external attestation in local, fresh and CI runs, without exposing credentials, and test a mismatched PostgreSQL 16 endpoint.
+8. **A required Task 13 Node test cannot pass.** The alleged no-large-chunk-debt case leaves the oversized unused `entry.js` in `dist`; `measureBundle()` scans all JavaScript and therefore succeeds instead of throwing. Make the fixture truly debt-free before asserting rejection and run the exact committed negative tests.
+9. **The local/CI fingerprint contract is not provider-neutral.** It requires a macOS/ARM local Chromium executable hash to equal a likely Linux/x64 CI hash while OS/architecture are neither pinned nor modeled. Composer and npm are observed but not approved/pinned. Separate portable approved inputs from platform observations, require two CI runs to match each other exactly, and either approve one immutable execution platform or explicitly model allowed local/CI platform differences without falsifying provenance.
+10. **CI job provenance is not bound to its wrapper or raw artifacts.** Each job can carry a different SHA/input fingerprint from the CI run/local aggregate, and aggregation accepts artifact-shaped hashes without recomputing available raw artifacts. Cross-check every job SHA, inputs and fingerprint against its run; recompute downloaded/local artifact hashes; add mismatch tests.
+11. **The emitted JSON Schema is not enforced.** `validateEvidence()` never applies the closed schema or a complete equivalent. Extra properties and inconsistent `local`, `bundle`, `review` and `ciRuns` path/hash summaries can pass. Enforce exact keys/types at every boundary and cross-bind every summary to its sibling payload, including immutable PostgreSQL syntax.
+12. **Secret rejection is too narrow.** Obvious keys/values such as `apiKey`, `clientSecret`, `accessToken`, `dbUrl`, cookies and query-string credentials can pass. Use schema allowlists plus broader recursive key/value/URI rejection and mutation tests; never normalize raw secrets into committed evidence.
+13. **The evidence implementation's own tests are not in post-commit provenance.** `test-run-p00.sh` and `p00.test.mjs` run only before the Task 13 commit and are absent from the clean Task 13, fresh-checkout and CI matrices. Include their exact committed execution in a canonical job and count/prove it deterministically.
+14. **Generated runbooks are not runnable from fresh setup.** They omit the Chromium installation and the required PostgreSQL identity/attestation variables even though every job collects them. Add the exact dependency and non-secret input preparation/validation commands.
+15. **The SHA contract contradicts itself.** Prose permits `INTEGRATED_SHA` to differ after an integration merge, but the builder requires equality with `CODE_SHA`. Choose one exact provider-neutral rule. If equality is retained, require Task 14 to execute the pushed head SHA and remove merge-SHA claims; otherwise add complete integrated-diff review and evidence support.
+
+## Control consequence
+
+- Commit `822a8ce5…` is not an owner-approval candidate and is not execution authority.
+- The existing correction-only authorization remains limited to the exact plan path.
+- The next corrected revision must resolve every finding above, preserve the 18-task order and approved P00 scope, and receive another independent re-review.
+- No MediaUrl preservation, worktree, implementation, dependency, CI, application, P01 or release action is authorized.
+
 ## Resolution
 
-Open. Awaiting a corrected plan commit and independent re-review.
+Open. Awaiting a second corrected plan commit and independent re-review.
