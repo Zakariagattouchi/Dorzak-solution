@@ -325,10 +325,10 @@ Historical task IDs:
 | Task | ID | State/purpose |
 |---|---|---|
 | Original Control Room | `019f5a12-7412-7e53-9a2b-37d2f313628e` | Context-heavy predecessor; retire after successor is verified |
-| P00 baseline planning | `019f5e64-9472-7f32-b0a9-77b4b3741864` | Historical planning evidence |
+| P00 baseline planning | `019f5e64-9472-7f32-b0a9-77b4b3741864` | Archived historical planning evidence |
 | Superseded final correction | `019f5f82-74f5-7f11-87ab-7b72b5d75bf8` | Archived; uncommitted edit must never be integrated |
-| P00 direct final correction | `019f5f92-89a2-7ae1-9c97-91f5986c78b6` | Completed exact one-file correction; archive after handoff |
-| Fresh Control Room | Recorded in the Control Register after creation | Sole active control task |
+| P00 direct final correction | `019f5f92-89a2-7ae1-9c97-91f5986c78b6` | Completed exact one-file correction; archived after handoff |
+| Fresh Control Room | `019f6010-88bb-7653-ab98-15ef5d75c7e0` | Created and pinned from the compact handoff; sole active control task |
 
 Operating protocol:
 
@@ -372,4 +372,9 @@ The immediate owner-facing choices are whether to approve the exact P00 safety e
 
 ## 12. Succession record
 
-The first documentation handoff commit and fresh Control Room task ID are recorded in the [Control Register](../superpowers/control/README.md) after the task is created. The new task must resolve the latest commit affecting this handoff and register rather than relying on a copied SHA in chat.
+- Initial durable handoff commit: `8b91d527fba26ee4407d339abe8dee78bffad99c`.
+- Fresh pinned task: `Control Room`, ID `019f6010-88bb-7653-ab98-15ef5d75c7e0`.
+- Context-heavy predecessor: `019f5a12-7412-7e53-9a2b-37d2f313628e`, superseded and unpinned after this transition.
+- Completed direct correction task: `019f5f92-89a2-7ae1-9c97-91f5986c78b6`, archived after this transition.
+
+The new task must resolve the latest commit affecting this handoff and the [Control Register](../superpowers/control/README.md) rather than relying on a copied SHA in chat.

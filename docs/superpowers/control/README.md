@@ -12,13 +12,13 @@
 
 **Sole register writer:** Dorzak Launch — Control Room
 
-**Control task ID:** 019f5a12-7412-7e53-9a2b-37d2f313628e
+**Control task ID:** 019f6010-88bb-7653-ab98-15ef5d75c7e0
 
-**Observed repository HEAD before this control change:** c3db796d11f50f3ce0f75fe7389d0225c271cd22
+**Observed repository HEAD before this control change:** 8b91d527fba26ee4407d339abe8dee78bffad99c
 
 **Current lifecycle:** Planning
 
-**Current authorization:** Approved to record the technically clean provider-neutral P00 correction base, review result, compact handoff and Control Room succession only. The required provider/P17 amendment, P00 implementation and execution remain Not authorized.
+**Current authorization:** Fresh Control Room read-only startup verification, owner-decision collection and control-register administration only. The required provider/P17 amendment, MediaUrl preservation, P00 implementation and execution remain Not authorized.
 
 **Public release:** Blocked until M9. No partial public launch.
 
@@ -232,7 +232,7 @@ Work packages are execution boundaries; their existence does not authorize their
 
 | Work package | Parent | Outcome | Lifecycle | Planning gate | Execution gate | Design/plan | Task IDs | Branch/worktree | Evidence | Serialized owner |
 |---|---|---|---|---|---|---|---|---|---|---|
-| WP-P00 | P00 | Baseline design and plan | Planning | Provider-neutral correction base complete under the Approved corrected design plus [plan-writing-only exception](approvals/2026-07-14-p00-plan-writing-exception-approval.md) | Owner-approved safety erratum/baseline; selected remote/provider/runtime inputs; focused Task 14 and P17 roadmap/plan amendment; fresh zero-finding review and exact owner approval; approved preservation method; completed, verified and evidenced MediaUrl preservation; recorded `BASE_SHA`; clean named worktree; explicit owner execution approval | Approved design `ea7b825`; proposed safety erratum; reviewed technical base `c3db796` / `eecb96af…`; provider/P17 amendment not yet authorized | Prior planning `019f5e64-9472-7f32-b0a9-77b4b3741864`; final correction `019f5f92-89a2-7ae1-9c97-91f5986c78b6`; successor Control Room pending | Not created; execution prohibited | [Implementation-plan review](reviews/2026-07-14-p00-implementation-plan-review.md): current base zero Critical/Important; amended bytes require fresh review | Control Room |
+| WP-P00 | P00 | Baseline design and plan | Planning | Provider-neutral correction base complete under the Approved corrected design plus [plan-writing-only exception](approvals/2026-07-14-p00-plan-writing-exception-approval.md) | Owner-approved safety erratum/baseline; selected remote/provider/runtime inputs; focused Task 14 and P17 roadmap/plan amendment; fresh zero-finding review and exact owner approval; approved preservation method; completed, verified and evidenced MediaUrl preservation; recorded `BASE_SHA`; clean named worktree; explicit owner execution approval | Approved design `ea7b825`; proposed safety erratum; reviewed technical base `c3db796` / `eecb96af…`; provider/P17 amendment not yet authorized | Prior planning `019f5e64-9472-7f32-b0a9-77b4b3741864`; final correction `019f5f92-89a2-7ae1-9c97-91f5986c78b6`; active Control Room `019f6010-88bb-7653-ab98-15ef5d75c7e0` | Not created; execution prohibited | [Implementation-plan review](reviews/2026-07-14-p00-implementation-plan-review.md): current base zero Critical/Important; amended bytes require fresh review | Control Room |
 | WP-P01A | P01 | Additive Organization migration | Not started | P00 complete | M0 complete + approved WP-P01A plan | None | None | N/A | N/A | Control Room |
 | WP-P01B | P01 | Identity, Party, OTP and consent | Not started | WP-P01A complete | WP-P01A complete + approved WP-P01B plan | None | None | N/A | N/A | Control Room |
 | WP-M2 | Shared prerequisite | Contract/value/outbox/real ERP handshake freeze | Not started | P01 complete | M1/P01 complete + approved WP-M2 plan | None | None | N/A | N/A | Control Room; all contract registries serialized |
@@ -248,10 +248,11 @@ WP-M2 is mandatory and must be Complete before P02/P03 execution. It receives it
 
 | Task title | Task ID | Type | Lifecycle | Outcome | Authorization | App state | Owner | Base/verified SHA | Writes allowed | Next gate |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Dorzak Launch — Control Room | 019f5a12-7412-7e53-9a2b-37d2f313628e | Control | Planning | Succession pending | Approved to commit handoff/control succession only | Pinned until successor is verified | Control Room | `c3db796` / current register revision | Control/review/handoff documents only | Create and pin one fresh `Control Room`, record its ID, then retire this context-heavy task |
-| Dorzak Launch — P00 Baseline Planning | 019f5e64-9472-7f32-b0a9-77b4b3741864 | Planning | Closed | Historical | Prior correction lease completed | Idle | P00 planning owner | Candidate plan `5c88dc3` | None | Historical evidence only |
+| Dorzak Launch — Control Room (predecessor) | 019f5a12-7412-7e53-9a2b-37d2f313628e | Control | Closed | Superseded by compact handoff | Succession transition completed | Unpinned | Prior Control Room | Initial handoff commit `8b91d52` | None | Historical evidence only |
+| Control Room | 019f6010-88bb-7653-ab98-15ef5d75c7e0 | Control | Planning | Open | Read-only startup verification, owner-decision collection and control administration only | Pinned | Control Room | Handoff `8b91d52`; latest register revision resolves from this file | Control documents only after exact owner authorization | Verify the committed handoff/register, report the current gate and await owner direction |
+| Dorzak Launch — P00 Baseline Planning | 019f5e64-9472-7f32-b0a9-77b4b3741864 | Planning | Closed | Historical | Prior correction lease completed | Archived | P00 planning owner | Candidate plan `5c88dc3` | None | Historical evidence only |
 | Dorzak Launch — P00 Final Plan Correction | 019f5f82-74f5-7f11-87ab-7b72b5d75bf8 | Planning | Closed | Superseded | Authorization revoked after exceeding the lean-session boundary | Archived | Prior correction owner | Clean isolated worktree at `59defd5`; uncommitted partial plan edit only | None | Preserve its isolated state; never integrate its uncommitted edit |
-| Dorzak Launch — P00 Direct Final Correction | 019f5f92-89a2-7ae1-9c97-91f5986c78b6 | Planning | Closed | Complete | One-file provider-neutral plan correction committed and independently reviewed | Ready to archive | P00 direct-correction owner | Technical base `c3db796`; SHA-256 `eecb96af…`; zero Critical/Important | None | Historical evidence only |
+| Dorzak Launch — P00 Direct Final Correction | 019f5f92-89a2-7ae1-9c97-91f5986c78b6 | Planning | Closed | Complete | One-file provider-neutral plan correction committed and independently reviewed | Archived | P00 direct-correction owner | Technical base `c3db796`; SHA-256 `eecb96af…`; zero Critical/Important | None | Historical evidence only |
 | Dorzak Launch — P00 Baseline Execution | Not created | Execution | Not started | Open | Not authorized | Not created | Unassigned | N/A | Isolated worktree only | Full WP-P00 execution gate above: approved safety erratum/baseline; selected canonical remote/provider/runtime inputs; focused provider-native Task 14 and P17 roadmap/plan amendment; amended exact bytes independently reviewed to zero Critical/Important and exactly owner-approved; approved method and completed, verified, evidenced MediaUrl preservation; recorded `BASE_SHA`; clean named worktree; explicit owner execution approval |
 
 No other planning or execution task is authorized.
@@ -395,14 +396,13 @@ Every context packet names the latest committed register revision. At every owne
 
 Current next action:
 
-1. commit the completed exact-plan review, compact handoff and Control Room succession without touching protected user work;
-2. create and pin one fresh task titled `Control Room`, make it read only the compact handoff plus this register, record its ID, then retire superseded correction/control tasks;
-3. present the proposed database-safety erratum and complete-launch product baseline for exact owner approval, and obtain the owner-selected canonical remote, CI provider and exact runtime/tool inputs needed by Task 14;
-4. authorize one focused documentation-only amendment that both supplies the complete provider-native Task 14 adapter/required-status/two-run normalizer and reconciles roadmap/plan Superadmin wording to the approved separate Frappe-native P17 direction;
-5. independently review the amended roadmap/plan exact bytes to zero Critical/Important findings, then obtain exact owner approval of those amended artifacts; approval of technical base `c3db796d…` alone is intentionally insufficient;
-6. before execution, resolve the MediaUrl preservation choice and verified evidence, `BASE_SHA`, and clean named execution worktree;
-7. request explicit P00 execution approval only after every registered prerequisite is durable and verified;
-8. no MediaUrl preservation action, application/test/configuration/CI/dependency change, implementation, P01 work or public release begins from this transition.
+1. fresh Control Room `019f6010-88bb-7653-ab98-15ef5d75c7e0` verifies the committed handoff/register and registered protected state, reports the current gate, then awaits owner direction;
+2. present the proposed database-safety erratum and complete-launch product baseline for exact owner approval, and obtain the owner-selected canonical remote, CI provider and exact runtime/tool inputs needed by Task 14;
+3. only after exact authorization, create one focused documentation-only amendment that both supplies the complete provider-native Task 14 adapter/required-status/two-run normalizer and reconciles roadmap/plan Superadmin wording to the approved separate Frappe-native P17 direction;
+4. independently review the amended roadmap/plan exact bytes to zero Critical/Important findings, then obtain exact owner approval of those amended artifacts; approval of technical base `c3db796d…` alone is intentionally insufficient;
+5. before execution, resolve the MediaUrl preservation choice and verified evidence, `BASE_SHA`, and clean named execution worktree;
+6. request explicit P00 execution approval only after every registered prerequisite is durable and verified;
+7. no MediaUrl preservation action, application/test/configuration/CI/dependency change, implementation, P01 work or public release begins from this transition.
 
 Plan-writing authorization is not implementation or execution authorization. Unresolved remote, CI-provider, runtime, MediaUrl-preservation and integration-base decisions must remain explicit pre-execution gates and may not be chosen by assumption.
 
@@ -435,3 +435,4 @@ Plan-writing authorization is not implementation or execution authorization. Unr
 | 2026-07-14 | c3db796 | Committed the 7,869-line final provider-neutral P00 correction pass as the sole changed path; exact file SHA-256 `eecb96af…`; protected 16-entry user state unchanged |
 | 2026-07-14 | Current register revision | Three exact-byte reviews and exact-commit seal checks found zero Critical and zero Important findings on that base; P00 stays Planning pending its mandatory provider/P17 amendment, with implementation/execution still Not authorized |
 | 2026-07-14 | Current register revision | Prepared the compact Control Room handoff and authorized one fresh pinned successor task; no product or application implementation was authorized |
+| 2026-07-14 | Current register revision | Created and pinned fresh task `019f6010-88bb-7653-ab98-15ef5d75c7e0` titled `Control Room` from handoff commit `8b91d527fba26ee4407d339abe8dee78bffad99c`; unpinned the predecessor and archived the completed planning/correction tasks |
