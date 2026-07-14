@@ -66,6 +66,7 @@ The future execution lease must bind the following shell variables to literal va
 | `P00_E2E_SERVICE_LIFECYCLE_ID` | Exact immutable provisioner/container lifecycle identifier from the attestation; cleanup may address only this value |
 | `P00_E2E_SERVICE_ATTESTATION_PATH` / `P00_E2E_SERVICE_ATTESTATION_SHA256` | Sanitized E2E-service attestation proving PG16, immutable image/resource identity, no real data, isolated credential issuance, noncandidate access denial, and the lifecycle ID |
 | `P00_FRESH_CHECKOUT` | New absolute path used only by final fresh-checkout verification |
+| `P00_RUNNER_ROLE` | Exactly `local` for fresh local commands or `ci` for provider jobs |
 | `P00_RUNNER_CLASS` | Exact current runner-class literal bound by the control record: its `runnerClasses.local` value for fresh local commands or `runnerClasses.ci` value for every provider job |
 
 Guarded decisions are not substitute values. If the provider is GitHub, a later approved amendment may add a GitHub Actions file. If it is GitLab or another provider, that provider's native exact file and API commands must be approved instead. Task 14 stops until that amendment exists; no current task names a provider-native file.
@@ -130,7 +131,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   const record = JSON.parse(readFileSync(process.argv[2], 'utf8'));
   const exactKeys = (value, keys) => assert.deepEqual(Object.keys(value).sort(), [...keys].sort());
   exactKeys(record, ['schemaVersion', 'approvals', 'execution']);
-  assert.equal(record.schemaVersion, 1);
+  assert.equal(record.schemaVersion, 2);
   exactKeys(record.approvals, ['safetyErratum', 'plan', 'productBaseline', 'roadmap', 'p00Execution']);
   const artifactApproval = (name, commit, sha256) => {
     const value = record.approvals[name];
@@ -162,7 +163,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     e2eServiceAttestationPath: 'P00_E2E_SERVICE_ATTESTATION_PATH', e2eServiceAttestationSha256: 'P00_E2E_SERVICE_ATTESTATION_SHA256',
     freshCheckout: 'P00_FRESH_CHECKOUT',
   };
-  exactKeys(record.execution, [...Object.keys(bindings), 'runnerClasses']);
+  exactKeys(record.execution, [...Object.keys(bindings), 'runnerClasses', 'mediaReviewedPatchVerification']);
   for (const [key, environment] of Object.entries(bindings)) {
     assert.equal(typeof process.env[environment], 'string', environment + ' is absent');
     assert.equal(record.execution[key], process.env[environment], key + ' does not match its independent binding');
@@ -170,7 +171,32 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   exactKeys(record.execution.runnerClasses, ['local', 'ci']);
   for (const value of Object.values(record.execution.runnerClasses)) assert.match(value, /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/);
   assert.notEqual(record.execution.runnerClasses.local, record.execution.runnerClasses.ci);
-  assert.equal(process.env.P00_RUNNER_CLASS, record.execution.runnerClasses.local);
+  assert.match(process.env.P00_RUNNER_ROLE || '', /^(local|ci)$/);
+  assert.equal(
+    process.env.P00_RUNNER_CLASS,
+    record.execution.runnerClasses[process.env.P00_RUNNER_ROLE],
+  );
+  const mediaVerification = record.execution.mediaReviewedPatchVerification;
+  if (record.execution.mediaMethod === 'reviewed_patch') {
+    assert.ok(mediaVerification !== null && typeof mediaVerification === 'object' && !Array.isArray(mediaVerification));
+    exactKeys(mediaVerification, [
+      'checkoutKind', 'checkoutHead', 'checkoutCleanBeforeApply',
+      'artifactSha256', 'applyExitCode', 'resultingDiffSha256',
+    ]);
+    assert.equal(mediaVerification.checkoutKind, 'disposable-verification-checkout');
+    assert.equal(mediaVerification.checkoutHead, record.execution.userHead);
+    assert.match(mediaVerification.checkoutHead, /^[0-9a-f]{40}$/);
+    assert.equal(mediaVerification.checkoutCleanBeforeApply, true);
+    assert.equal(mediaVerification.artifactSha256, record.execution.mediaArtifactId);
+    assert.equal(mediaVerification.artifactSha256, record.execution.mediaReviewedDiffSha256);
+    assert.match(mediaVerification.artifactSha256, /^[0-9a-f]{64}$/);
+    assert.equal(mediaVerification.applyExitCode, 0);
+    assert.equal(mediaVerification.resultingDiffSha256, record.execution.mediaReviewedDiffSha256);
+    assert.equal(record.execution.mediaVerificationResult, 'verified');
+  } else {
+    assert.equal(record.execution.mediaMethod, 'dedicated_commit');
+    assert.equal(mediaVerification, null);
+  }
   NODE
   set +e
   node --input-type=module - "$plan" "$P00_CONTROL_RECORD" <<'NODE'
@@ -220,6 +246,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   test -n "$P00_REMOTE_URL"
   test -n "$P00_CI_PROVIDER"
   test -n "$P00_EXECUTION_BRANCH"
+  test "$P00_RUNNER_ROLE" = local
   printf '%s\n' "$P00_RUNNER_CLASS" | rg -x '[A-Za-z0-9][A-Za-z0-9._-]{0,63}'
   test "$P00_PROTECTED_STATUS_SHA256" = a797825ef1c504e70abec3dd1a82694cf4fddd76be1544ed716067a9c95d9ffa
   printf '%s\n' "$P00_USER_HEAD" | rg -x '[0-9a-f]{40}'
@@ -270,10 +297,9 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   test -f "$P00_MEDIA_ARTIFACT_PATH"
   test "$(shasum -a 256 "$P00_MEDIA_ARTIFACT_PATH" | awk '{print $1}')" = "$P00_MEDIA_ARTIFACT_ID"
   test "$P00_MEDIA_ARTIFACT_ID" = "$P00_MEDIA_REVIEWED_DIFF_SHA256"
-  rg -n 'disposable verification checkout|applied successfully|resulting diff matched' "$P00_CONTROL_RECORD"
   ```
 
-  Expected: the selected branch exits `0`. The patch branch verifies a separately approved disposable application target recorded by Control Room; it never applies the patch to the named clean execution worktree.
+  Expected: the selected branch exits `0`. For `reviewed_patch`, the earlier schema-2 control-record validator proves the exact structured disposable-checkout application result and cross-binds its clean starting HEAD, artifact hash, zero exit status, and resulting diff hash; text presence is never authority. The patch is never applied to the named clean execution worktree. Control Room must commit, hash, and exactly reapprove the schema-2 record before execution.
 
 - [ ] **Verify the protected checkout identity and every approved non-secret content digest.**
 
@@ -678,14 +704,18 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - Create: `backend/app/Support/E2eSupervisor.php`
 - Create: `backend/app/Support/PdoE2eSupervisor.php`
 - Create: `backend/app/Support/E2eDatabaseLease.php`
+- Create: `backend/app/Support/E2eProvisioningException.php`
+- Create: `backend/app/Support/PostgresConnectionProfile.php`
 - Create: `backend/app/Console/Commands/ServeE2e.php`
 - Create: `backend/database/seeders/E2ESeeder.php`
 - Modify: `backend/config/database.php`
 - Modify: `backend/app/Providers/AppServiceProvider.php`
 - Create: `backend/tests/Feature/E2E/E2EProvisioningGuardTest.php`
+- Create: `backend/tests/LivePostgres/E2ELiveMutationGuardTest.php`
 - Create: `backend/tests/Feature/E2E/E2ESeederTest.php`
+- Create: `backend/tests/Support/PostgresSubstitutionHarness.php`
 
-**Interfaces:** Playwright uses `php artisan e2e:serve`, never `migrate:fresh`, `db:wipe`, a file SQLite database, or a stable database pointer. `App\Support\E2eDatabaseLease::acquire()` opens one already-attested supervisor connection to a dedicated no-real-data PostgreSQL 16 service, re-verifies its immutable identity through the live provisioner nonce, and creates a cryptographically unique database plus login role. It never reuses, resets, drops, renames, or unlinks anything. The role is `NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`, can connect only to its candidate database, and owns no other database. The command runs only `artisan migrate --database=e2e --force`, seeds, then inserts the activation nonce and fixture-contract hash as the final mutation. The migration child boots with phase `provisioning-migrate` and the seeding child boots separately with phase `provisioning-seed`; on every such application boot the guard opens Laravel's exact `e2e` PDO and verifies driver, database, role, PostgreSQL major, live service nonce, least privilege, and the required unactivated state before the child can mutate. The serving child uses phase `active` and re-verifies the same live PDO plus activation nonce and fixture-contract hash. Parent or earlier-connection checks never substitute for these three boot checks. Failure leaves every prior fixture/server and every noncandidate database unchanged. Cleanup addresses only the attested immutable service/container lifecycle ID; cleanup failure records this candidate as an orphan and never broadens deletion. If the approved service attestation cannot prove no real data and isolated credentials, Task 0 requires a new ephemeral digest-pinned PostgreSQL 16 service for that run.
+**Interfaces:** Playwright uses `php artisan e2e:serve`, never `migrate:fresh`, `db:wipe`, a file SQLite database, or a stable database pointer. `App\Support\E2eDatabaseLease::acquire()` opens one already-attested supervisor connection to a dedicated no-real-data PostgreSQL 16 service, re-verifies its immutable identity through the live provisioner nonce, and creates a cryptographically unique database plus login role. It never reuses, resets, drops, renames, or unlinks anything. The role is `NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`, can connect only to its candidate database, and owns no other database. `PostgresConnectionProfile` is the sole closed URL/configuration parser: it rejects malformed encoding, empty authority fields, fragments, duplicate/unknown options, control/whitespace/DSN-delimiter injection, read/write splitting and every query key except the six-value `sslmode`; Laravel's resolved fields are compared because Laravel removes `url`. The command runs only `artisan migrate --database=e2e --force`, seeds, then inserts the activation nonce and fixture-contract hash as the final mutation. Migration, seed, activation and serving each validate the exact PDO used in that phase; activation validates and mutates in one transaction on one PDO. Every guarded Laravel connection is sealed against PDO replacement and automatic reconnection before queries can run. Parent or earlier-connection checks never authorize a later PDO. A typed post-create failure always carries the nonsecret database, role and lifecycle orphan identity. Real PostgreSQL child/substitution/reconnect canaries, not mocks or prose, prove every mutation interval. Failure leaves every prior fixture/server and every noncandidate database unchanged. Cleanup addresses only the attested immutable service/container lifecycle ID; cleanup failure records this candidate as an orphan and never broadens deletion. If the approved service attestation cannot prove no real data and isolated credentials, Task 0 requires a new ephemeral digest-pinned PostgreSQL 16 service for that run.
 
 - [ ] **Write the provisioning and fixture tests first.**
 
@@ -935,6 +965,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
       public function activate(
           string $url,
+          string $database,
+          string $role,
           string $activationNonceSha256,
           string $fixtureContractSha256,
           string $serviceNonceSha256,
@@ -996,6 +1028,181 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
 - [ ] **Create the exact PSR-4 lease API and PDO supervisor.**
 
+  Create `backend/app/Support/PostgresConnectionProfile.php` first and use it for every Task 4 and Task 11 PostgreSQL URL, PDO DSN and Laravel resolved-config comparison. No other URL parser is permitted:
+
+  ```php
+  <?php
+
+  namespace App\Support;
+
+  use Illuminate\Database\Connection;
+  use PDO;
+  use RuntimeException;
+  use ValueError;
+
+  final class PostgresConnectionProfile
+  {
+      private const SSLMODES = ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'];
+
+      private function __construct(
+          public readonly string $host,
+          public readonly int $port,
+          public readonly string $database,
+          public readonly string $username,
+          private readonly string $password,
+          public readonly string $sslmode,
+      ) {}
+
+      public static function fromUrl(string $url, bool $requireTestSuffix = true): self
+      {
+          if ($url === '' || preg_match('/[\x00-\x20\x7f;]/', $url)) {
+              throw new RuntimeException('PostgreSQL URL contains an unsafe byte.');
+          }
+          try {
+              $parts = parse_url($url);
+          } catch (ValueError) {
+              throw new RuntimeException('PostgreSQL URL cannot be parsed.');
+          }
+          if (! is_array($parts)
+              || ! in_array($parts['scheme'] ?? null, ['postgres', 'postgresql'], true)
+              || ! isset($parts['host'], $parts['user'], $parts['pass'], $parts['path'])
+              || isset($parts['fragment'])
+              || ! is_int($parts['port'] ?? 5432)) {
+              throw new RuntimeException('PostgreSQL URL authority is incomplete.');
+          }
+          $decode = static function (string $value): string {
+              if (preg_match('/%(?![0-9A-Fa-f]{2})/', $value)) {
+                  throw new RuntimeException('PostgreSQL URL encoding is invalid.');
+              }
+              $decoded = rawurldecode($value);
+              if ($decoded === '' || preg_match('/[\x00-\x20\x7f;=]/', $decoded)) {
+                  throw new RuntimeException('PostgreSQL URL component is unsafe.');
+              }
+              return $decoded;
+          };
+          $host = trim((string) $parts['host'], '[]');
+          $isIp = filter_var($host, FILTER_VALIDATE_IP) !== false;
+          $isDns = preg_match('/^(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(?:\.(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*$/', $host) === 1;
+          if (! $isIp && ! $isDns) {
+              throw new RuntimeException('PostgreSQL host is unsafe.');
+          }
+          $port = $parts['port'] ?? 5432;
+          if ($port < 1 || $port > 65535 || ! str_starts_with($parts['path'], '/')) {
+              throw new RuntimeException('PostgreSQL port or path is invalid.');
+          }
+          $database = $decode(substr($parts['path'], 1));
+          $username = $decode($parts['user']);
+          $password = $decode($parts['pass']);
+          if (! preg_match('/^[a-z][a-z0-9_]{1,62}$/', $database)
+              || ! preg_match('/^[a-z][a-z0-9_]{1,62}$/', $username)
+              || ($requireTestSuffix && ! str_ends_with($database, '_test'))) {
+              throw new RuntimeException('PostgreSQL database or role is outside the P00 grammar.');
+          }
+          $sslmode = 'prefer';
+          if (($parts['query'] ?? '') !== '') {
+              $items = explode('&', $parts['query']);
+              if (count($items) !== 1) {
+                  throw new RuntimeException('PostgreSQL URL options are not closed.');
+              }
+              $pair = explode('=', $items[0], 2);
+              if (count($pair) !== 2 || $decode($pair[0]) !== 'sslmode') {
+                  throw new RuntimeException('PostgreSQL URL option is not allowed.');
+              }
+              $sslmode = $decode($pair[1]);
+          }
+          if (! in_array($sslmode, self::SSLMODES, true)) {
+              throw new RuntimeException('PostgreSQL sslmode is unsupported.');
+          }
+          return new self($host, $port, $database, $username, $password, $sslmode);
+      }
+
+      public function pdo(): PDO
+      {
+          $dsn = "pgsql:host={$this->host};port={$this->port};dbname={$this->database};sslmode={$this->sslmode}";
+          return new PDO($dsn, $this->username, $this->password, [
+              PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+              PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+              PDO::ATTR_STRINGIFY_FETCHES => false,
+          ]);
+      }
+
+      public function laravelConfiguration(): array
+      {
+          return [
+              'driver' => 'pgsql', 'host' => $this->host, 'port' => $this->port,
+              'database' => $this->database, 'username' => $this->username,
+              'password' => $this->password, 'charset' => 'utf8', 'prefix' => '',
+              'prefix_indexes' => true, 'search_path' => 'public', 'sslmode' => $this->sslmode,
+          ];
+      }
+
+      public function guardFields(): array
+      {
+          return [
+              'host' => $this->host, 'port' => $this->port,
+              'database' => $this->database, 'user' => $this->username,
+              'password' => $this->password, 'sslmode' => $this->sslmode,
+          ];
+      }
+
+      public function assertSameAuthority(self $other): void
+      {
+          if ($this->host !== $other->host || $this->port !== $other->port
+              || $this->database !== $other->database || $this->username !== $other->username
+              || $this->sslmode !== $other->sslmode || ! hash_equals($this->password, $other->password)) {
+              throw new RuntimeException('P00_PG_BOOTSTRAP_AUTHORITY_REFUSED');
+          }
+      }
+
+      public function assertLaravelConfiguration(Connection $connection, string $expectedName): void
+      {
+          $actual = $connection->getConfig();
+          foreach (['read', 'write', 'sticky', 'unix_socket', 'options'] as $forbidden) {
+              if (array_key_exists($forbidden, $actual)) {
+                  throw new RuntimeException('PostgreSQL read/write or option override is prohibited.');
+              }
+          }
+          $expected = [
+              'driver' => 'pgsql', 'host' => $this->host, 'port' => $this->port,
+              'database' => $this->database, 'username' => $this->username,
+              'sslmode' => $this->sslmode, 'charset' => 'utf8', 'prefix' => '',
+              'prefix_indexes' => true, 'search_path' => 'public',
+          ];
+          foreach ($expected as $key => $value) {
+              if (($actual[$key] ?? null) !== $value) {
+                  throw new RuntimeException('PostgreSQL Laravel configuration mismatch.');
+              }
+          }
+          if ($connection->getName() !== $expectedName
+              || ! isset($actual['password'])
+              || ! hash_equals($this->password, (string) $actual['password'])) {
+              throw new RuntimeException('PostgreSQL Laravel authority mismatch.');
+          }
+      }
+
+      public static function sealVerifiedPdo(Connection $connection, PDO $verifiedPdo): void
+      {
+          $assertSame = static function (Connection $current) use ($verifiedPdo): void {
+              if ($current->getRawPdo() !== $verifiedPdo) {
+                  throw new RuntimeException('P00_PDO_SUBSTITUTION_REFUSED');
+              }
+          };
+          $assertSame($connection);
+          $connection->beforeExecuting(
+              static function (string $query, array $bindings, Connection $current) use ($assertSame): void {
+                  $assertSame($current);
+              },
+          );
+          $connection->beforeStartingTransaction($assertSame);
+          $connection->setReconnector(
+              static fn (Connection $current): never => throw new RuntimeException('P00_RECONNECT_REFUSED'),
+          );
+      }
+  }
+  ```
+
+  The profile's credential fields remain private, are never logged/serialized, and are compared only in memory. Tests include empty fields, unsafe host/database/user/password bytes, semicolons, whitespace, malformed encoding, duplicate/unknown options, fragments, out-of-range ports, read/write configuration and all six accepted `sslmode` values.
+
   `backend/app/Support/E2eSupervisor.php`:
 
   ```php
@@ -1021,10 +1228,35 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
       public function activate(
           string $url,
+          string $database,
+          string $role,
           string $activationNonceSha256,
           string $fixtureContractSha256,
           string $serviceNonceSha256,
       ): void;
+  }
+  ```
+
+  `backend/app/Support/E2eProvisioningException.php` preserves a created candidate's nonsecret orphan identity even when acquisition fails before a lease can be returned:
+
+  ```php
+  <?php
+
+  namespace App\Support;
+
+  use RuntimeException;
+  use Throwable;
+
+  final class E2eProvisioningException extends RuntimeException
+  {
+      public function __construct(
+          public readonly string $database,
+          public readonly string $role,
+          public readonly string $lifecycleId,
+          Throwable $previous,
+      ) {
+          parent::__construct('E2E candidate requires lifecycle cleanup.', 0, $previous);
+      }
   }
   ```
 
@@ -1038,6 +1270,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   use Closure;
   use PDO;
   use RuntimeException;
+  use Throwable;
 
   final class E2eDatabaseLease
   {
@@ -1104,30 +1337,34 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           if ($supervisor->candidateExists($database, $role)) {
               throw new RuntimeException('E2E candidate collision refused; no name is reused.');
           }
-          $supervisor->createCandidate($database, $role, $password);
-          self::assertSupervisorFacts($supervisor->facts(), $attestation);
-          if (! hash_equals($before, $supervisor->noncandidateFingerprint())) {
-              throw new RuntimeException('Noncandidate database metadata changed.');
-          }
-          if ($supervisor->noncandidateDatabasesWithAccess($role, $database) !== []) {
-              throw new RuntimeException('Candidate role can access a noncandidate database.');
-          }
+          try {
+              $supervisor->createCandidate($database, $role, $password);
+              self::assertSupervisorFacts($supervisor->facts(), $attestation);
+              if (! hash_equals($before, $supervisor->noncandidateFingerprint())) {
+                  throw new RuntimeException('Noncandidate database metadata changed.');
+              }
+              if ($supervisor->noncandidateDatabasesWithAccess($role, $database) !== []) {
+                  throw new RuntimeException('Candidate role can access a noncandidate database.');
+              }
 
-          $url = $supervisor->candidateUrl($database, $role, $password);
-          $lease = new self(
-              $supervisor,
-              $database,
-              $role,
-              $url,
-              $approvedIdentity,
-              $approvedServiceNonceSha256,
-              $approvedLifecycleId,
-              $activationNonceSha256,
-              $fixtureContractSha256,
-          );
-          $lease->assertCandidate(false);
+              $url = $supervisor->candidateUrl($database, $role, $password);
+              $lease = new self(
+                  $supervisor,
+                  $database,
+                  $role,
+                  $url,
+                  $approvedIdentity,
+                  $approvedServiceNonceSha256,
+                  $approvedLifecycleId,
+                  $activationNonceSha256,
+                  $fixtureContractSha256,
+              );
+              $lease->assertCandidate(false);
 
-          return $lease;
+              return $lease;
+          } catch (Throwable $error) {
+              throw new E2eProvisioningException($database, $role, $approvedLifecycleId, $error);
+          }
       }
 
       public function database(): string
@@ -1162,6 +1399,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
           $this->assertCandidate(false);
           $this->supervisor->activate(
               $this->url,
+              $this->database,
+              $this->role,
               $this->activationNonceSha256,
               $this->fixtureContractSha256,
               $this->serviceNonceSha256,
@@ -1201,7 +1440,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
               FROM pg_roles WHERE rolname = current_user",
           )->fetch(PDO::FETCH_ASSOC);
           if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'pgsql'
-              || ! in_array($phase, ['provisioning-migrate', 'provisioning-seed', 'active'], true)
+              || ! in_array($phase, ['provisioning-migrate', 'provisioning-seed', 'provisioning-activate', 'active'], true)
               || ! is_array($row)
               || $row['database'] !== $database
               || $row['role'] !== $role
@@ -1212,7 +1451,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
               || $row['rolcreaterole'] !== false
               || $row['rolbypassrls'] !== false
               || $row['rolreplication'] !== false) {
-              throw new RuntimeException('Live E2E connection identity mismatch.');
+              throw new RuntimeException('P00_E2E_LIVE_PDO_REFUSED');
           }
           if ($phase !== 'active') {
               if ($row['activation_table'] !== null) {
@@ -1281,6 +1520,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   use PDO;
   use RuntimeException;
+  use Throwable;
 
   final class PdoE2eSupervisor implements E2eSupervisor
   {
@@ -1354,16 +1594,16 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
       public function candidateUrl(string $database, string $role, string $password): string
       {
-          $parts = self::urlParts($this->supervisorUrl);
-          $host = str_contains($parts['host'], ':') ? '['.$parts['host'].']' : $parts['host'];
-          $query = $parts['sslmode'] === null ? '' : '?sslmode='.rawurlencode($parts['sslmode']);
+          $profile = PostgresConnectionProfile::fromUrl($this->supervisorUrl, false);
+          $host = str_contains($profile->host, ':') ? '['.$profile->host.']' : $profile->host;
+          $query = '?sslmode='.rawurlencode($profile->sslmode);
 
           return sprintf(
               'postgresql://%s:%s@%s:%d/%s%s',
               rawurlencode($role),
               rawurlencode($password),
               $host,
-              $parts['port'],
+              $profile->port,
               rawurlencode($database),
               $query,
           );
@@ -1422,74 +1662,67 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
       public function activate(
           string $url,
+          string $database,
+          string $role,
           string $activationNonceSha256,
           string $fixtureContractSha256,
           string $serviceNonceSha256,
       ): void {
-          $pdo = self::connect($url);
-          $pdo->exec(
-              'CREATE TABLE p00_e2e_activation (
-                  singleton boolean PRIMARY KEY CHECK (singleton),
-                  activation_nonce_sha256 char(64) NOT NULL,
-                  fixture_contract_sha256 char(64) NOT NULL,
-                  service_nonce_sha256 char(64) NOT NULL
-              )',
+          $pdo = PostgresConnectionProfile::fromUrl($url)->pdo();
+          self::activateVerifiedPdo(
+              $pdo, $database, $role, $serviceNonceSha256,
+              $activationNonceSha256, $fixtureContractSha256,
           );
-          $statement = $pdo->prepare(
-              'INSERT INTO p00_e2e_activation
-               (singleton, activation_nonce_sha256, fixture_contract_sha256, service_nonce_sha256)
-               VALUES (true, :activation, :contract, :service)',
-          );
-          $statement->execute([
-              'activation' => $activationNonceSha256,
-              'contract' => $fixtureContractSha256,
-              'service' => $serviceNonceSha256,
-          ]);
+      }
+
+      public static function activateVerifiedPdo(
+          PDO $pdo,
+          string $database,
+          string $role,
+          string $serviceNonceSha256,
+          string $activationNonceSha256,
+          string $fixtureContractSha256,
+      ): void {
+          try {
+              E2eDatabaseLease::assertBootConnection(
+                  $pdo, $database, $role, $serviceNonceSha256,
+                  $activationNonceSha256, $fixtureContractSha256, 'provisioning-activate',
+              );
+              $pdo->beginTransaction();
+              $pdo->exec(
+                  'CREATE TABLE p00_e2e_activation (
+                      singleton boolean PRIMARY KEY CHECK (singleton),
+                      activation_nonce_sha256 char(64) NOT NULL,
+                      fixture_contract_sha256 char(64) NOT NULL,
+                      service_nonce_sha256 char(64) NOT NULL
+                  )',
+              );
+              $statement = $pdo->prepare(
+                  'INSERT INTO p00_e2e_activation
+                   (singleton, activation_nonce_sha256, fixture_contract_sha256, service_nonce_sha256)
+                   VALUES (true, :activation, :contract, :service)',
+              );
+              $statement->execute([
+                  'activation' => $activationNonceSha256,
+                  'contract' => $fixtureContractSha256,
+                  'service' => $serviceNonceSha256,
+              ]);
+              E2eDatabaseLease::assertBootConnection(
+                  $pdo, $database, $role, $serviceNonceSha256,
+                  $activationNonceSha256, $fixtureContractSha256, 'active',
+              );
+              $pdo->commit();
+          } catch (Throwable $error) {
+              if ($pdo->inTransaction()) {
+                  $pdo->rollBack();
+              }
+              throw $error;
+          }
       }
 
       private static function connect(string $url): PDO
       {
-          $parts = self::urlParts($url);
-          $dsn = "pgsql:host={$parts['host']};port={$parts['port']};dbname={$parts['database']}";
-          if ($parts['sslmode'] !== null) {
-              $dsn .= ";sslmode={$parts['sslmode']}";
-          }
-
-          return new PDO($dsn, $parts['user'], $parts['password'], [
-              PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-              PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-              PDO::ATTR_STRINGIFY_FETCHES => false,
-          ]);
-      }
-
-      private static function urlParts(string $url): array
-      {
-          $parts = parse_url($url);
-          $queryString = $parts['query'] ?? '';
-          parse_str($queryString, $query);
-          if (! is_array($parts)
-              || ! in_array($parts['scheme'] ?? null, ['postgres', 'postgresql'], true)
-              || ! isset($parts['host'], $parts['user'], $parts['pass'], $parts['path'])
-              || array_diff(array_keys($query), ['sslmode']) !== []
-              || ($queryString !== '' && count(explode('&', $queryString)) !== 1)
-              || (isset($query['sslmode']) && ! in_array(
-                  $query['sslmode'], ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'], true,
-              ))) {
-              throw new RuntimeException('PostgreSQL supervisor URL shape is invalid.');
-          }
-          $database = rawurldecode(ltrim($parts['path'], '/'));
-          if ($database === '' || str_contains($database, '/')) {
-              throw new RuntimeException('PostgreSQL database name is invalid.');
-          }
-
-          return [
-              'host' => $parts['host'],
-              'port' => (int) ($parts['port'] ?? 5432),
-              'user' => rawurldecode($parts['user']),
-              'password' => rawurldecode($parts['pass']),
-              'database' => $database,
-              'sslmode' => $query['sslmode'] ?? null,
-          ];
+          return PostgresConnectionProfile::fromUrl($url, false)->pdo();
       }
 
       private static function identifier(string $value): string
@@ -1513,6 +1746,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   namespace App\Console\Commands;
 
   use App\Support\E2eDatabaseLease;
+  use App\Support\E2eProvisioningException;
   use App\Support\PdoE2eSupervisor;
   use Database\Seeders\E2ESeeder;
   use Illuminate\Console\Command;
@@ -1581,6 +1815,9 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
               return $server->run(static function (string $type, string $buffer): void {
                   fwrite($type === Process::ERR ? STDERR : STDOUT, $buffer);
               });
+          } catch (E2eProvisioningException $error) {
+              $this->error("E2E_SERVE REFUSED orphan_database={$error->database} orphan_role={$error->role} lifecycle={$error->lifecycleId}");
+              return self::FAILURE;
           } catch (Throwable) {
               $database = $lease?->database() ?? 'none';
               $lifecycle = $lease?->lifecycleId() ?? (string) env('P00_E2E_SERVICE_LIFECYCLE_ID', 'unknown');
@@ -1628,6 +1865,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   ```diff
    use App\Services\PlanGate;
   +use App\Support\E2eDatabaseLease;
+  +use App\Support\PostgresConnectionProfile;
+  +use Illuminate\Database\Connection;
   +use Illuminate\Support\Facades\DB;
    use Illuminate\Support\ServiceProvider;
   +use RuntimeException;
@@ -1637,12 +1876,15 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   +        if ($this->app->environment('e2e')) {
   +            $phase = (string) env('P00_E2E_PHASE');
   +            if (in_array($phase, ['provisioning-migrate', 'provisioning-seed', 'active'], true)) {
+  +                $profile = PostgresConnectionProfile::fromUrl((string) env('P00_E2E_DB_URL'));
+  +                DB::setReconnector(
+  +                    static fn (Connection $connection): never => throw new RuntimeException('P00_RECONNECT_REFUSED'),
+  +                );
   +                $connection = DB::connection('e2e');
-  +                if ($connection->getConfig('url') !== (string) env('P00_E2E_DB_URL')) {
-  +                    throw new RuntimeException('E2E Laravel connection URL mismatch.');
-  +                }
+  +                $profile->assertLaravelConfiguration($connection, 'e2e');
+  +                $pdo = $connection->getPdo();
   +                E2eDatabaseLease::assertBootConnection(
-  +                    $connection->getPdo(),
+  +                    $pdo,
   +                    (string) env('P00_E2E_DATABASE'),
   +                    (string) env('P00_E2E_ROLE'),
   +                    (string) env('P00_PG_INSTANCE_NONCE_SHA256'),
@@ -1650,6 +1892,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   +                    (string) env('P00_E2E_FIXTURE_CONTRACT_SHA256'),
   +                    $phase,
   +                );
+  +                PostgresConnectionProfile::sealVerifiedPdo($connection, $pdo);
   +            } elseif ($phase !== 'supervisor') {
   +                throw new RuntimeException('Unrecognized E2E boot phase.');
   +            }
@@ -1657,6 +1900,228 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   +
            // Invalidate the public storefront cache when catalog data changes.
   ```
+
+- [ ] **Create and execute the real PostgreSQL mutation-window harness.**
+
+  `backend/tests/Support/PostgresSubstitutionHarness.php` is executable test support, not an external registered dependency. It provisions two independent create-only candidates on the approved P00-only service, never changes DNS/proxies/hosts, never prints a URL, and runs the real Laravel child with the substitute URL merged last:
+
+  ```php
+  <?php
+
+  namespace Tests\Support;
+
+  use App\Support\E2eDatabaseLease;
+  use App\Support\PdoE2eSupervisor;
+  use App\Support\PostgresConnectionProfile;
+  use Database\Seeders\E2ESeeder;
+  use PDO;
+  use RuntimeException;
+  use Symfony\Component\Process\Process;
+
+  final class PostgresSubstitutionHarness
+  {
+      private function __construct(
+          private readonly PdoE2eSupervisor $supervisor,
+          private readonly array $attestation,
+      ) {}
+
+      public static function fromEnvironment(): self
+      {
+          $path = (string) env('P00_E2E_SERVICE_ATTESTATION_PATH');
+          $sha = (string) env('P00_E2E_SERVICE_ATTESTATION_SHA256');
+          if (! is_file($path) || ! hash_equals($sha, hash_file('sha256', $path))) {
+              throw new RuntimeException('P00_LIVE_HARNESS_ATTESTATION_REFUSED');
+          }
+          $attestation = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+          return new self(
+              new PdoE2eSupervisor(
+                  (string) env('P00_E2E_SUPERVISOR_DB_URL'),
+                  (string) env('P00_PG_IDENTITY'),
+              ),
+              $attestation,
+          );
+      }
+
+      public function candidate(): E2eDatabaseLease
+      {
+          return E2eDatabaseLease::acquire(
+              'e2e', $this->supervisor, $this->attestation,
+              (string) env('P00_PG_IDENTITY'),
+              (string) env('P00_PG_INSTANCE_NONCE_SHA256'),
+              (string) env('P00_E2E_SERVICE_LIFECYCLE_ID'),
+              hash('sha256', E2ESeeder::CONTRACT_JSON),
+          );
+      }
+
+      public function profile(E2eDatabaseLease $lease): PostgresConnectionProfile
+      {
+          return PostgresConnectionProfile::fromUrl(
+              $lease->environment('provisioning-migrate')['P00_E2E_DB_URL'],
+          );
+      }
+
+      public function pdo(E2eDatabaseLease $lease): PDO
+      {
+          return $this->profile($lease)->pdo();
+      }
+
+      public function installCanary(E2eDatabaseLease $lease): string
+      {
+          $pdo = $this->pdo($lease);
+          $pdo->exec('CREATE TABLE p00_guard_canary (singleton boolean PRIMARY KEY, value char(64) NOT NULL)');
+          $pdo->exec("INSERT INTO p00_guard_canary VALUES (true, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')");
+          return $this->canaryFingerprint($lease);
+      }
+
+      public function canaryFingerprint(E2eDatabaseLease $lease): string
+      {
+          $rows = $this->pdo($lease)->query(
+              'SELECT singleton, value FROM p00_guard_canary ORDER BY singleton',
+          )->fetchAll(PDO::FETCH_ASSOC);
+          return hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR));
+      }
+
+      public function activationExists(E2eDatabaseLease $lease): bool
+      {
+          return $this->pdo($lease)
+              ->query("SELECT to_regclass('public.p00_e2e_activation') IS NOT NULL")
+              ->fetchColumn() === true;
+      }
+
+      public function runChild(
+          E2eDatabaseLease $expected,
+          array $command,
+          string $phase,
+          ?E2eDatabaseLease $substitute = null,
+          array $overrides = [],
+      ): Process {
+          $environment = $expected->environment($phase);
+          if ($substitute !== null) {
+              $environment['P00_E2E_DB_URL'] = $substitute->environment($phase)['P00_E2E_DB_URL'];
+          }
+          $process = new Process(
+              $command,
+              base_path(),
+              array_merge($_SERVER, $_ENV, $environment, $overrides),
+          );
+          $process->setTimeout(300)->run();
+          return $process;
+      }
+  }
+  ```
+
+  `backend/tests/LivePostgres/E2ELiveMutationGuardTest.php` is outside every default PHPUnit suite and is run explicitly only with the approved live-service secrets:
+
+  ```php
+  <?php
+
+  namespace Tests\LivePostgres;
+
+  use App\Support\E2eDatabaseLease;
+  use App\Support\PdoE2eSupervisor;
+  use App\Support\PostgresConnectionProfile;
+  use Illuminate\Database\Connectors\ConnectionFactory;
+  use RuntimeException;
+  use Tests\Support\PostgresSubstitutionHarness;
+  use Tests\TestCase;
+
+  final class E2ELiveMutationGuardTest extends TestCase
+  {
+      public function test_every_mutation_window_and_reconnector_refuses_a_substitute(): void
+      {
+          $harness = PostgresSubstitutionHarness::fromEnvironment();
+          $migrate = [PHP_BINARY, 'artisan', 'migrate', '--database=e2e', '--force', '--no-interaction'];
+          $seed = [PHP_BINARY, 'artisan', 'db:seed', '--database=e2e', '--class=Database\Seeders\E2ESeeder', '--force', '--no-interaction'];
+
+          $beforeMigrate = $harness->candidate();
+          $migrateCanary = $harness->candidate();
+          $migrateFingerprint = $harness->installCanary($migrateCanary);
+          $this->assertRefused($harness->runChild($beforeMigrate, $migrate, 'provisioning-migrate', $migrateCanary));
+          self::assertSame($migrateFingerprint, $harness->canaryFingerprint($migrateCanary));
+          self::assertFalse($harness->activationExists($migrateCanary));
+
+          $beforeSeed = $harness->candidate();
+          $seedCanary = $harness->candidate();
+          $seedFingerprint = $harness->installCanary($seedCanary);
+          self::assertTrue($harness->runChild($beforeSeed, $migrate, 'provisioning-migrate')->isSuccessful());
+          $this->assertRefused($harness->runChild($beforeSeed, $seed, 'provisioning-seed', $seedCanary));
+          self::assertSame($seedFingerprint, $harness->canaryFingerprint($seedCanary));
+          self::assertFalse($harness->activationExists($seedCanary));
+
+          $wrongNonce = $harness->candidate();
+          foreach ([['provisioning-migrate', $migrate], ['provisioning-seed', $seed]] as [$phase, $command]) {
+              $this->assertRefused($harness->runChild(
+                  $wrongNonce, $command, $phase, null,
+                  ['P00_PG_INSTANCE_NONCE_SHA256' => str_repeat('0', 64)],
+              ));
+          }
+
+          $activationExpected = $harness->candidate();
+          $activationCanary = $harness->candidate();
+          $activationFingerprint = $harness->installCanary($activationCanary);
+          $expected = $activationExpected->environment('provisioning-migrate');
+          try {
+              PdoE2eSupervisor::activateVerifiedPdo(
+                  $harness->pdo($activationCanary),
+                  $expected['P00_E2E_DATABASE'], $expected['P00_E2E_ROLE'],
+                  $expected['P00_PG_INSTANCE_NONCE_SHA256'],
+                  $expected['P00_E2E_ACTIVATION_NONCE_SHA256'],
+                  $expected['P00_E2E_FIXTURE_CONTRACT_SHA256'],
+              );
+              self::fail('Activation substitution was accepted.');
+          } catch (RuntimeException $error) {
+              self::assertSame('P00_E2E_LIVE_PDO_REFUSED', $error->getMessage());
+          }
+          self::assertSame($activationFingerprint, $harness->canaryFingerprint($activationCanary));
+          self::assertFalse($harness->activationExists($activationCanary));
+
+          $sealed = $harness->candidate();
+          $replacement = $harness->candidate();
+          $replacementFingerprint = $harness->installCanary($replacement);
+          $profile = $harness->profile($sealed);
+          $connection = app(ConnectionFactory::class)->make($profile->laravelConfiguration(), 'e2e-live-guard');
+          $profile->assertLaravelConfiguration($connection, 'e2e-live-guard');
+          $pdo = $connection->getPdo();
+          $sealedFacts = $sealed->environment('provisioning-migrate');
+          E2eDatabaseLease::assertBootConnection(
+              $pdo, $sealedFacts['P00_E2E_DATABASE'], $sealedFacts['P00_E2E_ROLE'],
+              $sealedFacts['P00_PG_INSTANCE_NONCE_SHA256'],
+              $sealedFacts['P00_E2E_ACTIVATION_NONCE_SHA256'],
+              $sealedFacts['P00_E2E_FIXTURE_CONTRACT_SHA256'], 'provisioning-migrate',
+          );
+          PostgresConnectionProfile::sealVerifiedPdo($connection, $pdo);
+          $this->expectMarker('P00_RECONNECT_REFUSED', static fn () => $connection->reconnect());
+          $connection->setPdo($harness->pdo($replacement));
+          $this->expectMarker('P00_PDO_SUBSTITUTION_REFUSED', static fn () => $connection->statement('CREATE TABLE forbidden_write (id integer)'));
+          self::assertSame($replacementFingerprint, $harness->canaryFingerprint($replacement));
+      }
+
+      private function assertRefused(\Symfony\Component\Process\Process $process): void
+      {
+          self::assertFalse($process->isSuccessful());
+          self::assertStringContainsString('P00_E2E_LIVE_PDO_REFUSED', $process->getOutput().$process->getErrorOutput());
+      }
+
+      private function expectMarker(string $marker, callable $callback): void
+      {
+          try {
+              $callback();
+              self::fail($marker.' was not raised.');
+          } catch (RuntimeException $error) {
+              self::assertSame($marker, $error->getMessage());
+          }
+      }
+  }
+  ```
+
+  Change the generic identity failure in `E2eDatabaseLease::assertBootConnection()` to the stable marker `P00_E2E_LIVE_PDO_REFUSED`, then run the out-of-suite file explicitly:
+
+  ```bash
+  cd backend
+  php artisan test tests/LivePostgres/E2ELiveMutationGuardTest.php
+  ```
+
+  Expected: one passing live test; real migrate/seed children, same-PDO activation, wrong live nonce, fail-closed reconnect and PDO-replacement cases all refuse before the target mutation, and every substitute canary remains byte-identical. No mock-only assertion satisfies this gate.
 
 - [ ] **Create the deterministic Qatar/QAR fixture.**
 
@@ -1763,20 +2228,24 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   For the live browser run, Task 5 additionally proves the supervisor and candidate through the real PDO connection. The approved provisioner performs cleanup by exact `P00_E2E_SERVICE_LIFECYCLE_ID`; a failed cleanup records `orphan_database` and lifecycle ID without issuing SQL deletion. No P00 command contains a database/file destroy primitive.
 
-- [ ] **Stage only the nine files and commit.**
+- [ ] **Stage only the thirteen Task 4 files and commit.**
 
   ```bash
   git add -- \
     backend/app/Support/E2eSupervisor.php \
     backend/app/Support/PdoE2eSupervisor.php \
     backend/app/Support/E2eDatabaseLease.php \
+    backend/app/Support/E2eProvisioningException.php \
+    backend/app/Support/PostgresConnectionProfile.php \
     backend/app/Console/Commands/ServeE2e.php \
     backend/database/seeders/E2ESeeder.php \
     backend/config/database.php \
     backend/app/Providers/AppServiceProvider.php \
     backend/tests/Feature/E2E/E2EProvisioningGuardTest.php \
-    backend/tests/Feature/E2E/E2ESeederTest.php
-  test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = 9
+    backend/tests/Feature/E2E/E2ESeederTest.php \
+    backend/tests/LivePostgres/E2ELiveMutationGuardTest.php \
+    backend/tests/Support/PostgresSubstitutionHarness.php
+  test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = 13
   git commit -m "test(e2e): add create-only PostgreSQL fixture"
   ```
 
@@ -3450,11 +3919,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - Create: `backend/app/Support/PostgresQualificationGuard.php`
 - Create: `backend/tests/Support/postgres-bootstrap.php`
 - Create: `backend/tests/Postgres/PostgresEnvironmentTest.php`
+- Create: `backend/tests/LivePostgres/PostgresQualificationLiveGuardTest.php`
+- Modify: `backend/app/Support/PostgresConnectionProfile.php`
+- Modify: `backend/tests/Support/PostgresSubstitutionHarness.php`
 - Modify: `backend/app/Providers/AppServiceProvider.php`
 - Modify: `backend/app/Models/Product.php:96-107`
 - Modify: `backend/app/Models/Customer.php:47-58`
 
-**Interfaces:** The qualification lane consumes the exact secret `DB_URL` plus the approved immutable identity/attestation/instance-nonce inputs, requires `pdo_pgsql`, and accepts only a `postgres` or `postgresql` URL with host, optional numeric port, user, password, one database path ending `_test`, no fragment, and at most one `sslmode` query option whose value is exactly `disable`, `allow`, `prefer`, `require`, `verify-ca`, or `verify-full`; duplicates, unknown options, and malformed percent encoding fail closed. Bootstrap and Laravel use this one parser and the same DSN transport fields. Bootstrap guards its preliminary PDO, then every qualification Laravel application boot independently guards the actual default PDO before any Feature setup, migration, `RefreshDatabase`, or other mutation. The live guard proves driver, database, role, PostgreSQL major, and provisioner nonce; the preliminary PDO never authorizes a later connection. It runs Unit, Feature, and PostgreSQL suites. Search remains case-insensitive on SQLite and PostgreSQL.
+**Interfaces:** The qualification lane consumes the exact secret `DB_URL` plus the approved immutable identity, attestation hash and live instance nonce. Task 4's `PostgresConnectionProfile` remains the sole URL, DSN and resolved-Laravel-configuration parser; Task 11 adds no second parser. Bootstrap verifies its preliminary PDO, then binds the closed parsed profile and nonsecret authority tuple in process memory exactly once. Every qualification Laravel application boot asserts that immutable bootstrap authority *before resolving a connection*, installs manager- and connection-level fail-closed reconnectors, validates Laravel's resolved fields (Laravel removes `url`), guards the exact default PDO, and seals that PDO before Feature setup, migration, `RefreshDatabase`, or any other mutation. No credential-bearing URL or derivative is persisted or logged. Real PostgreSQL substitution, replacement and reconnect canaries prove the refusal paths. The lane runs Unit, Feature and PostgreSQL suites; search remains case-insensitive on SQLite and PostgreSQL.
 
 - [ ] **Create the guard test/config seam and prove it is absent.**
 
@@ -3465,9 +3937,9 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   Expected failure: `phpunit.pgsql.xml` is absent.
 
-- [ ] **Create `postgres-bootstrap.php` completely.**
+- [ ] **Create the one-time in-memory qualification authority and bootstrap.**
 
-  Create `backend/app/Support/PostgresQualificationGuard.php` first:
+  `backend/app/Support/PostgresQualificationGuard.php` delegates all URL/configuration work to the shared profile and owns only live-PDO facts plus one-time in-memory bootstrap binding:
 
   ```php
   <?php
@@ -3479,82 +3951,69 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   final class PostgresQualificationGuard
   {
-      private const SSLMODES = ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'];
+      private static ?PostgresConnectionProfile $bootstrapProfile = null;
 
-      public static function parseUrl(string $url): array
-      {
-          $parts = parse_url($url);
-          if (! is_array($parts)
-              || ! in_array($parts['scheme'] ?? null, ['postgres', 'postgresql'], true)
-              || ! isset($parts['host'], $parts['user'], $parts['pass'], $parts['path'])
-              || isset($parts['fragment'])) {
-              throw new RuntimeException('PostgreSQL qualification URL shape is invalid.');
-          }
-          $query = [];
-          if (($parts['query'] ?? '') !== '') {
-              foreach (explode('&', $parts['query']) as $item) {
-                  $pair = explode('=', $item, 2);
-                  if (count($pair) !== 2 || self::decode($pair[0]) !== 'sslmode' || array_key_exists('sslmode', $query)) {
-                      throw new RuntimeException('PostgreSQL qualification URL options are not closed.');
-                  }
-                  $query['sslmode'] = self::decode($pair[1]);
-              }
-          }
-          if (isset($query['sslmode']) && ! in_array($query['sslmode'], self::SSLMODES, true)) {
-              throw new RuntimeException('PostgreSQL sslmode is unsupported.');
-          }
-          $database = self::decode(ltrim($parts['path'], '/'));
-          $port = $parts['port'] ?? 5432;
-          if ($database === '' || str_contains($database, '/') || ! str_ends_with($database, '_test')
-              || ! is_int($port) || $port < 1 || $port > 65535) {
-              throw new RuntimeException('PostgreSQL qualification database or port is invalid.');
-          }
-          return [
-              'host' => $parts['host'], 'port' => $port,
-              'user' => self::decode($parts['user']), 'password' => self::decode($parts['pass']),
-              'database' => $database, 'sslmode' => $query['sslmode'] ?? null,
-          ];
-      }
+      private static ?array $bootstrapAuthority = null;
 
-      public static function connect(string $url): PDO
+      public static function assertPdo(
+          PDO $pdo,
+          PostgresConnectionProfile $profile,
+          string $nonceSha256,
+      ): array
       {
-          $parts = self::parseUrl($url);
-          $dsn = "pgsql:host={$parts['host']};port={$parts['port']};dbname={$parts['database']}";
-          if ($parts['sslmode'] !== null) $dsn .= ";sslmode={$parts['sslmode']}";
-          return new PDO($dsn, $parts['user'], $parts['password'], [
-              PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-              PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-              PDO::ATTR_STRINGIFY_FETCHES => false,
-          ]);
-      }
-
-      public static function assertPdo(PDO $pdo, string $url, string $nonceSha256): array
-      {
-          $expected = self::parseUrl($url);
           $live = $pdo->query(
               "SELECT current_database() AS database, current_user AS role,
               current_setting('server_version_num')::int AS server_version_num,
               current_setting('dorzak.instance_nonce_sha256') AS instance_nonce_sha256",
           )->fetch(PDO::FETCH_ASSOC);
           if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'pgsql' || ! is_array($live)
-              || $live['database'] !== $expected['database'] || $live['role'] !== $expected['user']
+              || $live['database'] !== $profile->database || $live['role'] !== $profile->username
               || (int) $live['server_version_num'] < 160000 || (int) $live['server_version_num'] >= 170000
               || ! preg_match('/^[0-9a-f]{64}$/', $nonceSha256)
               || ! hash_equals($nonceSha256, (string) $live['instance_nonce_sha256'])) {
-              throw new RuntimeException('Live PostgreSQL qualification PDO is not approved.');
+              throw new RuntimeException('P00_PG_LIVE_PDO_REFUSED');
           }
           return $live;
       }
 
-      private static function decode(string $value): string
-      {
-          if (preg_match('/%(?![0-9A-Fa-f]{2})/', $value)) {
-              throw new RuntimeException('PostgreSQL URL percent encoding is invalid.');
+      public static function bindBootstrapAuthority(
+          PostgresConnectionProfile $profile,
+          string $identity,
+          string $attestationSha256,
+          string $nonceSha256,
+      ): void {
+          if (self::$bootstrapProfile !== null
+              || ! preg_match('/^[A-Za-z0-9][A-Za-z0-9._:@\/-]{0,255}$/', $identity)
+              || ! preg_match('/^[0-9a-f]{64}$/', $attestationSha256)
+              || ! preg_match('/^[0-9a-f]{64}$/', $nonceSha256)) {
+              throw new RuntimeException('P00_PG_BOOTSTRAP_BIND_REFUSED');
           }
-          return rawurldecode($value);
+          self::$bootstrapProfile = $profile;
+          self::$bootstrapAuthority = compact('identity', 'attestationSha256', 'nonceSha256');
+      }
+
+      public static function assertBootstrapAuthority(
+          string $url,
+          string $identity,
+          string $attestationSha256,
+          string $nonceSha256,
+      ): PostgresConnectionProfile {
+          if (self::$bootstrapProfile === null || self::$bootstrapAuthority === null) {
+              throw new RuntimeException('P00_PG_BOOTSTRAP_AUTHORITY_REFUSED');
+          }
+          self::$bootstrapProfile->assertSameAuthority(PostgresConnectionProfile::fromUrl($url));
+          $expected = self::$bootstrapAuthority;
+          if (! hash_equals($expected['identity'], $identity)
+              || ! hash_equals($expected['attestationSha256'], $attestationSha256)
+              || ! hash_equals($expected['nonceSha256'], $nonceSha256)) {
+              throw new RuntimeException('P00_PG_BOOTSTRAP_AUTHORITY_REFUSED');
+          }
+          return self::$bootstrapProfile;
       }
   }
   ```
+
+  `backend/tests/Support/postgres-bootstrap.php` verifies the exact attestation bytes, then connects and binds only after the live PDO passes:
 
   ```php
   <?php
@@ -3595,14 +4054,17 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   }
 
   try {
-      $parts = PostgresQualificationGuard::parseUrl($url);
-      $pdo = PostgresQualificationGuard::connect($url);
-      $live = PostgresQualificationGuard::assertPdo($pdo, $url, $nonceSha256);
+      $profile = App\Support\PostgresConnectionProfile::fromUrl($url);
+      $pdo = $profile->pdo();
+      $live = PostgresQualificationGuard::assertPdo($pdo, $profile, $nonceSha256);
+      PostgresQualificationGuard::bindBootstrapAuthority(
+          $profile, $identity, $attestationSha256, $nonceSha256,
+      );
   } catch (Throwable $error) {
       $fail($error->getMessage());
   }
   $version = (int) $live['server_version_num'];
-  fwrite(STDOUT, "P00_POSTGRES_GUARD PASS database={$parts['database']} server_version_num={$version}\n");
+  fwrite(STDOUT, "P00_POSTGRES_GUARD PASS database={$profile->database} server_version_num={$version}\n");
   ```
 
 - [ ] **Create the full PostgreSQL PHPUnit config and environment test.**
@@ -3667,9 +4129,15 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       public function test_lane_is_postgresql_16(): void
       {
           self::assertSame('pgsql', DB::connection()->getDriverName());
+          $profile = PostgresQualificationGuard::assertBootstrapAuthority(
+              (string) getenv('DB_URL'),
+              (string) getenv('P00_PG_IDENTITY'),
+              (string) getenv('P00_PG_ATTESTATION_SHA256'),
+              (string) getenv('P00_PG_INSTANCE_NONCE_SHA256'),
+          );
           $identity = PostgresQualificationGuard::assertPdo(
               DB::connection()->getPdo(),
-              (string) getenv('DB_URL'),
+              $profile,
               (string) getenv('P00_PG_INSTANCE_NONCE_SHA256'),
           );
           $version = (int) $identity['server_version_num'];
@@ -3679,28 +4147,114 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   }
   ```
 
-  In the Task 4 `AppServiceProvider::boot()` patch, add this independent qualification branch after the E2E branch. It executes on every Laravel application construction, before PHPUnit's Feature setup traits can migrate or refresh the database:
+  In Task 4's `AppServiceProvider::boot()` patch, add this independent qualification branch after the E2E branch. Bootstrap authority is asserted before `DB::connection()`; both reconnectors are fail-closed before the PDO is resolved; the resolved configuration and exact PDO are then verified and sealed:
 
   ```diff
   +use App\Support\PostgresQualificationGuard;
   @@
   +        if ((string) env('P00_PG_QUALIFICATION_PHASE') === 'qualification') {
-  +            $connection = DB::connection();
-  +            if ($connection->getDriverName() !== 'pgsql'
-  +                || $connection->getConfig('url') !== (string) env('DB_URL')) {
-  +                throw new RuntimeException('PostgreSQL qualification requires the default pgsql connection.');
-  +            }
-  +            PostgresQualificationGuard::assertPdo(
-  +                $connection->getPdo(),
+  +            $profile = PostgresQualificationGuard::assertBootstrapAuthority(
   +                (string) env('DB_URL'),
+  +                (string) env('P00_PG_IDENTITY'),
+  +                (string) env('P00_PG_ATTESTATION_SHA256'),
   +                (string) env('P00_PG_INSTANCE_NONCE_SHA256'),
   +            );
+  +            DB::setReconnector(
+  +                static fn (Connection $connection): never => throw new RuntimeException('P00_RECONNECT_REFUSED'),
+  +            );
+  +            $connection = DB::connection();
+  +            $profile->assertLaravelConfiguration($connection, 'pgsql');
+  +            $pdo = $connection->getPdo();
+  +            PostgresQualificationGuard::assertPdo(
+  +                $pdo,
+  +                $profile,
+  +                (string) env('P00_PG_INSTANCE_NONCE_SHA256'),
+  +            );
+  +            PostgresConnectionProfile::sealVerifiedPdo($connection, $pdo);
   +        } elseif (env('P00_PG_QUALIFICATION_PHASE') !== null) {
   +            throw new RuntimeException('Unrecognized PostgreSQL qualification phase.');
   +        }
   ```
 
   Before using the service, rerun Task 0's immutable-attestation checks. Provision the service outside the repository from the exact `P00_PG_IDENTITY`, export its `DB_URL` without logging it, and record only the sanitized attestation hash, identity, `SELECT current_database()`, and `current_setting('server_version_num')`. A mutable tag, service alias, or `external-postgresql-16` sentinel is rejected.
+
+- [ ] **Create executable qualification substitution, PDO-replacement and reconnect proofs.**
+
+  Extend `PostgresSubstitutionHarness` with this closed test-only setter; it never prints or returns the previous value:
+
+  ```php
+      public function setEnvironment(string $name, string $value): void
+      {
+          if ($name !== 'DB_URL' || $value === '' || str_contains($value, "\n")) {
+              throw new RuntimeException('P00_TEST_ENVIRONMENT_REFUSED');
+          }
+          if (! putenv($name.'='.$value)) {
+              throw new RuntimeException('P00_TEST_ENVIRONMENT_REFUSED');
+          }
+          $_ENV[$name] = $value;
+          $_SERVER[$name] = $value;
+      }
+  ```
+
+  `backend/tests/LivePostgres/PostgresQualificationLiveGuardTest.php` remains outside all default suites and is invoked explicitly:
+
+  ```php
+  <?php
+
+  namespace Tests\LivePostgres;
+
+  use Illuminate\Contracts\Console\Kernel;
+  use Illuminate\Support\Facades\DB;
+  use RuntimeException;
+  use Tests\Support\PostgresSubstitutionHarness;
+  use Tests\TestCase;
+
+  final class PostgresQualificationLiveGuardTest extends TestCase
+  {
+      public function test_bootstrap_authority_reconnect_and_pdo_replacement_fail_closed(): void
+      {
+          $harness = PostgresSubstitutionHarness::fromEnvironment();
+          $decoy = $harness->candidate();
+          $canary = $harness->installCanary($decoy);
+          $decoyUrl = $decoy->environment('provisioning-migrate')['P00_E2E_DB_URL'];
+          $originalUrl = (string) getenv('DB_URL');
+
+          $connection = DB::connection();
+          $this->expectMarker('P00_RECONNECT_REFUSED', static fn () => $connection->reconnect());
+          $connection->setPdo($harness->pdo($decoy));
+          $this->expectMarker(
+              'P00_PDO_SUBSTITUTION_REFUSED',
+              static fn () => $connection->statement('CREATE TABLE forbidden_qualification_write (id integer)'),
+          );
+
+          try {
+              $harness->setEnvironment('DB_URL', $decoyUrl);
+              try {
+                  $fresh = require base_path('bootstrap/app.php');
+                  $fresh->make(Kernel::class)->bootstrap();
+                  self::fail('Qualification endpoint substitution was accepted.');
+              } catch (RuntimeException $error) {
+                  self::assertSame('P00_PG_BOOTSTRAP_AUTHORITY_REFUSED', $error->getMessage());
+              }
+          } finally {
+              $harness->setEnvironment('DB_URL', $originalUrl);
+          }
+          self::assertSame($canary, $harness->canaryFingerprint($decoy));
+      }
+
+      private function expectMarker(string $marker, callable $operation): void
+      {
+          try {
+              $operation();
+              self::fail($marker.' was not raised.');
+          } catch (RuntimeException $error) {
+              self::assertSame($marker, $error->getMessage());
+          }
+      }
+  }
+  ```
+
+  The executable test uses two independently provisioned candidates and direct URL substitution—never DNS, proxy, shared-host mutation or mocks. The decoy canary fingerprint must be identical before and after every refusal. The existing valid-PG16 wrong-live-nonce invocation remains mandatory, so success cannot be inferred from URL binding alone.
 
 - [ ] **Verify the safety failures and commit the lane separately.**
 
@@ -3714,7 +4268,9 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     "postgresql://u:p@127.0.0.1/db_test?sslmode=unsupported",
     "postgresql://u:p@127.0.0.1/db_test#fragment",
     "postgresql://u:p@127.0.0.1/db%ZZ_test",
-  ] as $url) { try { App\Support\PostgresQualificationGuard::parseUrl($url); exit(1); } catch (RuntimeException) {} }'
+    "postgresql://u:p%3Bsslmode=require@127.0.0.1/db_test",
+    "postgresql://u:p@bad host/db_test",
+  ] as $url) { try { App\Support\PostgresConnectionProfile::fromUrl($url); exit(1); } catch (RuntimeException) {} }'
   mkdir -p ../.artifacts/p00
   wrong_nonce="$(printf '0%.0s' {1..64})"
   wrong_attestation=../.artifacts/p00/postgresql-wrong-live-nonce.json
@@ -3727,16 +4283,21 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   wrong_nonce_status="$?"
   set -e
   test "$wrong_nonce_status" = 2
+  DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml \
+    tests/LivePostgres/PostgresQualificationLiveGuardTest.php
   DB_URL="$P00_PG_DB_URL" vendor/bin/phpunit -c phpunit.pgsql.xml --testsuite PostgreSQL
   ```
 
-  Expected: every unsafe invocation exits `2` from bootstrap before PHPUnit can construct a Feature application or mutate. The fourth command uses the valid approved PostgreSQL 16 `_test` endpoint but a matching test attestation with the wrong expected live nonce, proving the live-nonce check rather than URL-shape rejection. The registered provisioner substitution test then pauses after the preliminary bootstrap PASS, substitutes the endpoint before the first Feature application boot, and requires that the default-PDO guard exits `2` before migration/`RefreshDatabase`; its mutation canary remains unchanged. Approved PostgreSQL 16 reports one pass. Unsupported `sslmode`, duplicate `sslmode`, fragments, and every query option other than the six-value `sslmode` allowlist receive the same pre-mutation refusal.
+  Expected: every unsafe invocation exits `2` from bootstrap before PHPUnit can construct a Feature application or mutate. The wrong-nonce command uses the valid approved PostgreSQL 16 `_test` endpoint with a matching test attestation but wrong expected live nonce. The explicit live test proves endpoint substitution, automatic reconnect and raw-PDO replacement all fail before mutation and preserve the canary. Approved PostgreSQL 16 reports one pass. Unsupported or duplicate `sslmode`, fragments, malformed encoding, unsafe authority components and every unknown option receive the same pre-mutation refusal.
 
   ```bash
-  git add -- backend/phpunit.pgsql.xml backend/app/Support/PostgresQualificationGuard.php \
+  git add -- backend/phpunit.pgsql.xml backend/app/Support/PostgresConnectionProfile.php \
+    backend/app/Support/PostgresQualificationGuard.php \
     backend/app/Providers/AppServiceProvider.php backend/tests/Support/postgres-bootstrap.php \
-    backend/tests/Postgres/PostgresEnvironmentTest.php
-  test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = 5
+    backend/tests/Support/PostgresSubstitutionHarness.php \
+    backend/tests/Postgres/PostgresEnvironmentTest.php \
+    backend/tests/LivePostgres/PostgresQualificationLiveGuardTest.php
+  test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = 8
   git commit -m "test(backend): add guarded PostgreSQL 16 lane"
   ```
 
@@ -4081,7 +4642,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 - Create: `scripts/quality/test-run-p00.sh`
 - Create: `scripts/quality/run-postgres-16`
 
-**Interfaces:** `p00-contract.json` is the sole versioned provenance for six ordered jobs, exact test totals, the 216,700-byte gzip ceiling, and the accepted-open Vite large-chunk warning. `scripts/quality/run-p00 --list` emits exactly those jobs; invoking one requires the exact control-bound `P00_RUNNER_CLASS` and writes `$P00_ARTIFACT_DIR/<job>.json`. `node scripts/quality/p00.mjs aggregate <dir>` accepts exactly six passing same-SHA/same-complete-portable-input results. The same module measures bundles, records portable PostgreSQL identity/policy plus per-run observations, builds Task 17's seven sibling evidence payloads plus manifest/schema through atomic publication, and validates hashes, identities, counts, debt, reviews, CI runs, closed schemas and whole-value secret rejection.
+**Interfaces:** `p00-contract.json` is the sole versioned provenance for six ordered jobs, exact test totals, the 216,700-byte gzip ceiling, and the accepted-open Vite large-chunk warning. `scripts/quality/run-p00 --list` emits exactly those jobs; invoking one requires an exact control-bound `P00_RUNNER_ROLE`/`P00_RUNNER_CLASS` pair and writes `$P00_ARTIFACT_DIR/<job>.json`. `node scripts/quality/p00.mjs aggregate <dir>` accepts exactly six passing same-SHA/same-complete-portable-input/same-role results and refuses a role/class swap. The same module measures bundles, records portable PostgreSQL identity/policy plus per-run observations, builds Task 17's seven sibling evidence payloads plus manifest/schema through failure-cleaned atomic publication, and validates hashes, identities, counts, debt, reviews, CI runs, closed schemas and whole-value secret rejection.
 
 - [ ] **Write the dispatcher, bundle, aggregate, and evidence tests first.**
 
@@ -4114,12 +4675,13 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   ~~~js
   import assert from 'node:assert/strict';
   import { randomBytes } from 'node:crypto';
-  import { existsSync, mkdtempSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+  import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
   import { tmpdir } from 'node:os';
   import { join } from 'node:path';
   import test from 'node:test';
   import {
     aggregateRequiredGates,
+    assertAggregate,
     assertExactKeys,
     buildEvidence,
     contract,
@@ -4145,12 +4707,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     },
     playwright: { packageVersion: '1.57.0', chromiumRevision: '1234567' },
     bundleAlgorithms: { assetSelection: 'html-module-entry-and-modulepreload-v1', gzip: 'node-zlib-level-9' },
+    runnerClasses: { local: 'local-linux-x64', ci: 'ci-linux-x64' },
   });
-  const platformObservation = () => ({
-    os: 'linux', arch: 'x64', osRelease: 'test-kernel', runnerClass: 'ci-linux-x64',
+  const platformObservation = (runnerRole = 'local') => ({
+    os: 'linux', arch: 'x64', osRelease: 'test-kernel', runnerRole,
+    runnerClass: inputs().runnerClasses[runnerRole],
     zlib: '1.3.1', chromiumExecutableSha256: sha64,
   });
-  const record = (job, root) => {
+  const record = (job, root, runnerRole = 'local') => {
     const declared = inputs();
     const artifactNames = {
       'composer-validation': ['dispatcherTap', 'p00NodeTap'],
@@ -4195,8 +4759,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       exitCode: 0, retryAttempt: 1, testCount: job.testCount, failureCount: 0,
       unexplainedSkipCount: 0, durationMs: 10, contractSha256,
       inputFingerprintSha256: sha256(stableJson(declared)), inputs: declared, logSha256: sha256(log),
-      platformObservationFingerprintSha256: sha256(stableJson(platformObservation())),
-      platformObservation: platformObservation(),
+      platformObservationFingerprintSha256: sha256(stableJson(platformObservation(runnerRole))),
+      platformObservation: platformObservation(runnerRole),
       artifacts,
     };
   };
@@ -4259,6 +4823,17 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       resultSet(directory, mutate);
       assert.throws(() => aggregateRequiredGates(directory));
     }
+    const aggregate = aggregateRequiredGates(pass);
+    for (const mutate of [
+      (value) => { value.retryAttempt = 2; },
+      (value) => { value.testCount -= 1; },
+      (value) => { value.failureCount = 1; },
+      (value) => { value.unexplainedSkipCount = 1; },
+    ]) {
+      const changed = structuredClone(aggregate);
+      mutate(changed);
+      assert.throws(() => assertAggregate(changed, 'local'));
+    }
   });
 
   test('evidence builder validates hashes, review, two runs, debt, and secret rejection', () => {
@@ -4266,7 +4841,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const local = join(root, 'local');
     mkdirSync(local);
     resultSet(local);
-    const aggregate = aggregateRequiredGates(local);
+    let aggregate = aggregateRequiredGates(local);
     const postgresqlObservation = {
       kind: inputs().postgresql.kind,
       identity: inputs().postgresql.identity,
@@ -4294,6 +4869,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       reference.sha256 = sha256(readFileSync(join(local, job, reference.path)));
       json(resultPath, result);
     }
+    aggregate = aggregateRequiredGates(local);
     const reviewJson = join(root, 'review.json');
     const reviewMarkdown = join(root, 'review.md');
     json(reviewJson, { schemaVersion: 1, baseSha: sha40, codeSha: sha40, critical: 0, important: 0, minor: [] });
@@ -4301,16 +4877,25 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       '# Independent P00 Review', '', 'BASE_SHA: ' + sha40, 'CODE_SHA: ' + sha40,
       'Critical: 0', 'Important: 0', '', '## Minor', '', '- None.', '',
     ].join('\n'));
-    const ci = (runId, observation) => ({
-      schemaVersion: 1, provider: 'approved-provider', runId, attempt: 1,
-      integratedSha: sha40, contractSha256,
-      inputFingerprintSha256: aggregate.inputFingerprintSha256,
-      inputs: structuredClone(aggregate.inputs),
-      platformObservationFingerprintSha256: aggregate.platformObservationFingerprintSha256,
-      platformObservation: aggregate.platformObservation,
-      postgresqlObservation: observation,
-      requiredGate: { status: 'passed', jobs: 6 }, jobs: structuredClone(aggregate.jobs),
-    });
+    const ci = (runId, observation) => {
+      const ciPlatform = platformObservation('ci');
+      const jobs = structuredClone(aggregate.jobs).map((job) => ({
+        ...job,
+        platformObservation: ciPlatform,
+        platformObservationFingerprintSha256: sha256(stableJson(ciPlatform)),
+      }));
+      jobs.find((job) => job.job === 'postgresql-16').artifacts.postgresqlIdentity.sha256 = sha256(stableJson(observation));
+      return {
+        schemaVersion: 1, provider: 'approved-provider', runId, attempt: 1,
+        integratedSha: sha40, contractSha256,
+        inputFingerprintSha256: aggregate.inputFingerprintSha256,
+        inputs: structuredClone(aggregate.inputs),
+        platformObservationFingerprintSha256: sha256(stableJson(ciPlatform)),
+        platformObservation: ciPlatform,
+        postgresqlObservation: observation,
+        requiredGate: { status: 'passed', jobs: 6 }, jobs,
+      };
+    };
     const ci1 = join(root, 'ci-1.json');
     const ci2 = join(root, 'ci-2.json');
     const secondPostgresqlObservation = {
@@ -4326,6 +4911,20 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       reviewJsonPath: reviewJson, reviewMarkdownPath: reviewMarkdown,
     });
     assert.equal(validateEvidence(manifest).files.length, 7);
+    const manifestPath = join(root, 'output', 'manifest.json');
+    const originalManifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    for (const mutate of [
+      (value) => { value.local.platformObservation.os = 'different-os'; },
+      (value) => { value.bundle.gzipBytes -= 1; },
+      (value) => { value.review.minor = ['tampered summary']; },
+      (value) => { value.ciRuns[0].provider = 'different-provider'; },
+    ]) {
+      const changedSummary = structuredClone(originalManifest);
+      mutate(changedSummary);
+      json(manifestPath, changedSummary);
+      assert.throws(() => validateEvidence(manifestPath));
+    }
+    json(manifestPath, originalManifest);
     assert.notDeepEqual(JSON.parse(readFileSync(ci1)).postgresqlObservation, JSON.parse(readFileSync(ci2)).postgresqlObservation);
     assert.throws(() => stableJson({ authorization: 'Bearer unsafe-value' }));
     const crossBinding = ci('run-2', secondPostgresqlObservation);
@@ -4338,6 +4937,15 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       reviewJsonPath: reviewJson, reviewMarkdownPath: reviewMarkdown,
     }));
     json(ci2, ci('run-2', secondPostgresqlObservation));
+    const unboundPostgresql = ci('run-2', secondPostgresqlObservation);
+    unboundPostgresql.postgresqlObservation.databaseName = 'unbound_test';
+    json(ci2, unboundPostgresql);
+    assert.throws(() => buildEvidence({
+      outputDirectory: join(root, 'postgresql-unbound-rejected'), baseSha: sha40, codeSha: sha40,
+      integratedSha: sha40, localDirectory: local, ciRunPaths: [ci1, ci2],
+      reviewJsonPath: reviewJson, reviewMarkdownPath: reviewMarkdown,
+    }));
+    json(ci2, ci('run-2', secondPostgresqlObservation));
     json(reviewJson, { schemaVersion: 1, baseSha: sha40, codeSha: sha40, critical: 1, important: 0, minor: [] });
     const rejected = join(root, 'rejected');
     assert.throws(() => buildEvidence({
@@ -4346,6 +4954,18 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       reviewJsonPath: reviewJson, reviewMarkdownPath: reviewMarkdown,
     }));
     assert.equal(existsSync(rejected), false);
+    json(reviewJson, { schemaVersion: 1, baseSha: sha40, codeSha: sha40, critical: 0, important: 0, minor: [] });
+    for (const faultPoint of ['after-temp', 'after-rename']) {
+      const name = 'fault-' + faultPoint;
+      const path = join(root, name);
+      assert.throws(() => buildEvidence({
+        outputDirectory: path, baseSha: sha40, codeSha: sha40,
+        integratedSha: sha40, localDirectory: local, ciRunPaths: [ci1, ci2],
+        reviewJsonPath: reviewJson, reviewMarkdownPath: reviewMarkdown, faultPoint,
+      }));
+      assert.equal(existsSync(path), false);
+      assert.equal(readdirSync(root).some((entry) => entry.startsWith('.' + name + '.tmp-')), false);
+    }
   });
 
   test('aggregate rejects changed raw bytes, extra roots, and symlinks', () => {
@@ -4371,6 +4991,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       values[5].platformObservationFingerprintSha256 = sha256(stableJson(values[5].platformObservation));
     });
     assert.throws(() => aggregateRequiredGates(directory));
+    const swapped = temp('runner-role-swapped');
+    resultSet(swapped, (values) => {
+      for (const value of values) {
+        value.platformObservation = platformObservation('ci');
+        value.platformObservationFingerprintSha256 = sha256(stableJson(value.platformObservation));
+      }
+    });
+    assert.throws(() => assertAggregate(aggregateRequiredGates(swapped), 'local'));
   });
 
   test('secret rejection covers keys, headers, query strings, URLs and token families', () => {
@@ -4434,12 +5062,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     composer-validation|php-style-static|sqlite|postgresql-16|frontend|playwright) ;;
     *) echo "Unknown P00 job: $job" >&2; exit 64 ;;
   esac
+  : "${P00_RUNNER_ROLE:?P00_RUNNER_ROLE is required}"
   : "${P00_RUNNER_CLASS:?P00_RUNNER_CLASS is required}"
-  node --input-type=module - "$ROOT/$P00_CONTROL_RECORD" "$P00_RUNNER_CLASS" <<'NODE'
+  node --input-type=module - "$ROOT/$P00_CONTROL_RECORD" "$P00_RUNNER_ROLE" "$P00_RUNNER_CLASS" <<'NODE'
   import { readFileSync } from 'node:fs';
   const record = JSON.parse(readFileSync(process.argv[2], 'utf8'));
-  const allowed = [record.execution?.runnerClasses?.local, record.execution?.runnerClasses?.ci];
-  if (!allowed.includes(process.argv[3])) process.exit(1);
+  const role = process.argv[3];
+  if (!['local', 'ci'].includes(role)
+      || process.argv[4] !== record.execution?.runnerClasses?.[role]) process.exit(1);
   NODE
   JOB_ARTIFACTS="$ARTIFACTS/$job"
   test ! -L "$JOB_ARTIFACTS"
@@ -4534,12 +5164,12 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   observation="$(P00_ROOT="$ROOT" php -r '
     require getenv("P00_ROOT")."/backend/vendor/autoload.php";
     $url = getenv("DB_URL") ?: "";
-    $parts = App\Support\PostgresQualificationGuard::parseUrl($url);
-    $pdo = App\Support\PostgresQualificationGuard::connect($url);
+    $profile = App\Support\PostgresConnectionProfile::fromUrl($url);
+    $pdo = $profile->pdo();
     $row = App\Support\PostgresQualificationGuard::assertPdo(
-      $pdo, $url, getenv("P00_PG_INSTANCE_NONCE_SHA256") ?: "",
+      $pdo, $profile, getenv("P00_PG_INSTANCE_NONCE_SHA256") ?: "",
     );
-    $endpoint = hash("sha256", $parts["host"].":".$parts["port"]."?sslmode=".($parts["sslmode"] ?? "default"));
+    $endpoint = hash("sha256", $profile->host.":".$profile->port."?sslmode=".$profile->sslmode);
     echo $row["server_version_num"], "\n", $row["database"], "\n",
       $row["instance_nonce_sha256"], "\n", $endpoint, "\n";
   ')"
@@ -4584,6 +5214,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     readdirSync,
     realpathSync,
     renameSync,
+    rmSync,
     writeFileSync,
   } from 'node:fs';
   import { basename, dirname, join, relative, resolve } from 'node:path';
@@ -4726,6 +5357,17 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const browsers = readJson(join(ROOT, 'node_modules/playwright-core/browsers.json'));
     const chromium = browsers.browsers.find((browser) => browser.name === 'chromium');
     invariant(chromium && /^\d+$/.test(chromium.revision), 'Playwright Chromium revision is missing');
+    const control = readJson(resolve(ROOT, requiredEnvironment('P00_CONTROL_RECORD')));
+    const runnerClasses = control.execution?.runnerClasses;
+    assertExactKeys(runnerClasses, ['local', 'ci'], '$.control.execution.runnerClasses');
+    invariant(Object.values(runnerClasses).every((value) =>
+      typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value)),
+    'Runner classes are invalid');
+    invariant(runnerClasses.local !== runnerClasses.ci, 'Runner classes must be distinct');
+    const runnerRole = requiredEnvironment('P00_RUNNER_ROLE');
+    invariant(['local', 'ci'].includes(runnerRole), 'Runner role is invalid');
+    invariant(requiredEnvironment('P00_RUNNER_CLASS') === runnerClasses[runnerRole],
+      'Runner role/class binding mismatch');
     const portableInputs = {
       contractSha256,
       runtime: {
@@ -4751,6 +5393,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
         chromiumRevision: chromium.revision,
       },
       bundleAlgorithms: { assetSelection: 'html-module-entry-and-modulepreload-v1', gzip: 'node-zlib-level-9' },
+      runnerClasses,
     };
     invariant(portableInputs.runtime.php === requiredEnvironment('P00_PHP_VERSION'), 'PHP pin mismatch');
     invariant(portableInputs.runtime.composer === requiredEnvironment('P00_COMPOSER_VERSION'), 'Composer pin mismatch');
@@ -4760,6 +5403,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       portableInputs,
       platformObservation: {
         os: platform(), arch: arch(), osRelease: release(),
+        runnerRole,
         runnerClass: requiredEnvironment('P00_RUNNER_CLASS'),
         zlib: process.versions.zlib,
         chromiumExecutableSha256: sha256(readFileSync(chromiumPath)),
@@ -5026,9 +5670,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     }
     invariant(record.inputFingerprintSha256 === sha256(stableJson(record.inputs)), 'Job input fingerprint mismatch');
     validateSchema(inputsSchema, record.inputs, 'job[' + expectedJob + '].inputs');
+    invariant(record.inputs.runnerClasses.local !== record.inputs.runnerClasses.ci,
+      'Job runner classes must be distinct');
     invariant(record.platformObservationFingerprintSha256
       === sha256(stableJson(record.platformObservation)), 'Job platform fingerprint mismatch');
     validateSchema(platformObservationSchema, record.platformObservation, 'job[' + expectedJob + '].platformObservation');
+    invariant(record.platformObservation.runnerClass
+      === record.inputs.runnerClasses[record.platformObservation.runnerRole],
+    'Job runner role/class binding mismatch: ' + expectedJob);
   }
 
   function writeGateResult(job, exitCode, durationMs, logPath) {
@@ -5134,7 +5783,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     invariant(typeof value.databaseName === 'string' && /_test$/.test(value.databaseName), 'PostgreSQL test database is invalid');
   }
 
-  function assertAggregate(value) {
+  export function assertAggregate(value, expectedRunnerRole = 'local') {
     rejectSecrets(value, '$.aggregate');
     const aggregateKeys = [
       'schemaVersion', 'status', 'integratedSha', 'retryAttempt', 'contractSha256',
@@ -5144,19 +5793,33 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     assertExactKeys(value, Object.hasOwn(value, 'postgresqlObservation')
       ? [...aggregateKeys, 'postgresqlObservation'] : aggregateKeys, '$.aggregate');
     invariant(value.schemaVersion === 1 && value.status === 'passed', 'Aggregate did not pass');
+    invariant(value.retryAttempt === 1, 'Aggregate retry is prohibited');
     invariant(value.contractSha256 === contractSha256, 'Aggregate contract mismatch');
     invariant(Array.isArray(value.jobs) && value.jobs.length === contract.jobs.length, 'Aggregate job count mismatch');
     value.jobs.forEach((record, index) => assertRecord(record, contract.jobs[index].name));
+    invariant(value.testCount === value.jobs.reduce((total, record) => total + record.testCount, 0),
+      'Aggregate test count mismatch');
+    invariant(value.failureCount === 0 && value.unexplainedSkipCount === 0,
+      'Aggregate has failures or unexplained skips');
     invariant(value.jobs.every((record) => record.integratedSha === value.integratedSha), 'Aggregate SHA mismatch');
     invariant(value.jobs.every((record) => record.inputFingerprintSha256 === value.inputFingerprintSha256), 'Aggregate input mismatch');
     invariant(value.inputFingerprintSha256 === sha256(stableJson(value.inputs)), 'Aggregate input fingerprint is not self-bound');
     invariant(value.jobs.every((record) => stableJson(record.inputs) === stableJson(value.inputs)), 'Aggregate complete inputs mismatch');
     validateSchema(inputsSchema, value.inputs, '$.aggregate.inputs');
+    invariant(value.inputs.runnerClasses.local !== value.inputs.runnerClasses.ci,
+      'Aggregate runner classes must be distinct');
     invariant(value.platformObservationFingerprintSha256 === sha256(stableJson(value.platformObservation)),
       'Aggregate platform fingerprint is not self-bound');
     validateSchema(platformObservationSchema, value.platformObservation, '$.aggregate.platformObservation');
+    invariant(value.platformObservation.runnerRole === expectedRunnerRole
+      && value.platformObservation.runnerClass === value.inputs.runnerClasses[expectedRunnerRole],
+    'Aggregate runner role/class mismatch');
     if (Object.hasOwn(value, 'postgresqlObservation')) {
       assertPostgresqlObservation(value.postgresqlObservation, value.inputs);
+      const postgresqlJob = value.jobs.find((record) => record.job === 'postgresql-16');
+      invariant(postgresqlJob?.artifacts?.postgresqlIdentity?.sha256
+        === sha256(stableJson(value.postgresqlObservation)),
+      'Aggregate PostgreSQL observation is not bound to its canonical job artifact');
     }
     invariant(value.jobs.every((record) => record.platformObservationFingerprintSha256
       === value.platformObservationFingerprintSha256), 'Aggregate platform mismatch');
@@ -5174,10 +5837,11 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
 
   const platformObservationSchema = {
     type: 'object', additionalProperties: false,
-    required: ['os', 'arch', 'osRelease', 'runnerClass', 'zlib', 'chromiumExecutableSha256'],
+    required: ['os', 'arch', 'osRelease', 'runnerRole', 'runnerClass', 'zlib', 'chromiumExecutableSha256'],
     properties: {
       os: { type: 'string', minLength: 1 }, arch: { type: 'string', minLength: 1 },
-      osRelease: { type: 'string', minLength: 1 }, runnerClass: { type: 'string', minLength: 1 },
+      osRelease: { type: 'string', minLength: 1 }, runnerRole: { enum: ['local', 'ci'] },
+      runnerClass: { type: 'string', minLength: 1 },
       zlib: { type: 'string', minLength: 1 },
       chromiumExecutableSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
     },
@@ -5186,7 +5850,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   const inputsSchema = {
     type: 'object',
     additionalProperties: false,
-    required: ['contractSha256', 'runtime', 'lockfileSha256', 'postgresql', 'playwright', 'bundleAlgorithms'],
+    required: ['contractSha256', 'runtime', 'lockfileSha256', 'postgresql', 'playwright', 'bundleAlgorithms', 'runnerClasses'],
     properties: {
       contractSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
       runtime: {
@@ -5231,6 +5895,14 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
         properties: {
           assetSelection: { const: 'html-module-entry-and-modulepreload-v1' },
           gzip: { const: 'node-zlib-level-9' },
+        },
+      },
+      runnerClasses: {
+        type: 'object', additionalProperties: false,
+        required: ['local', 'ci'],
+        properties: {
+          local: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' },
+          ci: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' },
         },
       },
     },
@@ -5408,10 +6080,17 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     invariant(run.platformObservationFingerprintSha256
       === sha256(stableJson(run.platformObservation)), 'CI platform fingerprint mismatch');
     validateSchema(platformObservationSchema, run.platformObservation, '$.ciRun.platformObservation');
+    invariant(run.platformObservation.runnerRole === 'ci'
+      && run.platformObservation.runnerClass === run.inputs.runnerClasses.ci,
+    'CI runner role/class mismatch');
     invariant(run.requiredGate?.status === 'passed' && run.requiredGate?.jobs === 6, 'CI required gate failed');
     assertPostgresqlObservation(run.postgresqlObservation, run.inputs);
     invariant(Array.isArray(run.jobs) && run.jobs.length === 6, 'CI jobs missing');
     run.jobs.forEach((record, index) => assertRecord(record, contract.jobs[index].name));
+    const postgresqlJob = run.jobs.find((record) => record.job === 'postgresql-16');
+    invariant(postgresqlJob?.artifacts?.postgresqlIdentity?.sha256
+      === sha256(stableJson(run.postgresqlObservation)),
+    'CI PostgreSQL observation is not bound to its canonical job artifact');
     invariant(run.jobs.every((record) => record.integratedSha === run.integratedSha
       && record.integratedSha === aggregate.integratedSha
       && record.inputFingerprintSha256 === run.inputFingerprintSha256
@@ -5456,6 +6135,31 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     ].join('\n');
   }
 
+  function reviewFromMarkdown(markdown) {
+    const lines = markdown.split('\n');
+    invariant(lines[0] === '# Independent P00 Review' && lines[1] === ''
+      && lines[6] === '' && lines[7] === '## Minor' && lines[8] === ''
+      && lines.at(-1) === '', 'Independent review Markdown shape changed');
+    const field = (index, prefix) => {
+      invariant(lines[index].startsWith(prefix), 'Independent review field is missing: ' + prefix);
+      return lines[index].slice(prefix.length);
+    };
+    const minorLines = lines.slice(9, -1);
+    invariant(minorLines.length > 0 && minorLines.every((line) => line.startsWith('- ')),
+      'Independent review minor section is invalid');
+    const minor = minorLines.length === 1 && minorLines[0] === '- None.'
+      ? [] : minorLines.map((line) => line.slice(2));
+    const review = {
+      baseSha: field(2, 'BASE_SHA: '),
+      codeSha: field(3, 'CODE_SHA: '),
+      critical: Number(field(4, 'Critical: ')),
+      important: Number(field(5, 'Important: ')),
+      minor,
+    };
+    invariant(markdown === normalizedReviewMarkdown(review), 'Independent review Markdown is not canonical');
+    return review;
+  }
+
   export function buildEvidence({
     outputDirectory,
     baseSha,
@@ -5465,10 +6169,12 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     ciRunPaths,
     reviewJsonPath,
     reviewMarkdownPath,
+    faultPoint = null,
   }) {
     invariant(SHA40.test(baseSha) && SHA40.test(codeSha) && SHA40.test(integratedSha), 'Evidence SHA is invalid');
     invariant(codeSha === integratedSha, 'P00 evidence requires CODE_SHA equal INTEGRATED_SHA');
     invariant(Array.isArray(ciRunPaths) && ciRunPaths.length === 2, 'Exactly two CI runs are required');
+    invariant([null, 'after-temp', 'after-rename'].includes(faultPoint), 'Unknown evidence fault point');
     const localAggregate = aggregateRequiredGates(localDirectory);
     assertAggregate(localAggregate);
     invariant(localAggregate.integratedSha === integratedSha, 'Local matrix SHA mismatch');
@@ -5476,6 +6182,10 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       join(localDirectory, 'postgresql-16', 'postgresql-identity.json'), '$.local.postgresqlObservation',
     );
     assertPostgresqlObservation(observation, localAggregate.inputs);
+    const localPostgresqlReference = localAggregate.jobs
+      .find((record) => record.job === 'postgresql-16')?.artifacts?.postgresqlIdentity;
+    invariant(localPostgresqlReference?.sha256 === sha256(stableJson(observation)),
+      'Local PostgreSQL observation is not bound to its canonical job artifact');
     const bundle = readSanitizedJson(join(localDirectory, 'frontend', 'bundle.json'), '$.local.bundle');
     assertBundle(bundle);
     invariant(bundle.nodeVersion === localAggregate.inputs.runtime.node
@@ -5500,6 +6210,8 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     const publicationDirectory = mkdtempSync(
       join(dirname(canonicalDirectory), '.' + basename(canonicalDirectory) + '.tmp-'),
     );
+    let published = false;
+    try {
     const readme = [
       '# P00 Verification Evidence',
       '',
@@ -5577,12 +6289,25 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       files,
     };
     writeJson(join(publicationDirectory, 'manifest.json'), manifest);
+    if (faultPoint === 'after-temp') throw new Error('P00_TEST_FAULT_AFTER_TEMP');
     origins.set(manifest, publicationDirectory);
     validateEvidence(join(publicationDirectory, 'manifest.json'));
     renameSync(publicationDirectory, canonicalDirectory);
+    published = true;
+    if (faultPoint === 'after-rename') throw new Error('P00_TEST_FAULT_AFTER_RENAME');
     origins.set(manifest, canonicalDirectory);
     validateEvidence(join(canonicalDirectory, 'manifest.json'));
     return manifest;
+    } catch (error) {
+      if (published && existsSync(canonicalDirectory)) {
+        rmSync(canonicalDirectory, { recursive: true, force: true });
+      }
+      throw error;
+    } finally {
+      if (existsSync(publicationDirectory)) {
+        rmSync(publicationDirectory, { recursive: true, force: true });
+      }
+    }
   }
 
   export function validateEvidence(input) {
@@ -5634,7 +6359,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     invariant(stableJson(readSanitizedJson(join(directory, 'manifest.schema.json'), '$.manifestSchema'))
       === stableJson(evidenceSchema), 'Evidence schema artifact changed');
     const local = readSanitizedJson(join(directory, 'local-full-matrix.json'), '$.local');
-    assertAggregate(local);
+    assertAggregate(local, 'local');
     invariant(local.integratedSha === manifest.INTEGRATED_SHA, 'Local evidence SHA mismatch');
     invariant(local.inputFingerprintSha256 === manifest.local.inputFingerprintSha256, 'Local evidence input mismatch');
     invariant(stableJson(local.inputs) === stableJson(manifest.inputs), 'Local inputs mismatch');
@@ -5657,13 +6382,44 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
       && manifest.review.codeSha === manifest.CODE_SHA, 'Review range mismatch');
     invariant(manifest.review.critical === 0 && manifest.review.important === 0, 'Review has blocking findings');
     const reviewMarkdown = readSanitizedText(join(directory, 'independent-review.md'), '$.independent-review.md');
-    invariant(reviewMarkdown === normalizedReviewMarkdown({
-      baseSha: manifest.review.baseSha,
-      codeSha: manifest.review.codeSha,
-      critical: manifest.review.critical,
-      important: manifest.review.important,
-      minor: manifest.review.minor,
-    }), 'Review Markdown and manifest verdict differ');
+    const parsedReview = reviewFromMarkdown(reviewMarkdown);
+    const expectedLocalSummary = {
+      ...referenceFor('local-full-matrix.json'),
+      status: local.status,
+      integratedSha: local.integratedSha,
+      inputFingerprintSha256: local.inputFingerprintSha256,
+      platformObservationFingerprintSha256: local.platformObservationFingerprintSha256,
+      platformObservation: local.platformObservation,
+    };
+    const expectedBundleSummary = {
+      ...referenceFor('bundle.json'),
+      gzipBytes: bundle.gzipBytes,
+      limitBytes: bundle.limitBytes,
+      debtStatus: bundle.largeChunkDebt.status,
+      warningSha256: bundle.largeChunkDebt.messageSha256,
+    };
+    const expectedReviewSummary = {
+      ...referenceFor('independent-review.md'),
+      ...parsedReview,
+    };
+    const expectedCiSummaries = runs.map((run, index) => ({
+      ...referenceFor('ci-run-' + (index + 1) + '.json'),
+      provider: run.provider,
+      runId: run.runId,
+      attempt: run.attempt,
+      integratedSha: run.integratedSha,
+      inputFingerprintSha256: run.inputFingerprintSha256,
+      platformObservationFingerprintSha256: run.platformObservationFingerprintSha256,
+      platformObservation: run.platformObservation,
+    }));
+    invariant(stableJson(manifest.local) === stableJson(expectedLocalSummary),
+      'Local manifest summary differs from its sibling');
+    invariant(stableJson(manifest.bundle) === stableJson(expectedBundleSummary),
+      'Bundle manifest summary differs from its sibling');
+    invariant(stableJson(manifest.review) === stableJson(expectedReviewSummary),
+      'Review manifest summary differs from its sibling');
+    invariant(stableJson(manifest.ciRuns) === stableJson(expectedCiSummaries),
+      'CI manifest summaries differ from their siblings');
     return { files: manifest.files };
   }
 
@@ -5694,6 +6450,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
     if (action === 'aggregate') {
       const directory = resolve(args[0]);
       const value = aggregateRequiredGates(directory);
+      assertAggregate(value, requiredEnvironment('P00_RUNNER_ROLE'));
       writeJson(directory + '.required-gates.json', value);
       print('P00_REQUIRED_GATES PASS jobs=6 sha=' + value.integratedSha);
       return;
@@ -5768,6 +6525,7 @@ Shared manifests, lockfiles, PHPStan baseline, Playwright configuration, provide
   TASK13_ARTIFACTS="$PWD/.artifacts/p00/task13-$TASK13_SHA"
   test ! -e "$TASK13_ARTIFACTS"
   mkdir -p "$TASK13_ARTIFACTS"
+  export P00_RUNNER_ROLE=local
   export P00_RUNNER_CLASS="$(jq -r .execution.runnerClasses.local "$P00_CONTROL_RECORD")"
   for job in composer-validation php-style-static sqlite postgresql-16 frontend playwright; do
     P00_ARTIFACT_DIR="$TASK13_ARTIFACTS" P00_ATTEMPT=1 scripts/quality/run-p00 "$job"
@@ -5816,7 +6574,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
   - exact provider-native path and complete configuration;
   - immutable action/plugin/image identities;
   - exact mapping of all six jobs plus aggregate dependency;
-  - exact `localRunnerClass` and `ciRunnerClass` values matching the Control Room record, with `P00_RUNNER_CLASS` set to the former in every canonical fresh-local command and to the latter in every one of the six provider jobs;
+  - exact `localRunnerClass` and `ciRunnerClass` values matching the Control Room record, with `P00_RUNNER_ROLE=local` plus the former class in every canonical fresh-local command, and `P00_RUNNER_ROLE=ci` plus the latter class in every one of the six provider jobs and the dependent aggregate job;
   - exact remote push/ref semantics;
   - exact required-status API command and verification output;
   - exact commands to trigger two new runs, not retries, and download their artifacts;
@@ -6107,6 +6865,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
     '',
     '## Canonical quality entry points',
     '',
+    '    export P00_RUNNER_ROLE=local',
     '    export P00_RUNNER_CLASS="$(jq -r .execution.runnerClasses.local "$P00_CONTROL_RECORD")"',
     '    scripts/quality/run-p00 --list',
     '    scripts/quality/run-p00 composer-validation',
@@ -6155,6 +6914,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
     '',
     'Obtain DB_URL from the approved secret store without echoing it. Its database name must end _test, and P00_PG_IDENTITY, the closed attestation hash and P00_PG_INSTANCE_NONCE_SHA256 selected in Task 0 must match the live connection:',
     '',
+    '    export P00_RUNNER_ROLE=local',
     '    export P00_RUNNER_CLASS="$(jq -r .execution.runnerClasses.local "$P00_CONTROL_RECORD")"',
     '    DB_URL="$P00_PG_DB_URL" scripts/quality/run-p00 postgresql-16',
     '',
@@ -6337,6 +7097,7 @@ The inline parser in Task 0 scopes parsing between the Task 14 and Task 15 headi
   cd "$P00_FRESH_CHECKOUT"
   P00_LOCAL_ARTIFACTS="$PWD/.artifacts/p00/fresh-$CODE_SHA"
   test ! -e "$P00_LOCAL_ARTIFACTS"
+  export P00_RUNNER_ROLE=local
   export P00_RUNNER_CLASS="$(jq -r .execution.runnerClasses.local "$P00_CONTROL_RECORD")"
   for job in composer-validation php-style-static sqlite postgresql-16 frontend playwright; do
     P00_ARTIFACT_DIR="$P00_LOCAL_ARTIFACTS" P00_ATTEMPT=1 scripts/quality/run-p00 "$job"
@@ -6559,7 +7320,7 @@ Before plan approval and again after any approved amendment:
 - [ ] Trace every design Section 6–12 clause through the coverage table and exact task acceptance command.
 - [ ] Scan this file for banned indefinite markers, ellipses used as instructions, vague comparison phrases, broad staging, unbounded error repair, retries/quarantines/skips, and provider assumptions; require no matches.
 - [ ] Check every named path exists now or has one explicit creation task before first use.
-- [ ] Check interface names and cross-bindings across PHP, TypeScript, shell, JSON and evidence (`e2e:serve`, all three E2E phases, `PostgresQualificationGuard::assertPdo`, `ProcessBarrier::run`, `P00_RUNNER_CLASS`, six job names, root evidence paths, portable/per-run PostgreSQL identities, and SHA/parent identities) for exact consistency; rerun both registered endpoint-substitution canaries and the valid-PG16 wrong-nonce refusal.
+- [ ] Check interface names and cross-bindings across PHP, TypeScript, shell, JSON and evidence (`e2e:serve`, all three E2E phases, `PostgresQualificationGuard::assertPdo`, `ProcessBarrier::run`, the exact `P00_RUNNER_ROLE`/`P00_RUNNER_CLASS` pair, six job names, root evidence paths, portable/per-run PostgreSQL identities, and SHA/parent identities) for exact consistency; rerun both registered endpoint-substitution canaries and the valid-PG16 wrong-nonce refusal.
 - [ ] Check tasks are numbered 0–17 exactly once and retain mandatory order.
 - [ ] Check each writer has one staging allowlist, shared manifests/lockfiles/config/evidence have one serialized owner, and no command stages the original user-owned paths accidentally.
 - [ ] Check Task 14 remains a hard stop, the closed control JSON still binds every approval/input by exact record commit/hash, and Task 0/17 state that plan approval is not execution authority.
