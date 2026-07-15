@@ -306,6 +306,37 @@ test('normalizes one exact successful attempt-one run and preserves per-job obse
   assert.deepEqual(JSON.parse(readFileSync(output, 'utf8')), normalized);
 });
 
+test('rejects old-name and wrong-case repository identity with no output', () => {
+  const mutations = [
+    ['old-name', 'Zakariagattouchi/dorzak'],
+    ['wrong-case', 'Zakariagattouchi/dorzak-solution'],
+  ];
+  const outcomes = mutations.map(([name, repository]) => {
+    const item = fixture('repository-' + name);
+    const changed = structuredClone(item.metadata);
+    const output = join(item.root, 'rejected.json');
+    changed.repository = repository;
+    writeMetadata(changed, item.metadataPath);
+    let rejected = false;
+    try {
+      normalize({
+        metadataPath: item.metadataPath,
+        zipDirectory: item.zipRoot,
+        outputPath: output,
+        expectedSha: sha40,
+        expectedNonce: nonce,
+      });
+    } catch {
+      rejected = true;
+    }
+    return { name, rejected, outputExists: existsSync(output) };
+  });
+  assert.deepEqual(
+    outcomes,
+    mutations.map(([name]) => ({ name, rejected: true, outputExists: false })),
+  );
+});
+
 test('rejects retry, wrong event/SHA/nonce, failed or extra provider records, and wrong digest', () => {
   const mutations = [
     (value) => {
