@@ -10,6 +10,11 @@ import { LocationPicker } from '../../components/forms/LocationPicker';
 import { AppButton } from '../../components/buttons/AppButton';
 import { AppIcon, IconName } from '../../components/icons/AppIcon';
 import { settingsApi, subscriptionApi, loyaltyApi } from '../../api/endpoints';
+import {
+  captureMerchantScope,
+  isMerchantScopeCurrent,
+  requireCurrentMerchantScope,
+} from '../../stores/merchantScope';
 
 type Tab =
   | 'GENERAL'
@@ -291,8 +296,10 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleSavePayments = async () => {
+    const scope = captureMerchantScope();
     setPayLoading(true);
     try {
+      requireCurrentMerchantScope(scope);
       await settingsApi.update('payments', {
         cash: acceptCash,
         card: acceptCard,
@@ -304,6 +311,7 @@ export const SettingsPage: React.FC = () => {
         bank_iban: bankIban,
         whatsapp_phone: whatsappPhone || accountInfo.whatsapp,
       });
+      requireCurrentMerchantScope(scope);
       await settingsApi.update('storefront', {
         whatsapp_ordering_enabled: whatsappOrderingEnabled,
         fawran_enabled: fawranEnabled,
@@ -311,11 +319,13 @@ export const SettingsPage: React.FC = () => {
         fawran_iban: fawranIban,
         fawran_mobile: fawranMobile,
       });
+      requireCurrentMerchantScope(scope);
       addToast('Payment settings saved!', 'success');
     } catch {
+      if (!isMerchantScopeCurrent(scope)) return;
       addToast('Failed to save payment settings', 'danger');
     } finally {
-      setPayLoading(false);
+      if (isMerchantScopeCurrent(scope)) setPayLoading(false);
     }
   };
 
@@ -945,7 +955,12 @@ export const SettingsPage: React.FC = () => {
               )}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <AppButton variant="primary" loading={payLoading} onClick={handleSavePayments}>
+                <AppButton
+                  type="button"
+                  variant="primary"
+                  loading={payLoading}
+                  onClick={handleSavePayments}
+                >
                   Save Payment Settings
                 </AppButton>
               </div>

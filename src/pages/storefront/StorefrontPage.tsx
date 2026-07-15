@@ -8,6 +8,11 @@ import { AppButton } from '../../components/buttons/AppButton';
 import { useNavigate } from 'react-router-dom';
 import { AppIcon } from '../../components/icons/AppIcon';
 import { settingsApi, subscriptionApi } from '../../api/endpoints';
+import {
+  captureMerchantScope,
+  isMerchantScopeCurrent,
+  requireCurrentMerchantScope,
+} from '../../stores/merchantScope';
 
 export const StorefrontPage: React.FC = () => {
   const { accountInfo, updateSettings, toggleOnlineStore, fetchSettings } = useSettingsStore();
@@ -140,19 +145,25 @@ export const StorefrontPage: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const scope = captureMerchantScope();
     setLoading(true);
     try {
       // Step 1: Upload files first — the backend sets banner_path / logo_path
       // via the upload endpoints, so we must NOT send bannerUrl / logoUrl
       // in the settings payload (they could contain blob: URLs or stale paths).
       if (bannerFile) {
+        requireCurrentMerchantScope(scope);
         await settingsApi.uploadStorefront('banner', bannerFile);
+        requireCurrentMerchantScope(scope);
       }
       if (logoFile) {
+        requireCurrentMerchantScope(scope);
         await settingsApi.uploadStorefront('logo', logoFile);
+        requireCurrentMerchantScope(scope);
       }
 
       // Step 2: Save all non-media storefront settings
+      requireCurrentMerchantScope(scope);
       await updateSettings({
         storeSlug,
         publicUrl: storePublicUrl,
@@ -178,14 +189,18 @@ export const StorefrontPage: React.FC = () => {
         showStoreHeader,
         showStoreGradient,
       });
+      requireCurrentMerchantScope(scope);
 
       // Step 3: Refresh to get the newly generated media URLs from backend
+      requireCurrentMerchantScope(scope);
       await fetchSettings();
+      requireCurrentMerchantScope(scope);
       setBannerFile(null);
       setLogoFile(null);
 
       addToast('Online storefront customization saved!', 'success');
     } catch (err: any) {
+      if (!isMerchantScopeCurrent(scope)) return;
       if (err?.code === 'PLAN_UPGRADE_REQUIRED') {
         addToast(
           'A branded storefront is a paid feature — start a free trial or upgrade to claim your store link',
@@ -196,7 +211,7 @@ export const StorefrontPage: React.FC = () => {
         addToast(err?.message ?? 'Failed to save storefront options', 'danger');
       }
     } finally {
-      setLoading(false);
+      if (isMerchantScopeCurrent(scope)) setLoading(false);
     }
   };
 

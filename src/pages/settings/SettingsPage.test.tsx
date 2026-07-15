@@ -1,8 +1,19 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { initialAccountInfo } from '../../data/mockData';
+import { invalidateMerchantScope } from '../../stores/merchantScope';
 import { SettingsPage } from './SettingsPage';
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
 
 const doubles = vi.hoisted(() => ({
   accountInfo: {} as typeof initialAccountInfo,
@@ -90,4 +101,29 @@ test('hydrates language and persists the sales-tax control', async () => {
   expect(doubles.updateSettings).toHaveBeenLastCalledWith(
     expect.objectContaining({ chargeSalesTax: false, language: 'ar' }),
   );
+});
+
+test('payment save stops before storefront update after merchant replacement', async () => {
+  const user = userEvent.setup();
+  const paymentSave = deferred<undefined>();
+  doubles.settingsUpdate.mockImplementationOnce(() => paymentSave.promise);
+
+  render(<SettingsPage />);
+  await user.click(screen.getByRole('button', { name: 'Payments' }));
+
+  const saveButton = screen.getByRole('button', { name: 'Save Payment Settings' });
+  await user.click(saveButton);
+  await waitFor(() =>
+    expect(doubles.settingsUpdate).toHaveBeenCalledWith('payments', expect.any(Object)),
+  );
+
+  invalidateMerchantScope();
+  await act(async () => {
+    paymentSave.resolve(undefined);
+    await paymentSave.promise;
+  });
+
+  expect(saveButton).toHaveAttribute('type', 'button');
+  expect(doubles.settingsUpdate).toHaveBeenCalledTimes(1);
+  expect(doubles.addToast).not.toHaveBeenCalled();
 });
