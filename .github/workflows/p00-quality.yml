@@ -1,0 +1,1786 @@
+name: P00 Quality
+run-name: p00-${{ github.event_name == 'workflow_dispatch' && inputs.evidence_nonce || github.run_id }}
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      integrated_sha:
+        description: Exact 40-hex commit already at refs/heads/main
+        required: true
+        type: string
+      evidence_nonce:
+        description: Unique 64-hex nonce identifying one new evidence run
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  P00_CONTROL_RECORD: docs/superpowers/control/execution/p00-execution-entry.json
+  P00_PHP_VERSION: 8.5.6
+  P00_NODE_VERSION: 24.18.0
+  P00_NPM_VERSION: 11.16.0
+  P00_COMPOSER_VERSION: 2.9.8
+  P00_RUNNER_ROLE: ci
+  P00_RUNNER_CLASS: github-hosted-ubuntu-24.04-x64
+  P00_ATTEMPT: ${{ github.run_attempt }}
+  P00_INTEGRATED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.integrated_sha || github.sha }}
+  P00_EVIDENCE_NONCE: ${{ github.event_name == 'workflow_dispatch' && inputs.evidence_nonce || github.run_id }}
+
+jobs:
+  composer-validation:
+    name: composer-validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Validate immutable run identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          printf '%s\n' "$P00_INTEGRATED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$P00_INTEGRATED_SHA" = "$GITHUB_SHA"
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch) printf '%s\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9a-f]{64}$' ;;
+            push|pull_request) printf '%s\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9]+$' ;;
+            *) exit 2 ;;
+          esac
+      - name: Checkout exact integrated SHA
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ env.P00_INTEGRATED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$P00_INTEGRATED_SHA"
+          test -z "$(git status --short --untracked-files=normal)"
+          test -f "$P00_CONTROL_RECORD"
+      - name: Install exact containerized PHP 8.5.6 and Composer 2.9.8
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = Linux
+          test "$RUNNER_ARCH" = X64
+          runtime="$RUNNER_TEMP/dorzak-p00-php"
+          test ! -e "$runtime"
+          mkdir -p "$runtime/bin" "$runtime/home" "$runtime/containers"
+          chmod 700 "$runtime" "$runtime/bin" "$runtime/home" "$runtime/containers"
+          curl --fail --location --proto '=https' --tlsv1.2 --silent --show-error \
+            'https://getcomposer.org/download/2.9.8/composer.phar' --output "$runtime/composer.phar"
+          printf '%s  %s\n' '59b2c50e10cafa0d8efc19ede9a326d782f096c674a26baf98cf042ce23de890' "$runtime/composer.phar" | sha256sum --check --strict -
+          chmod 0555 "$runtime/composer.phar"
+          docker pull 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6' >/dev/null
+          test "$(docker image inspect --format '{{.Architecture}}' 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6')" = amd64
+          test "$(docker image inspect --format '{{.Os}}' 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6')" = linux
+          cat > "$runtime/bin/p00-php-container" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          readonly IMAGE='docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6'
+          readonly WORKSPACE="${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is required}"
+          readonly TEMP="${RUNNER_TEMP:?RUNNER_TEMP is required}"
+          readonly RUNTIME="$TEMP/dorzak-p00-php"
+          readonly CONTAINERS="$RUNTIME/containers"
+          readonly RUN_ID="${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
+          readonly JOB="${GITHUB_JOB:?GITHUB_JOB is required}"
+          readonly ATTEMPT="${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT is required}"
+          readonly KIND=php-runner
+          test "$WORKSPACE" = "$(realpath "$WORKSPACE")"
+          test "$TEMP" = "$(realpath "$TEMP")"
+          test -d "$CONTAINERS" && test ! -L "$CONTAINERS"
+          case "$RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          case "$PWD/" in "$WORKSPACE/"*|"$TEMP/"*) ;; *) exit 2 ;; esac
+          env_args=()
+          while IFS='=' read -r name _; do
+            printf '%s\n' "$name" | grep -Eq '^[A-Za-z_][A-Za-z0-9_]*$' || continue
+            case "$name" in
+              CI|GITHUB_ACTIONS|GITHUB_EVENT_NAME|GITHUB_JOB|GITHUB_RUN_ATTEMPT|GITHUB_RUN_ID|GITHUB_SHA|P00_*|APP_*|DB_*|CACHE_*|QUEUE_*|SESSION_*|MAIL_*|LOG_*|FILESYSTEM_*|BROADCAST_*|REDIS_*|FRONTEND_*|COMPOSER_AUTH|COMPOSER_*) ;;
+              *) continue ;;
+            esac
+            env_args+=(--env "$name")
+          done < <(env)
+          remove_exact_container() {
+            local target="$1" expected_id="$2" listed id kind_label run_label job_label attempt_label remaining
+            listed="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test "$(printf '%s\n' "$listed" | sed '/^$/d' | wc -l | tr -d ' ')" -le 1
+            if test -z "$listed"; then return 0; fi
+            id="$(printf '%s\n' "$listed" | sed -n '1p')"
+            printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            if test -n "$expected_id"; then test "$id" = "$expected_id"; fi
+            kind_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")"
+            run_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")"
+            job_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")"
+            attempt_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")"
+            test "$kind_label" = "$KIND"
+            test "$run_label" = "$RUN_ID"
+            test "$job_label" = "$JOB"
+            test "$attempt_label" = "$ATTEMPT"
+            docker rm -f "$id" >/dev/null
+            remaining="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test -z "$remaining"
+          }
+          run_php() {
+            local invocation suffix cidfile namefile container_name status id
+            invocation="$(mktemp -d "$CONTAINERS/invocation-XXXXXX")"
+            suffix="${invocation##*-}"
+            cidfile="$invocation/container.id"
+            namefile="$invocation/container.name"
+            container_name="dorzak-p00-php-$RUN_ID-$JOB-$ATTEMPT-$suffix"
+            printf '%s\n' "$container_name" > "$namefile"
+            chmod 600 "$namefile"
+            set +e
+            docker run --rm --init --network host \
+              --name "$container_name" \
+              --cidfile "$cidfile" \
+              --label "dorzak.p00.kind=$KIND" \
+              --label "dorzak.p00.run=$RUN_ID" \
+              --label "dorzak.p00.job=$JOB" \
+              --label "dorzak.p00.attempt=$ATTEMPT" \
+              --user "$(id -u):$(id -g)" \
+              --workdir "$PWD" \
+              --volume "$WORKSPACE:$WORKSPACE" \
+              --volume "$TEMP:$TEMP" \
+              --volume "$RUNTIME/composer.phar:/p00/composer.phar:ro" \
+              --volume "$RUNTIME/home:/p00-home" \
+              --env "GITHUB_WORKSPACE=$WORKSPACE" \
+              --env "RUNNER_TEMP=$TEMP" \
+              --env 'HOME=/p00-home' \
+              --env 'COMPOSER_HOME=/p00-home/composer' \
+              --env 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
+              --env 'PHP_MEMORY_LIMIT=-1' \
+              "${env_args[@]}" \
+              --entrypoint /usr/bin/php8.5 \
+              "$IMAGE" "$@"
+            status="$?"
+            set -e
+            id=''
+            if test -e "$cidfile"; then
+              test -f "$cidfile" && test ! -L "$cidfile"
+              id="$(cat "$cidfile")"
+              if test -n "$id"; then printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'; fi
+            fi
+            remove_exact_container "$container_name" "$id"
+            if test -e "$cidfile"; then
+              rm -f "$cidfile"
+            fi
+            rm -f "$namefile"
+            rmdir "$invocation"
+            return "$status"
+          }
+          case "$(basename "$0")" in
+            php) run_php "$@" ;;
+            composer) run_php /p00/composer.phar "$@" ;;
+            *) exit 2 ;;
+          esac
+          BASH
+          chmod 0555 "$runtime/bin/p00-php-container"
+          ln -s p00-php-container "$runtime/bin/php"
+          ln -s p00-php-container "$runtime/bin/composer"
+          printf '%s\n' "$runtime/bin" >> "$GITHUB_PATH"
+          test "$("$runtime/bin/php" -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$("$runtime/bin/composer" --version --no-ansi | awk '{print $3}')" = 2.9.8
+          "$runtime/bin/php" -r 'foreach (array_slice($argv, 1) as $extension) {
+            if (!extension_loaded($extension)) { fwrite(STDERR, "missing extension: $extension\n"); exit(1); }
+          }' bcmath ctype curl dom fileinfo filter gd intl mbstring openssl pcntl pdo pdo_pgsql pdo_sqlite session simplexml tokenizer xml zip
+      - name: Set up Node 24.18.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Install exact npm and verify every runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.16.0 --ignore-scripts
+          test "$(php -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$(node -p 'process.versions.node')" = 24.18.0
+          test "$(npm --version)" = 11.16.0
+          composer_version="$(composer --version --no-ansi | sed -n 's/^Composer version \([^ ]*\).*/\1/p')"
+          test "$composer_version" = 2.9.8
+      - name: Install committed dependencies only
+        shell: bash
+        env:
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+        run: |
+          set -euo pipefail
+          (cd backend && composer install --no-interaction --prefer-dist --no-progress)
+          npm ci
+          npx playwright install --with-deps chromium
+          test -z "$(git status --short --untracked-files=normal)"
+      - id: postgres
+        name: Start and attest isolated PostgreSQL 16
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service start
+      - name: Run composer-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          export P00_ARTIFACT_DIR="$RUNNER_TEMP/p00"
+          scripts/quality/run-p00 composer-validation
+          test -d "$P00_ARTIFACT_DIR/composer-validation"
+          test ! -L "$P00_ARTIFACT_DIR/composer-validation"
+      - name: Upload composer-validation artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: composer-validation
+          path: ${{ runner.temp }}/p00/composer-validation/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: true
+      - name: Remove exact PHP runner lifecycles
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$RUNNER_TEMP/dorzak-p00-php/containers"
+          kind=php-runner
+          case "$GITHUB_RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$GITHUB_JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$GITHUB_RUN_ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          remove_exact() {
+            local id="$1"
+            printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")" = "$kind"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")" = "$GITHUB_RUN_ID"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")" = "$GITHUB_JOB"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")" = "$GITHUB_RUN_ATTEMPT"
+            docker rm -f "$id" >/dev/null
+          }
+          sweep_exact_labels() {
+            local listed id
+            listed="$(docker ps -aq --no-trunc \
+              --filter "label=dorzak.p00.kind=$kind" \
+              --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \
+              --filter "label=dorzak.p00.job=$GITHUB_JOB" \
+              --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+            printf '%s\n' "$listed" | while IFS= read -r id; do
+              if test -z "$id"; then continue; fi
+              remove_exact "$id"
+            done
+          }
+          sweep_exact_labels
+          sweep_exact_labels
+          remaining="$(docker ps -aq --no-trunc \
+            --filter "label=dorzak.p00.kind=$kind" \
+            --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \
+            --filter "label=dorzak.p00.job=$GITHUB_JOB" \
+            --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+          test -z "$remaining"
+          if test -d "$state"; then
+            test ! -L "$state"
+            for invocation in "$state"/invocation-*; do
+              if test ! -e "$invocation"; then continue; fi
+              test -d "$invocation" && test ! -L "$invocation"
+              cidfile="$invocation/container.id"
+              namefile="$invocation/container.name"
+              unexpected="$(find "$invocation" -mindepth 1 -maxdepth 1 ! -name container.id ! -name container.name -print -quit)"
+              test -z "$unexpected"
+              if test -e "$cidfile"; then
+                test -f "$cidfile" && test ! -L "$cidfile"
+                id="$(cat "$cidfile")"
+                if test -n "$id"; then
+                  printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+                fi
+                rm -f "$cidfile"
+              fi
+              if test -e "$namefile"; then
+                test -f "$namefile" && test ! -L "$namefile"
+                container_name="$(cat "$namefile")"
+                printf '%s\n' "$container_name" | grep -Eq '^dorzak-p00-php-[0-9]+-[A-Za-z0-9_-]+-[0-9]+-[A-Za-z0-9]+$'
+                rm -f "$namefile"
+              fi
+              rmdir "$invocation"
+            done
+            remaining_state="$(find "$state" -mindepth 1 -print -quit)"
+            test -z "$remaining_state"
+          fi
+      - name: Stop exact PostgreSQL lifecycle
+        if: ${{ always() && steps.postgres.outcome == 'success' }}
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service stop
+  php-style-static:
+    name: php-style-static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Validate immutable run identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          printf '%s\n' "$P00_INTEGRATED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$P00_INTEGRATED_SHA" = "$GITHUB_SHA"
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch) printf '%s\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9a-f]{64}$' ;;
+            push|pull_request) printf '%s\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9]+$' ;;
+            *) exit 2 ;;
+          esac
+      - name: Checkout exact integrated SHA
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ env.P00_INTEGRATED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$P00_INTEGRATED_SHA"
+          test -z "$(git status --short --untracked-files=normal)"
+          test -f "$P00_CONTROL_RECORD"
+      - name: Install exact containerized PHP 8.5.6 and Composer 2.9.8
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = Linux
+          test "$RUNNER_ARCH" = X64
+          runtime="$RUNNER_TEMP/dorzak-p00-php"
+          test ! -e "$runtime"
+          mkdir -p "$runtime/bin" "$runtime/home" "$runtime/containers"
+          chmod 700 "$runtime" "$runtime/bin" "$runtime/home" "$runtime/containers"
+          curl --fail --location --proto '=https' --tlsv1.2 --silent --show-error \
+            'https://getcomposer.org/download/2.9.8/composer.phar' --output "$runtime/composer.phar"
+          printf '%s  %s\n' '59b2c50e10cafa0d8efc19ede9a326d782f096c674a26baf98cf042ce23de890' "$runtime/composer.phar" | sha256sum --check --strict -
+          chmod 0555 "$runtime/composer.phar"
+          docker pull 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6' >/dev/null
+          test "$(docker image inspect --format '{{.Architecture}}' 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6')" = amd64
+          test "$(docker image inspect --format '{{.Os}}' 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6')" = linux
+          cat > "$runtime/bin/p00-php-container" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          readonly IMAGE='docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6'
+          readonly WORKSPACE="${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is required}"
+          readonly TEMP="${RUNNER_TEMP:?RUNNER_TEMP is required}"
+          readonly RUNTIME="$TEMP/dorzak-p00-php"
+          readonly CONTAINERS="$RUNTIME/containers"
+          readonly RUN_ID="${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
+          readonly JOB="${GITHUB_JOB:?GITHUB_JOB is required}"
+          readonly ATTEMPT="${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT is required}"
+          readonly KIND=php-runner
+          test "$WORKSPACE" = "$(realpath "$WORKSPACE")"
+          test "$TEMP" = "$(realpath "$TEMP")"
+          test -d "$CONTAINERS" && test ! -L "$CONTAINERS"
+          case "$RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          case "$PWD/" in "$WORKSPACE/"*|"$TEMP/"*) ;; *) exit 2 ;; esac
+          env_args=()
+          while IFS='=' read -r name _; do
+            printf '%s\n' "$name" | grep -Eq '^[A-Za-z_][A-Za-z0-9_]*$' || continue
+            case "$name" in
+              CI|GITHUB_ACTIONS|GITHUB_EVENT_NAME|GITHUB_JOB|GITHUB_RUN_ATTEMPT|GITHUB_RUN_ID|GITHUB_SHA|P00_*|APP_*|DB_*|CACHE_*|QUEUE_*|SESSION_*|MAIL_*|LOG_*|FILESYSTEM_*|BROADCAST_*|REDIS_*|FRONTEND_*|COMPOSER_AUTH|COMPOSER_*) ;;
+              *) continue ;;
+            esac
+            env_args+=(--env "$name")
+          done < <(env)
+          remove_exact_container() {
+            local target="$1" expected_id="$2" listed id kind_label run_label job_label attempt_label remaining
+            listed="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test "$(printf '%s\n' "$listed" | sed '/^$/d' | wc -l | tr -d ' ')" -le 1
+            if test -z "$listed"; then return 0; fi
+            id="$(printf '%s\n' "$listed" | sed -n '1p')"
+            printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            if test -n "$expected_id"; then test "$id" = "$expected_id"; fi
+            kind_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")"
+            run_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")"
+            job_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")"
+            attempt_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")"
+            test "$kind_label" = "$KIND"
+            test "$run_label" = "$RUN_ID"
+            test "$job_label" = "$JOB"
+            test "$attempt_label" = "$ATTEMPT"
+            docker rm -f "$id" >/dev/null
+            remaining="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test -z "$remaining"
+          }
+          run_php() {
+            local invocation suffix cidfile namefile container_name status id
+            invocation="$(mktemp -d "$CONTAINERS/invocation-XXXXXX")"
+            suffix="${invocation##*-}"
+            cidfile="$invocation/container.id"
+            namefile="$invocation/container.name"
+            container_name="dorzak-p00-php-$RUN_ID-$JOB-$ATTEMPT-$suffix"
+            printf '%s\n' "$container_name" > "$namefile"
+            chmod 600 "$namefile"
+            set +e
+            docker run --rm --init --network host \
+              --name "$container_name" \
+              --cidfile "$cidfile" \
+              --label "dorzak.p00.kind=$KIND" \
+              --label "dorzak.p00.run=$RUN_ID" \
+              --label "dorzak.p00.job=$JOB" \
+              --label "dorzak.p00.attempt=$ATTEMPT" \
+              --user "$(id -u):$(id -g)" \
+              --workdir "$PWD" \
+              --volume "$WORKSPACE:$WORKSPACE" \
+              --volume "$TEMP:$TEMP" \
+              --volume "$RUNTIME/composer.phar:/p00/composer.phar:ro" \
+              --volume "$RUNTIME/home:/p00-home" \
+              --env "GITHUB_WORKSPACE=$WORKSPACE" \
+              --env "RUNNER_TEMP=$TEMP" \
+              --env 'HOME=/p00-home' \
+              --env 'COMPOSER_HOME=/p00-home/composer' \
+              --env 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
+              --env 'PHP_MEMORY_LIMIT=-1' \
+              "${env_args[@]}" \
+              --entrypoint /usr/bin/php8.5 \
+              "$IMAGE" "$@"
+            status="$?"
+            set -e
+            id=''
+            if test -e "$cidfile"; then
+              test -f "$cidfile" && test ! -L "$cidfile"
+              id="$(cat "$cidfile")"
+              if test -n "$id"; then printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'; fi
+            fi
+            remove_exact_container "$container_name" "$id"
+            if test -e "$cidfile"; then
+              rm -f "$cidfile"
+            fi
+            rm -f "$namefile"
+            rmdir "$invocation"
+            return "$status"
+          }
+          case "$(basename "$0")" in
+            php) run_php "$@" ;;
+            composer) run_php /p00/composer.phar "$@" ;;
+            *) exit 2 ;;
+          esac
+          BASH
+          chmod 0555 "$runtime/bin/p00-php-container"
+          ln -s p00-php-container "$runtime/bin/php"
+          ln -s p00-php-container "$runtime/bin/composer"
+          printf '%s\n' "$runtime/bin" >> "$GITHUB_PATH"
+          test "$("$runtime/bin/php" -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$("$runtime/bin/composer" --version --no-ansi | awk '{print $3}')" = 2.9.8
+          "$runtime/bin/php" -r 'foreach (array_slice($argv, 1) as $extension) {
+            if (!extension_loaded($extension)) { fwrite(STDERR, "missing extension: $extension\n"); exit(1); }
+          }' bcmath ctype curl dom fileinfo filter gd intl mbstring openssl pcntl pdo pdo_pgsql pdo_sqlite session simplexml tokenizer xml zip
+      - name: Set up Node 24.18.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Install exact npm and verify every runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.16.0 --ignore-scripts
+          test "$(php -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$(node -p 'process.versions.node')" = 24.18.0
+          test "$(npm --version)" = 11.16.0
+          composer_version="$(composer --version --no-ansi | sed -n 's/^Composer version \([^ ]*\).*/\1/p')"
+          test "$composer_version" = 2.9.8
+      - name: Install committed dependencies only
+        shell: bash
+        env:
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+        run: |
+          set -euo pipefail
+          (cd backend && composer install --no-interaction --prefer-dist --no-progress)
+          npm ci
+          npx playwright install --with-deps chromium
+          test -z "$(git status --short --untracked-files=normal)"
+      - id: postgres
+        name: Start and attest isolated PostgreSQL 16
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service start
+      - name: Run php-style-static
+        shell: bash
+        run: |
+          set -euo pipefail
+          export P00_ARTIFACT_DIR="$RUNNER_TEMP/p00"
+          scripts/quality/run-p00 php-style-static
+          test -d "$P00_ARTIFACT_DIR/php-style-static"
+          test ! -L "$P00_ARTIFACT_DIR/php-style-static"
+      - name: Upload php-style-static artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: php-style-static
+          path: ${{ runner.temp }}/p00/php-style-static/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: true
+      - name: Remove exact PHP runner lifecycles
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$RUNNER_TEMP/dorzak-p00-php/containers"
+          kind=php-runner
+          case "$GITHUB_RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$GITHUB_JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$GITHUB_RUN_ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          remove_exact() {
+            local id="$1"
+            printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")" = "$kind"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")" = "$GITHUB_RUN_ID"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")" = "$GITHUB_JOB"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")" = "$GITHUB_RUN_ATTEMPT"
+            docker rm -f "$id" >/dev/null
+          }
+          sweep_exact_labels() {
+            local listed id
+            listed="$(docker ps -aq --no-trunc \
+              --filter "label=dorzak.p00.kind=$kind" \
+              --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \
+              --filter "label=dorzak.p00.job=$GITHUB_JOB" \
+              --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+            printf '%s\n' "$listed" | while IFS= read -r id; do
+              if test -z "$id"; then continue; fi
+              remove_exact "$id"
+            done
+          }
+          sweep_exact_labels
+          sweep_exact_labels
+          remaining="$(docker ps -aq --no-trunc \
+            --filter "label=dorzak.p00.kind=$kind" \
+            --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \
+            --filter "label=dorzak.p00.job=$GITHUB_JOB" \
+            --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+          test -z "$remaining"
+          if test -d "$state"; then
+            test ! -L "$state"
+            for invocation in "$state"/invocation-*; do
+              if test ! -e "$invocation"; then continue; fi
+              test -d "$invocation" && test ! -L "$invocation"
+              cidfile="$invocation/container.id"
+              namefile="$invocation/container.name"
+              unexpected="$(find "$invocation" -mindepth 1 -maxdepth 1 ! -name container.id ! -name container.name -print -quit)"
+              test -z "$unexpected"
+              if test -e "$cidfile"; then
+                test -f "$cidfile" && test ! -L "$cidfile"
+                id="$(cat "$cidfile")"
+                if test -n "$id"; then
+                  printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+                fi
+                rm -f "$cidfile"
+              fi
+              if test -e "$namefile"; then
+                test -f "$namefile" && test ! -L "$namefile"
+                container_name="$(cat "$namefile")"
+                printf '%s\n' "$container_name" | grep -Eq '^dorzak-p00-php-[0-9]+-[A-Za-z0-9_-]+-[0-9]+-[A-Za-z0-9]+$'
+                rm -f "$namefile"
+              fi
+              rmdir "$invocation"
+            done
+            remaining_state="$(find "$state" -mindepth 1 -print -quit)"
+            test -z "$remaining_state"
+          fi
+      - name: Stop exact PostgreSQL lifecycle
+        if: ${{ always() && steps.postgres.outcome == 'success' }}
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service stop
+  sqlite:
+    name: sqlite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Validate immutable run identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          printf '%s\n' "$P00_INTEGRATED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$P00_INTEGRATED_SHA" = "$GITHUB_SHA"
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch) printf '%s\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9a-f]{64}$' ;;
+            push|pull_request) printf '%s\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9]+$' ;;
+            *) exit 2 ;;
+          esac
+      - name: Checkout exact integrated SHA
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ env.P00_INTEGRATED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$P00_INTEGRATED_SHA"
+          test -z "$(git status --short --untracked-files=normal)"
+          test -f "$P00_CONTROL_RECORD"
+      - name: Install exact containerized PHP 8.5.6 and Composer 2.9.8
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = Linux
+          test "$RUNNER_ARCH" = X64
+          runtime="$RUNNER_TEMP/dorzak-p00-php"
+          test ! -e "$runtime"
+          mkdir -p "$runtime/bin" "$runtime/home" "$runtime/containers"
+          chmod 700 "$runtime" "$runtime/bin" "$runtime/home" "$runtime/containers"
+          curl --fail --location --proto '=https' --tlsv1.2 --silent --show-error \
+            'https://getcomposer.org/download/2.9.8/composer.phar' --output "$runtime/composer.phar"
+          printf '%s  %s\n' '59b2c50e10cafa0d8efc19ede9a326d782f096c674a26baf98cf042ce23de890' "$runtime/composer.phar" | sha256sum --check --strict -
+          chmod 0555 "$runtime/composer.phar"
+          docker pull 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6' >/dev/null
+          test "$(docker image inspect --format '{{.Architecture}}' 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6')" = amd64
+          test "$(docker image inspect --format '{{.Os}}' 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6')" = linux
+          cat > "$runtime/bin/p00-php-container" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          readonly IMAGE='docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6'
+          readonly WORKSPACE="${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is required}"
+          readonly TEMP="${RUNNER_TEMP:?RUNNER_TEMP is required}"
+          readonly RUNTIME="$TEMP/dorzak-p00-php"
+          readonly CONTAINERS="$RUNTIME/containers"
+          readonly RUN_ID="${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
+          readonly JOB="${GITHUB_JOB:?GITHUB_JOB is required}"
+          readonly ATTEMPT="${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT is required}"
+          readonly KIND=php-runner
+          test "$WORKSPACE" = "$(realpath "$WORKSPACE")"
+          test "$TEMP" = "$(realpath "$TEMP")"
+          test -d "$CONTAINERS" && test ! -L "$CONTAINERS"
+          case "$RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          case "$PWD/" in "$WORKSPACE/"*|"$TEMP/"*) ;; *) exit 2 ;; esac
+          env_args=()
+          while IFS='=' read -r name _; do
+            printf '%s\n' "$name" | grep -Eq '^[A-Za-z_][A-Za-z0-9_]*$' || continue
+            case "$name" in
+              CI|GITHUB_ACTIONS|GITHUB_EVENT_NAME|GITHUB_JOB|GITHUB_RUN_ATTEMPT|GITHUB_RUN_ID|GITHUB_SHA|P00_*|APP_*|DB_*|CACHE_*|QUEUE_*|SESSION_*|MAIL_*|LOG_*|FILESYSTEM_*|BROADCAST_*|REDIS_*|FRONTEND_*|COMPOSER_AUTH|COMPOSER_*) ;;
+              *) continue ;;
+            esac
+            env_args+=(--env "$name")
+          done < <(env)
+          remove_exact_container() {
+            local target="$1" expected_id="$2" listed id kind_label run_label job_label attempt_label remaining
+            listed="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test "$(printf '%s\n' "$listed" | sed '/^$/d' | wc -l | tr -d ' ')" -le 1
+            if test -z "$listed"; then return 0; fi
+            id="$(printf '%s\n' "$listed" | sed -n '1p')"
+            printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            if test -n "$expected_id"; then test "$id" = "$expected_id"; fi
+            kind_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")"
+            run_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")"
+            job_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")"
+            attempt_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")"
+            test "$kind_label" = "$KIND"
+            test "$run_label" = "$RUN_ID"
+            test "$job_label" = "$JOB"
+            test "$attempt_label" = "$ATTEMPT"
+            docker rm -f "$id" >/dev/null
+            remaining="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test -z "$remaining"
+          }
+          run_php() {
+            local invocation suffix cidfile namefile container_name status id
+            invocation="$(mktemp -d "$CONTAINERS/invocation-XXXXXX")"
+            suffix="${invocation##*-}"
+            cidfile="$invocation/container.id"
+            namefile="$invocation/container.name"
+            container_name="dorzak-p00-php-$RUN_ID-$JOB-$ATTEMPT-$suffix"
+            printf '%s\n' "$container_name" > "$namefile"
+            chmod 600 "$namefile"
+            set +e
+            docker run --rm --init --network host \
+              --name "$container_name" \
+              --cidfile "$cidfile" \
+              --label "dorzak.p00.kind=$KIND" \
+              --label "dorzak.p00.run=$RUN_ID" \
+              --label "dorzak.p00.job=$JOB" \
+              --label "dorzak.p00.attempt=$ATTEMPT" \
+              --user "$(id -u):$(id -g)" \
+              --workdir "$PWD" \
+              --volume "$WORKSPACE:$WORKSPACE" \
+              --volume "$TEMP:$TEMP" \
+              --volume "$RUNTIME/composer.phar:/p00/composer.phar:ro" \
+              --volume "$RUNTIME/home:/p00-home" \
+              --env "GITHUB_WORKSPACE=$WORKSPACE" \
+              --env "RUNNER_TEMP=$TEMP" \
+              --env 'HOME=/p00-home' \
+              --env 'COMPOSER_HOME=/p00-home/composer' \
+              --env 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
+              --env 'PHP_MEMORY_LIMIT=-1' \
+              "${env_args[@]}" \
+              --entrypoint /usr/bin/php8.5 \
+              "$IMAGE" "$@"
+            status="$?"
+            set -e
+            id=''
+            if test -e "$cidfile"; then
+              test -f "$cidfile" && test ! -L "$cidfile"
+              id="$(cat "$cidfile")"
+              if test -n "$id"; then printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'; fi
+            fi
+            remove_exact_container "$container_name" "$id"
+            if test -e "$cidfile"; then
+              rm -f "$cidfile"
+            fi
+            rm -f "$namefile"
+            rmdir "$invocation"
+            return "$status"
+          }
+          case "$(basename "$0")" in
+            php) run_php "$@" ;;
+            composer) run_php /p00/composer.phar "$@" ;;
+            *) exit 2 ;;
+          esac
+          BASH
+          chmod 0555 "$runtime/bin/p00-php-container"
+          ln -s p00-php-container "$runtime/bin/php"
+          ln -s p00-php-container "$runtime/bin/composer"
+          printf '%s\n' "$runtime/bin" >> "$GITHUB_PATH"
+          test "$("$runtime/bin/php" -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$("$runtime/bin/composer" --version --no-ansi | awk '{print $3}')" = 2.9.8
+          "$runtime/bin/php" -r 'foreach (array_slice($argv, 1) as $extension) {
+            if (!extension_loaded($extension)) { fwrite(STDERR, "missing extension: $extension\n"); exit(1); }
+          }' bcmath ctype curl dom fileinfo filter gd intl mbstring openssl pcntl pdo pdo_pgsql pdo_sqlite session simplexml tokenizer xml zip
+      - name: Set up Node 24.18.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Install exact npm and verify every runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.16.0 --ignore-scripts
+          test "$(php -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$(node -p 'process.versions.node')" = 24.18.0
+          test "$(npm --version)" = 11.16.0
+          composer_version="$(composer --version --no-ansi | sed -n 's/^Composer version \([^ ]*\).*/\1/p')"
+          test "$composer_version" = 2.9.8
+      - name: Install committed dependencies only
+        shell: bash
+        env:
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+        run: |
+          set -euo pipefail
+          (cd backend && composer install --no-interaction --prefer-dist --no-progress)
+          npm ci
+          npx playwright install --with-deps chromium
+          test -z "$(git status --short --untracked-files=normal)"
+      - id: postgres
+        name: Start and attest isolated PostgreSQL 16
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service start
+      - name: Run sqlite
+        shell: bash
+        run: |
+          set -euo pipefail
+          export P00_ARTIFACT_DIR="$RUNNER_TEMP/p00"
+          scripts/quality/run-p00 sqlite
+          test -d "$P00_ARTIFACT_DIR/sqlite"
+          test ! -L "$P00_ARTIFACT_DIR/sqlite"
+      - name: Upload sqlite artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: sqlite
+          path: ${{ runner.temp }}/p00/sqlite/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: true
+      - name: Remove exact PHP runner lifecycles
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$RUNNER_TEMP/dorzak-p00-php/containers"
+          kind=php-runner
+          case "$GITHUB_RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$GITHUB_JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$GITHUB_RUN_ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          remove_exact() {
+            local id="$1"
+            printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")" = "$kind"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")" = "$GITHUB_RUN_ID"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")" = "$GITHUB_JOB"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")" = "$GITHUB_RUN_ATTEMPT"
+            docker rm -f "$id" >/dev/null
+          }
+          sweep_exact_labels() {
+            local listed id
+            listed="$(docker ps -aq --no-trunc \
+              --filter "label=dorzak.p00.kind=$kind" \
+              --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \
+              --filter "label=dorzak.p00.job=$GITHUB_JOB" \
+              --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+            printf '%s\n' "$listed" | while IFS= read -r id; do
+              if test -z "$id"; then continue; fi
+              remove_exact "$id"
+            done
+          }
+          sweep_exact_labels
+          sweep_exact_labels
+          remaining="$(docker ps -aq --no-trunc \
+            --filter "label=dorzak.p00.kind=$kind" \
+            --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \
+            --filter "label=dorzak.p00.job=$GITHUB_JOB" \
+            --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+          test -z "$remaining"
+          if test -d "$state"; then
+            test ! -L "$state"
+            for invocation in "$state"/invocation-*; do
+              if test ! -e "$invocation"; then continue; fi
+              test -d "$invocation" && test ! -L "$invocation"
+              cidfile="$invocation/container.id"
+              namefile="$invocation/container.name"
+              unexpected="$(find "$invocation" -mindepth 1 -maxdepth 1 ! -name container.id ! -name container.name -print -quit)"
+              test -z "$unexpected"
+              if test -e "$cidfile"; then
+                test -f "$cidfile" && test ! -L "$cidfile"
+                id="$(cat "$cidfile")"
+                if test -n "$id"; then
+                  printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+                fi
+                rm -f "$cidfile"
+              fi
+              if test -e "$namefile"; then
+                test -f "$namefile" && test ! -L "$namefile"
+                container_name="$(cat "$namefile")"
+                printf '%s\n' "$container_name" | grep -Eq '^dorzak-p00-php-[0-9]+-[A-Za-z0-9_-]+-[0-9]+-[A-Za-z0-9]+$'
+                rm -f "$namefile"
+              fi
+              rmdir "$invocation"
+            done
+            remaining_state="$(find "$state" -mindepth 1 -print -quit)"
+            test -z "$remaining_state"
+          fi
+      - name: Stop exact PostgreSQL lifecycle
+        if: ${{ always() && steps.postgres.outcome == 'success' }}
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service stop
+  postgresql-16:
+    name: postgresql-16
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Validate immutable run identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          printf '%s\n' "$P00_INTEGRATED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$P00_INTEGRATED_SHA" = "$GITHUB_SHA"
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch) printf '%s\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9a-f]{64}$' ;;
+            push|pull_request) printf '%s\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9]+$' ;;
+            *) exit 2 ;;
+          esac
+      - name: Checkout exact integrated SHA
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ env.P00_INTEGRATED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$P00_INTEGRATED_SHA"
+          test -z "$(git status --short --untracked-files=normal)"
+          test -f "$P00_CONTROL_RECORD"
+      - name: Install exact containerized PHP 8.5.6 and Composer 2.9.8
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = Linux
+          test "$RUNNER_ARCH" = X64
+          runtime="$RUNNER_TEMP/dorzak-p00-php"
+          test ! -e "$runtime"
+          mkdir -p "$runtime/bin" "$runtime/home" "$runtime/containers"
+          chmod 700 "$runtime" "$runtime/bin" "$runtime/home" "$runtime/containers"
+          curl --fail --location --proto '=https' --tlsv1.2 --silent --show-error \
+            'https://getcomposer.org/download/2.9.8/composer.phar' --output "$runtime/composer.phar"
+          printf '%s  %s\n' '59b2c50e10cafa0d8efc19ede9a326d782f096c674a26baf98cf042ce23de890' "$runtime/composer.phar" | sha256sum --check --strict -
+          chmod 0555 "$runtime/composer.phar"
+          docker pull 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6' >/dev/null
+          test "$(docker image inspect --format '{{.Architecture}}' 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6')" = amd64
+          test "$(docker image inspect --format '{{.Os}}' 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6')" = linux
+          cat > "$runtime/bin/p00-php-container" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          readonly IMAGE='docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6'
+          readonly WORKSPACE="${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is required}"
+          readonly TEMP="${RUNNER_TEMP:?RUNNER_TEMP is required}"
+          readonly RUNTIME="$TEMP/dorzak-p00-php"
+          readonly CONTAINERS="$RUNTIME/containers"
+          readonly RUN_ID="${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
+          readonly JOB="${GITHUB_JOB:?GITHUB_JOB is required}"
+          readonly ATTEMPT="${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT is required}"
+          readonly KIND=php-runner
+          test "$WORKSPACE" = "$(realpath "$WORKSPACE")"
+          test "$TEMP" = "$(realpath "$TEMP")"
+          test -d "$CONTAINERS" && test ! -L "$CONTAINERS"
+          case "$RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          case "$PWD/" in "$WORKSPACE/"*|"$TEMP/"*) ;; *) exit 2 ;; esac
+          env_args=()
+          while IFS='=' read -r name _; do
+            printf '%s\n' "$name" | grep -Eq '^[A-Za-z_][A-Za-z0-9_]*$' || continue
+            case "$name" in
+              CI|GITHUB_ACTIONS|GITHUB_EVENT_NAME|GITHUB_JOB|GITHUB_RUN_ATTEMPT|GITHUB_RUN_ID|GITHUB_SHA|P00_*|APP_*|DB_*|CACHE_*|QUEUE_*|SESSION_*|MAIL_*|LOG_*|FILESYSTEM_*|BROADCAST_*|REDIS_*|FRONTEND_*|COMPOSER_AUTH|COMPOSER_*) ;;
+              *) continue ;;
+            esac
+            env_args+=(--env "$name")
+          done < <(env)
+          remove_exact_container() {
+            local target="$1" expected_id="$2" listed id kind_label run_label job_label attempt_label remaining
+            listed="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test "$(printf '%s\n' "$listed" | sed '/^$/d' | wc -l | tr -d ' ')" -le 1
+            if test -z "$listed"; then return 0; fi
+            id="$(printf '%s\n' "$listed" | sed -n '1p')"
+            printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            if test -n "$expected_id"; then test "$id" = "$expected_id"; fi
+            kind_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")"
+            run_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")"
+            job_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")"
+            attempt_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")"
+            test "$kind_label" = "$KIND"
+            test "$run_label" = "$RUN_ID"
+            test "$job_label" = "$JOB"
+            test "$attempt_label" = "$ATTEMPT"
+            docker rm -f "$id" >/dev/null
+            remaining="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test -z "$remaining"
+          }
+          run_php() {
+            local invocation suffix cidfile namefile container_name status id
+            invocation="$(mktemp -d "$CONTAINERS/invocation-XXXXXX")"
+            suffix="${invocation##*-}"
+            cidfile="$invocation/container.id"
+            namefile="$invocation/container.name"
+            container_name="dorzak-p00-php-$RUN_ID-$JOB-$ATTEMPT-$suffix"
+            printf '%s\n' "$container_name" > "$namefile"
+            chmod 600 "$namefile"
+            set +e
+            docker run --rm --init --network host \
+              --name "$container_name" \
+              --cidfile "$cidfile" \
+              --label "dorzak.p00.kind=$KIND" \
+              --label "dorzak.p00.run=$RUN_ID" \
+              --label "dorzak.p00.job=$JOB" \
+              --label "dorzak.p00.attempt=$ATTEMPT" \
+              --user "$(id -u):$(id -g)" \
+              --workdir "$PWD" \
+              --volume "$WORKSPACE:$WORKSPACE" \
+              --volume "$TEMP:$TEMP" \
+              --volume "$RUNTIME/composer.phar:/p00/composer.phar:ro" \
+              --volume "$RUNTIME/home:/p00-home" \
+              --env "GITHUB_WORKSPACE=$WORKSPACE" \
+              --env "RUNNER_TEMP=$TEMP" \
+              --env 'HOME=/p00-home' \
+              --env 'COMPOSER_HOME=/p00-home/composer' \
+              --env 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
+              --env 'PHP_MEMORY_LIMIT=-1' \
+              "${env_args[@]}" \
+              --entrypoint /usr/bin/php8.5 \
+              "$IMAGE" "$@"
+            status="$?"
+            set -e
+            id=''
+            if test -e "$cidfile"; then
+              test -f "$cidfile" && test ! -L "$cidfile"
+              id="$(cat "$cidfile")"
+              if test -n "$id"; then printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'; fi
+            fi
+            remove_exact_container "$container_name" "$id"
+            if test -e "$cidfile"; then
+              rm -f "$cidfile"
+            fi
+            rm -f "$namefile"
+            rmdir "$invocation"
+            return "$status"
+          }
+          case "$(basename "$0")" in
+            php) run_php "$@" ;;
+            composer) run_php /p00/composer.phar "$@" ;;
+            *) exit 2 ;;
+          esac
+          BASH
+          chmod 0555 "$runtime/bin/p00-php-container"
+          ln -s p00-php-container "$runtime/bin/php"
+          ln -s p00-php-container "$runtime/bin/composer"
+          printf '%s\n' "$runtime/bin" >> "$GITHUB_PATH"
+          test "$("$runtime/bin/php" -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$("$runtime/bin/composer" --version --no-ansi | awk '{print $3}')" = 2.9.8
+          "$runtime/bin/php" -r 'foreach (array_slice($argv, 1) as $extension) {
+            if (!extension_loaded($extension)) { fwrite(STDERR, "missing extension: $extension\n"); exit(1); }
+          }' bcmath ctype curl dom fileinfo filter gd intl mbstring openssl pcntl pdo pdo_pgsql pdo_sqlite session simplexml tokenizer xml zip
+      - name: Set up Node 24.18.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Install exact npm and verify every runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.16.0 --ignore-scripts
+          test "$(php -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$(node -p 'process.versions.node')" = 24.18.0
+          test "$(npm --version)" = 11.16.0
+          composer_version="$(composer --version --no-ansi | sed -n 's/^Composer version \([^ ]*\).*/\1/p')"
+          test "$composer_version" = 2.9.8
+      - name: Install committed dependencies only
+        shell: bash
+        env:
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+        run: |
+          set -euo pipefail
+          (cd backend && composer install --no-interaction --prefer-dist --no-progress)
+          npm ci
+          npx playwright install --with-deps chromium
+          test -z "$(git status --short --untracked-files=normal)"
+      - id: postgres
+        name: Start and attest isolated PostgreSQL 16
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service start
+      - name: Run postgresql-16
+        shell: bash
+        run: |
+          set -euo pipefail
+          export P00_ARTIFACT_DIR="$RUNNER_TEMP/p00"
+          scripts/quality/run-p00 postgresql-16
+          test -d "$P00_ARTIFACT_DIR/postgresql-16"
+          test ! -L "$P00_ARTIFACT_DIR/postgresql-16"
+      - name: Upload postgresql-16 artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: postgresql-16
+          path: ${{ runner.temp }}/p00/postgresql-16/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: true
+      - name: Remove exact PHP runner lifecycles
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$RUNNER_TEMP/dorzak-p00-php/containers"
+          kind=php-runner
+          case "$GITHUB_RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$GITHUB_JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$GITHUB_RUN_ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          remove_exact() {
+            local id="$1"
+            printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")" = "$kind"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")" = "$GITHUB_RUN_ID"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")" = "$GITHUB_JOB"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")" = "$GITHUB_RUN_ATTEMPT"
+            docker rm -f "$id" >/dev/null
+          }
+          sweep_exact_labels() {
+            local listed id
+            listed="$(docker ps -aq --no-trunc \
+              --filter "label=dorzak.p00.kind=$kind" \
+              --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \
+              --filter "label=dorzak.p00.job=$GITHUB_JOB" \
+              --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+            printf '%s\n' "$listed" | while IFS= read -r id; do
+              if test -z "$id"; then continue; fi
+              remove_exact "$id"
+            done
+          }
+          sweep_exact_labels
+          sweep_exact_labels
+          remaining="$(docker ps -aq --no-trunc \
+            --filter "label=dorzak.p00.kind=$kind" \
+            --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \
+            --filter "label=dorzak.p00.job=$GITHUB_JOB" \
+            --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+          test -z "$remaining"
+          if test -d "$state"; then
+            test ! -L "$state"
+            for invocation in "$state"/invocation-*; do
+              if test ! -e "$invocation"; then continue; fi
+              test -d "$invocation" && test ! -L "$invocation"
+              cidfile="$invocation/container.id"
+              namefile="$invocation/container.name"
+              unexpected="$(find "$invocation" -mindepth 1 -maxdepth 1 ! -name container.id ! -name container.name -print -quit)"
+              test -z "$unexpected"
+              if test -e "$cidfile"; then
+                test -f "$cidfile" && test ! -L "$cidfile"
+                id="$(cat "$cidfile")"
+                if test -n "$id"; then
+                  printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+                fi
+                rm -f "$cidfile"
+              fi
+              if test -e "$namefile"; then
+                test -f "$namefile" && test ! -L "$namefile"
+                container_name="$(cat "$namefile")"
+                printf '%s\n' "$container_name" | grep -Eq '^dorzak-p00-php-[0-9]+-[A-Za-z0-9_-]+-[0-9]+-[A-Za-z0-9]+$'
+                rm -f "$namefile"
+              fi
+              rmdir "$invocation"
+            done
+            remaining_state="$(find "$state" -mindepth 1 -print -quit)"
+            test -z "$remaining_state"
+          fi
+      - name: Stop exact PostgreSQL lifecycle
+        if: ${{ always() && steps.postgres.outcome == 'success' }}
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service stop
+  frontend:
+    name: frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Validate immutable run identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          printf '%s\n' "$P00_INTEGRATED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$P00_INTEGRATED_SHA" = "$GITHUB_SHA"
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch) printf '%s\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9a-f]{64}$' ;;
+            push|pull_request) printf '%s\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9]+$' ;;
+            *) exit 2 ;;
+          esac
+      - name: Checkout exact integrated SHA
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ env.P00_INTEGRATED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$P00_INTEGRATED_SHA"
+          test -z "$(git status --short --untracked-files=normal)"
+          test -f "$P00_CONTROL_RECORD"
+      - name: Install exact containerized PHP 8.5.6 and Composer 2.9.8
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = Linux
+          test "$RUNNER_ARCH" = X64
+          runtime="$RUNNER_TEMP/dorzak-p00-php"
+          test ! -e "$runtime"
+          mkdir -p "$runtime/bin" "$runtime/home" "$runtime/containers"
+          chmod 700 "$runtime" "$runtime/bin" "$runtime/home" "$runtime/containers"
+          curl --fail --location --proto '=https' --tlsv1.2 --silent --show-error \
+            'https://getcomposer.org/download/2.9.8/composer.phar' --output "$runtime/composer.phar"
+          printf '%s  %s\n' '59b2c50e10cafa0d8efc19ede9a326d782f096c674a26baf98cf042ce23de890' "$runtime/composer.phar" | sha256sum --check --strict -
+          chmod 0555 "$runtime/composer.phar"
+          docker pull 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6' >/dev/null
+          test "$(docker image inspect --format '{{.Architecture}}' 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6')" = amd64
+          test "$(docker image inspect --format '{{.Os}}' 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6')" = linux
+          cat > "$runtime/bin/p00-php-container" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          readonly IMAGE='docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6'
+          readonly WORKSPACE="${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is required}"
+          readonly TEMP="${RUNNER_TEMP:?RUNNER_TEMP is required}"
+          readonly RUNTIME="$TEMP/dorzak-p00-php"
+          readonly CONTAINERS="$RUNTIME/containers"
+          readonly RUN_ID="${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
+          readonly JOB="${GITHUB_JOB:?GITHUB_JOB is required}"
+          readonly ATTEMPT="${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT is required}"
+          readonly KIND=php-runner
+          test "$WORKSPACE" = "$(realpath "$WORKSPACE")"
+          test "$TEMP" = "$(realpath "$TEMP")"
+          test -d "$CONTAINERS" && test ! -L "$CONTAINERS"
+          case "$RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          case "$PWD/" in "$WORKSPACE/"*|"$TEMP/"*) ;; *) exit 2 ;; esac
+          env_args=()
+          while IFS='=' read -r name _; do
+            printf '%s\n' "$name" | grep -Eq '^[A-Za-z_][A-Za-z0-9_]*$' || continue
+            case "$name" in
+              CI|GITHUB_ACTIONS|GITHUB_EVENT_NAME|GITHUB_JOB|GITHUB_RUN_ATTEMPT|GITHUB_RUN_ID|GITHUB_SHA|P00_*|APP_*|DB_*|CACHE_*|QUEUE_*|SESSION_*|MAIL_*|LOG_*|FILESYSTEM_*|BROADCAST_*|REDIS_*|FRONTEND_*|COMPOSER_AUTH|COMPOSER_*) ;;
+              *) continue ;;
+            esac
+            env_args+=(--env "$name")
+          done < <(env)
+          remove_exact_container() {
+            local target="$1" expected_id="$2" listed id kind_label run_label job_label attempt_label remaining
+            listed="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test "$(printf '%s\n' "$listed" | sed '/^$/d' | wc -l | tr -d ' ')" -le 1
+            if test -z "$listed"; then return 0; fi
+            id="$(printf '%s\n' "$listed" | sed -n '1p')"
+            printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            if test -n "$expected_id"; then test "$id" = "$expected_id"; fi
+            kind_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")"
+            run_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")"
+            job_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")"
+            attempt_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")"
+            test "$kind_label" = "$KIND"
+            test "$run_label" = "$RUN_ID"
+            test "$job_label" = "$JOB"
+            test "$attempt_label" = "$ATTEMPT"
+            docker rm -f "$id" >/dev/null
+            remaining="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test -z "$remaining"
+          }
+          run_php() {
+            local invocation suffix cidfile namefile container_name status id
+            invocation="$(mktemp -d "$CONTAINERS/invocation-XXXXXX")"
+            suffix="${invocation##*-}"
+            cidfile="$invocation/container.id"
+            namefile="$invocation/container.name"
+            container_name="dorzak-p00-php-$RUN_ID-$JOB-$ATTEMPT-$suffix"
+            printf '%s\n' "$container_name" > "$namefile"
+            chmod 600 "$namefile"
+            set +e
+            docker run --rm --init --network host \
+              --name "$container_name" \
+              --cidfile "$cidfile" \
+              --label "dorzak.p00.kind=$KIND" \
+              --label "dorzak.p00.run=$RUN_ID" \
+              --label "dorzak.p00.job=$JOB" \
+              --label "dorzak.p00.attempt=$ATTEMPT" \
+              --user "$(id -u):$(id -g)" \
+              --workdir "$PWD" \
+              --volume "$WORKSPACE:$WORKSPACE" \
+              --volume "$TEMP:$TEMP" \
+              --volume "$RUNTIME/composer.phar:/p00/composer.phar:ro" \
+              --volume "$RUNTIME/home:/p00-home" \
+              --env "GITHUB_WORKSPACE=$WORKSPACE" \
+              --env "RUNNER_TEMP=$TEMP" \
+              --env 'HOME=/p00-home' \
+              --env 'COMPOSER_HOME=/p00-home/composer' \
+              --env 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
+              --env 'PHP_MEMORY_LIMIT=-1' \
+              "${env_args[@]}" \
+              --entrypoint /usr/bin/php8.5 \
+              "$IMAGE" "$@"
+            status="$?"
+            set -e
+            id=''
+            if test -e "$cidfile"; then
+              test -f "$cidfile" && test ! -L "$cidfile"
+              id="$(cat "$cidfile")"
+              if test -n "$id"; then printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'; fi
+            fi
+            remove_exact_container "$container_name" "$id"
+            if test -e "$cidfile"; then
+              rm -f "$cidfile"
+            fi
+            rm -f "$namefile"
+            rmdir "$invocation"
+            return "$status"
+          }
+          case "$(basename "$0")" in
+            php) run_php "$@" ;;
+            composer) run_php /p00/composer.phar "$@" ;;
+            *) exit 2 ;;
+          esac
+          BASH
+          chmod 0555 "$runtime/bin/p00-php-container"
+          ln -s p00-php-container "$runtime/bin/php"
+          ln -s p00-php-container "$runtime/bin/composer"
+          printf '%s\n' "$runtime/bin" >> "$GITHUB_PATH"
+          test "$("$runtime/bin/php" -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$("$runtime/bin/composer" --version --no-ansi | awk '{print $3}')" = 2.9.8
+          "$runtime/bin/php" -r 'foreach (array_slice($argv, 1) as $extension) {
+            if (!extension_loaded($extension)) { fwrite(STDERR, "missing extension: $extension\n"); exit(1); }
+          }' bcmath ctype curl dom fileinfo filter gd intl mbstring openssl pcntl pdo pdo_pgsql pdo_sqlite session simplexml tokenizer xml zip
+      - name: Set up Node 24.18.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Install exact npm and verify every runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.16.0 --ignore-scripts
+          test "$(php -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$(node -p 'process.versions.node')" = 24.18.0
+          test "$(npm --version)" = 11.16.0
+          composer_version="$(composer --version --no-ansi | sed -n 's/^Composer version \([^ ]*\).*/\1/p')"
+          test "$composer_version" = 2.9.8
+      - name: Install committed dependencies only
+        shell: bash
+        env:
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+        run: |
+          set -euo pipefail
+          (cd backend && composer install --no-interaction --prefer-dist --no-progress)
+          npm ci
+          npx playwright install --with-deps chromium
+          test -z "$(git status --short --untracked-files=normal)"
+      - id: postgres
+        name: Start and attest isolated PostgreSQL 16
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service start
+      - name: Run frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          export P00_ARTIFACT_DIR="$RUNNER_TEMP/p00"
+          scripts/quality/run-p00 frontend
+          test -d "$P00_ARTIFACT_DIR/frontend"
+          test ! -L "$P00_ARTIFACT_DIR/frontend"
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: frontend
+          path: ${{ runner.temp }}/p00/frontend/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: true
+      - name: Remove exact PHP runner lifecycles
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$RUNNER_TEMP/dorzak-p00-php/containers"
+          kind=php-runner
+          case "$GITHUB_RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$GITHUB_JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$GITHUB_RUN_ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          remove_exact() {
+            local id="$1"
+            printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")" = "$kind"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")" = "$GITHUB_RUN_ID"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")" = "$GITHUB_JOB"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")" = "$GITHUB_RUN_ATTEMPT"
+            docker rm -f "$id" >/dev/null
+          }
+          sweep_exact_labels() {
+            local listed id
+            listed="$(docker ps -aq --no-trunc \
+              --filter "label=dorzak.p00.kind=$kind" \
+              --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \
+              --filter "label=dorzak.p00.job=$GITHUB_JOB" \
+              --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+            printf '%s\n' "$listed" | while IFS= read -r id; do
+              if test -z "$id"; then continue; fi
+              remove_exact "$id"
+            done
+          }
+          sweep_exact_labels
+          sweep_exact_labels
+          remaining="$(docker ps -aq --no-trunc \
+            --filter "label=dorzak.p00.kind=$kind" \
+            --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \
+            --filter "label=dorzak.p00.job=$GITHUB_JOB" \
+            --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+          test -z "$remaining"
+          if test -d "$state"; then
+            test ! -L "$state"
+            for invocation in "$state"/invocation-*; do
+              if test ! -e "$invocation"; then continue; fi
+              test -d "$invocation" && test ! -L "$invocation"
+              cidfile="$invocation/container.id"
+              namefile="$invocation/container.name"
+              unexpected="$(find "$invocation" -mindepth 1 -maxdepth 1 ! -name container.id ! -name container.name -print -quit)"
+              test -z "$unexpected"
+              if test -e "$cidfile"; then
+                test -f "$cidfile" && test ! -L "$cidfile"
+                id="$(cat "$cidfile")"
+                if test -n "$id"; then
+                  printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+                fi
+                rm -f "$cidfile"
+              fi
+              if test -e "$namefile"; then
+                test -f "$namefile" && test ! -L "$namefile"
+                container_name="$(cat "$namefile")"
+                printf '%s\n' "$container_name" | grep -Eq '^dorzak-p00-php-[0-9]+-[A-Za-z0-9_-]+-[0-9]+-[A-Za-z0-9]+$'
+                rm -f "$namefile"
+              fi
+              rmdir "$invocation"
+            done
+            remaining_state="$(find "$state" -mindepth 1 -print -quit)"
+            test -z "$remaining_state"
+          fi
+      - name: Stop exact PostgreSQL lifecycle
+        if: ${{ always() && steps.postgres.outcome == 'success' }}
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service stop
+  playwright:
+    name: playwright
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Validate immutable run identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          printf '%s\n' "$P00_INTEGRATED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$P00_INTEGRATED_SHA" = "$GITHUB_SHA"
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch) printf '%s\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9a-f]{64}$' ;;
+            push|pull_request) printf '%s\n' "$P00_EVIDENCE_NONCE" | grep -Eq '^[0-9]+$' ;;
+            *) exit 2 ;;
+          esac
+      - name: Checkout exact integrated SHA
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ env.P00_INTEGRATED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$P00_INTEGRATED_SHA"
+          test -z "$(git status --short --untracked-files=normal)"
+          test -f "$P00_CONTROL_RECORD"
+      - name: Install exact containerized PHP 8.5.6 and Composer 2.9.8
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = Linux
+          test "$RUNNER_ARCH" = X64
+          runtime="$RUNNER_TEMP/dorzak-p00-php"
+          test ! -e "$runtime"
+          mkdir -p "$runtime/bin" "$runtime/home" "$runtime/containers"
+          chmod 700 "$runtime" "$runtime/bin" "$runtime/home" "$runtime/containers"
+          curl --fail --location --proto '=https' --tlsv1.2 --silent --show-error \
+            'https://getcomposer.org/download/2.9.8/composer.phar' --output "$runtime/composer.phar"
+          printf '%s  %s\n' '59b2c50e10cafa0d8efc19ede9a326d782f096c674a26baf98cf042ce23de890' "$runtime/composer.phar" | sha256sum --check --strict -
+          chmod 0555 "$runtime/composer.phar"
+          docker pull 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6' >/dev/null
+          test "$(docker image inspect --format '{{.Architecture}}' 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6')" = amd64
+          test "$(docker image inspect --format '{{.Os}}' 'docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6')" = linux
+          cat > "$runtime/bin/p00-php-container" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          readonly IMAGE='docker.io/kirschbaumdevelopment/laravel-test-runner@sha256:571f0ea5098c32a534eeca499708d4edeb2f8874a76c32ef546a523a311660c6'
+          readonly WORKSPACE="${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is required}"
+          readonly TEMP="${RUNNER_TEMP:?RUNNER_TEMP is required}"
+          readonly RUNTIME="$TEMP/dorzak-p00-php"
+          readonly CONTAINERS="$RUNTIME/containers"
+          readonly RUN_ID="${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
+          readonly JOB="${GITHUB_JOB:?GITHUB_JOB is required}"
+          readonly ATTEMPT="${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT is required}"
+          readonly KIND=php-runner
+          test "$WORKSPACE" = "$(realpath "$WORKSPACE")"
+          test "$TEMP" = "$(realpath "$TEMP")"
+          test -d "$CONTAINERS" && test ! -L "$CONTAINERS"
+          case "$RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          case "$PWD/" in "$WORKSPACE/"*|"$TEMP/"*) ;; *) exit 2 ;; esac
+          env_args=()
+          while IFS='=' read -r name _; do
+            printf '%s\n' "$name" | grep -Eq '^[A-Za-z_][A-Za-z0-9_]*$' || continue
+            case "$name" in
+              CI|GITHUB_ACTIONS|GITHUB_EVENT_NAME|GITHUB_JOB|GITHUB_RUN_ATTEMPT|GITHUB_RUN_ID|GITHUB_SHA|P00_*|APP_*|DB_*|CACHE_*|QUEUE_*|SESSION_*|MAIL_*|LOG_*|FILESYSTEM_*|BROADCAST_*|REDIS_*|FRONTEND_*|COMPOSER_AUTH|COMPOSER_*) ;;
+              *) continue ;;
+            esac
+            env_args+=(--env "$name")
+          done < <(env)
+          remove_exact_container() {
+            local target="$1" expected_id="$2" listed id kind_label run_label job_label attempt_label remaining
+            listed="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test "$(printf '%s\n' "$listed" | sed '/^$/d' | wc -l | tr -d ' ')" -le 1
+            if test -z "$listed"; then return 0; fi
+            id="$(printf '%s\n' "$listed" | sed -n '1p')"
+            printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            if test -n "$expected_id"; then test "$id" = "$expected_id"; fi
+            kind_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")"
+            run_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")"
+            job_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")"
+            attempt_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")"
+            test "$kind_label" = "$KIND"
+            test "$run_label" = "$RUN_ID"
+            test "$job_label" = "$JOB"
+            test "$attempt_label" = "$ATTEMPT"
+            docker rm -f "$id" >/dev/null
+            remaining="$(docker ps -aq --no-trunc --filter "name=^/$target$")"
+            test -z "$remaining"
+          }
+          run_php() {
+            local invocation suffix cidfile namefile container_name status id
+            invocation="$(mktemp -d "$CONTAINERS/invocation-XXXXXX")"
+            suffix="${invocation##*-}"
+            cidfile="$invocation/container.id"
+            namefile="$invocation/container.name"
+            container_name="dorzak-p00-php-$RUN_ID-$JOB-$ATTEMPT-$suffix"
+            printf '%s\n' "$container_name" > "$namefile"
+            chmod 600 "$namefile"
+            set +e
+            docker run --rm --init --network host \
+              --name "$container_name" \
+              --cidfile "$cidfile" \
+              --label "dorzak.p00.kind=$KIND" \
+              --label "dorzak.p00.run=$RUN_ID" \
+              --label "dorzak.p00.job=$JOB" \
+              --label "dorzak.p00.attempt=$ATTEMPT" \
+              --user "$(id -u):$(id -g)" \
+              --workdir "$PWD" \
+              --volume "$WORKSPACE:$WORKSPACE" \
+              --volume "$TEMP:$TEMP" \
+              --volume "$RUNTIME/composer.phar:/p00/composer.phar:ro" \
+              --volume "$RUNTIME/home:/p00-home" \
+              --env "GITHUB_WORKSPACE=$WORKSPACE" \
+              --env "RUNNER_TEMP=$TEMP" \
+              --env 'HOME=/p00-home' \
+              --env 'COMPOSER_HOME=/p00-home/composer' \
+              --env 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
+              --env 'PHP_MEMORY_LIMIT=-1' \
+              "${env_args[@]}" \
+              --entrypoint /usr/bin/php8.5 \
+              "$IMAGE" "$@"
+            status="$?"
+            set -e
+            id=''
+            if test -e "$cidfile"; then
+              test -f "$cidfile" && test ! -L "$cidfile"
+              id="$(cat "$cidfile")"
+              if test -n "$id"; then printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'; fi
+            fi
+            remove_exact_container "$container_name" "$id"
+            if test -e "$cidfile"; then
+              rm -f "$cidfile"
+            fi
+            rm -f "$namefile"
+            rmdir "$invocation"
+            return "$status"
+          }
+          case "$(basename "$0")" in
+            php) run_php "$@" ;;
+            composer) run_php /p00/composer.phar "$@" ;;
+            *) exit 2 ;;
+          esac
+          BASH
+          chmod 0555 "$runtime/bin/p00-php-container"
+          ln -s p00-php-container "$runtime/bin/php"
+          ln -s p00-php-container "$runtime/bin/composer"
+          printf '%s\n' "$runtime/bin" >> "$GITHUB_PATH"
+          test "$("$runtime/bin/php" -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$("$runtime/bin/composer" --version --no-ansi | awk '{print $3}')" = 2.9.8
+          "$runtime/bin/php" -r 'foreach (array_slice($argv, 1) as $extension) {
+            if (!extension_loaded($extension)) { fwrite(STDERR, "missing extension: $extension\n"); exit(1); }
+          }' bcmath ctype curl dom fileinfo filter gd intl mbstring openssl pcntl pdo pdo_pgsql pdo_sqlite session simplexml tokenizer xml zip
+      - name: Set up Node 24.18.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Install exact npm and verify every runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.16.0 --ignore-scripts
+          test "$(php -r 'echo PHP_VERSION;')" = 8.5.6
+          test "$(node -p 'process.versions.node')" = 24.18.0
+          test "$(npm --version)" = 11.16.0
+          composer_version="$(composer --version --no-ansi | sed -n 's/^Composer version \([^ ]*\).*/\1/p')"
+          test "$composer_version" = 2.9.8
+      - name: Install committed dependencies only
+        shell: bash
+        env:
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+        run: |
+          set -euo pipefail
+          (cd backend && composer install --no-interaction --prefer-dist --no-progress)
+          npm ci
+          npx playwright install --with-deps chromium
+          test -z "$(git status --short --untracked-files=normal)"
+      - id: postgres
+        name: Start and attest isolated PostgreSQL 16
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service start
+      - name: Run playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          export P00_ARTIFACT_DIR="$RUNNER_TEMP/p00"
+          scripts/quality/run-p00 playwright
+          test -d "$P00_ARTIFACT_DIR/playwright"
+          test ! -L "$P00_ARTIFACT_DIR/playwright"
+      - name: Upload playwright artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: playwright
+          path: ${{ runner.temp }}/p00/playwright/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: true
+      - name: Remove exact PHP runner lifecycles
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$RUNNER_TEMP/dorzak-p00-php/containers"
+          kind=php-runner
+          case "$GITHUB_RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+          case "$GITHUB_JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+          case "$GITHUB_RUN_ATTEMPT" in (*[!0-9]*|'') exit 2;; esac
+          remove_exact() {
+            local id="$1"
+            printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")" = "$kind"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")" = "$GITHUB_RUN_ID"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")" = "$GITHUB_JOB"
+            test "$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")" = "$GITHUB_RUN_ATTEMPT"
+            docker rm -f "$id" >/dev/null
+          }
+          sweep_exact_labels() {
+            local listed id
+            listed="$(docker ps -aq --no-trunc \
+              --filter "label=dorzak.p00.kind=$kind" \
+              --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \
+              --filter "label=dorzak.p00.job=$GITHUB_JOB" \
+              --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+            printf '%s\n' "$listed" | while IFS= read -r id; do
+              if test -z "$id"; then continue; fi
+              remove_exact "$id"
+            done
+          }
+          sweep_exact_labels
+          sweep_exact_labels
+          remaining="$(docker ps -aq --no-trunc \
+            --filter "label=dorzak.p00.kind=$kind" \
+            --filter "label=dorzak.p00.run=$GITHUB_RUN_ID" \
+            --filter "label=dorzak.p00.job=$GITHUB_JOB" \
+            --filter "label=dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT")"
+          test -z "$remaining"
+          if test -d "$state"; then
+            test ! -L "$state"
+            for invocation in "$state"/invocation-*; do
+              if test ! -e "$invocation"; then continue; fi
+              test -d "$invocation" && test ! -L "$invocation"
+              cidfile="$invocation/container.id"
+              namefile="$invocation/container.name"
+              unexpected="$(find "$invocation" -mindepth 1 -maxdepth 1 ! -name container.id ! -name container.name -print -quit)"
+              test -z "$unexpected"
+              if test -e "$cidfile"; then
+                test -f "$cidfile" && test ! -L "$cidfile"
+                id="$(cat "$cidfile")"
+                if test -n "$id"; then
+                  printf '%s\n' "$id" | grep -Eq '^[0-9a-f]{64}$'
+                fi
+                rm -f "$cidfile"
+              fi
+              if test -e "$namefile"; then
+                test -f "$namefile" && test ! -L "$namefile"
+                container_name="$(cat "$namefile")"
+                printf '%s\n' "$container_name" | grep -Eq '^dorzak-p00-php-[0-9]+-[A-Za-z0-9_-]+-[0-9]+-[A-Za-z0-9]+$'
+                rm -f "$namefile"
+              fi
+              rmdir "$invocation"
+            done
+            remaining_state="$(find "$state" -mindepth 1 -print -quit)"
+            test -z "$remaining_state"
+          fi
+      - name: Stop exact PostgreSQL lifecycle
+        if: ${{ always() && steps.postgres.outcome == 'success' }}
+        shell: bash
+        run: scripts/quality/github-actions-postgres-service stop
+
+  required-gates:
+    name: required-gates
+    if: ${{ always() }}
+    needs: [composer-validation, php-style-static, sqlite, postgresql-16, frontend, playwright]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Require all six producer jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ needs.composer-validation.result }}' = success
+          test '${{ needs.php-style-static.result }}' = success
+          test '${{ needs.sqlite.result }}' = success
+          test '${{ needs.postgresql-16.result }}' = success
+          test '${{ needs.frontend.result }}' = success
+          test '${{ needs.playwright.result }}' = success
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          test "$P00_INTEGRATED_SHA" = "$GITHUB_SHA"
+      - name: Checkout exact integrated SHA
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ env.P00_INTEGRATED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node 24.18.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Download composer-validation
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: composer-validation
+          path: ${{ runner.temp }}/p00/composer-validation
+      - name: Download php-style-static
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: php-style-static
+          path: ${{ runner.temp }}/p00/php-style-static
+      - name: Download sqlite
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: sqlite
+          path: ${{ runner.temp }}/p00/sqlite
+      - name: Download postgresql-16
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: postgresql-16
+          path: ${{ runner.temp }}/p00/postgresql-16
+      - name: Download frontend
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: frontend
+          path: ${{ runner.temp }}/p00/frontend
+      - name: Download playwright
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: playwright
+          path: ${{ runner.temp }}/p00/playwright
+      - name: Recompute required aggregate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$P00_INTEGRATED_SHA"
+          test "$(find "$RUNNER_TEMP/p00" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')" = 6
+          node scripts/quality/p00.mjs aggregate "$RUNNER_TEMP/p00"
+          mkdir "$RUNNER_TEMP/required-gates"
+          mv "$RUNNER_TEMP/p00.required-gates.json" "$RUNNER_TEMP/required-gates/required-gates.json"
+      - name: Upload required-gates artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: required-gates
+          path: ${{ runner.temp }}/required-gates/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: true

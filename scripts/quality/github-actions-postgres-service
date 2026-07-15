@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly IMAGE='docker.io/library/postgres@sha256:c95fd5346040eba2de3c435e14874af18f5d681fb5848d4f081dbead0878af28'
+readonly IDENTITY="$IMAGE"
+readonly ACTION="${1:-}"
+
+require() {
+  test -n "${!1:-}" || { printf 'P00_GHA_POSTGRES FAIL missing=%s\n' "$1" >&2; exit 2; }
+}
+
+for name in RUNNER_TEMP GITHUB_RUN_ID GITHUB_JOB GITHUB_RUN_ATTEMPT; do require "$name"; done
+test "$GITHUB_RUN_ATTEMPT" = 1 || { printf 'P00_GHA_POSTGRES FAIL retry\n' >&2; exit 2; }
+case "$GITHUB_RUN_ID" in (*[!0-9]*|'') exit 2;; esac
+case "$GITHUB_JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
+readonly STATE_ROOT="$RUNNER_TEMP/dorzak-p00-postgres/$GITHUB_RUN_ID/$GITHUB_JOB/$GITHUB_RUN_ATTEMPT"
+readonly STATE_FILE="$STATE_ROOT/state.json"
+
+sha256_file() { shasum -a 256 "$1" | awk '{print $1}'; }
+sha256_text() { printf '%s' "$1" | shasum -a 256 | awk '{print $1}'; }
+
+cleanup_recorded_container() {
+  test -f "$STATE_FILE" || return 0
+  local id
+  id="$(jq -er '.lifecycleId | select(test("^[0-9a-f]{64}$"))' "$STATE_FILE")"
+  docker rm -f "$id" >/dev/null
+}
+
+start() {
+  require GITHUB_ENV
+  test "${RUNNER_OS:-Linux}" = Linux
+  test "${RUNNER_ARCH:-X64}" = X64
+  test ! -e "$STATE_ROOT"
+  umask 077
+  mkdir -p "$STATE_ROOT"
+
+  local nonce nonce_sha suffix supervisor password id arch os port url version observed_nonce
+  nonce="$(openssl rand -hex 32)"
+  nonce_sha="$(sha256_text "$nonce")"
+  suffix="$(openssl rand -hex 6)"
+  supervisor="p00_${GITHUB_RUN_ID}_${suffix}"
+  supervisor="${supervisor:0:50}"
+  password="$(openssl rand -hex 32)"
+  printf '::add-mask::%s\n' "$password"
+
+  docker pull "$IMAGE" >/dev/null
+  arch="$(docker image inspect --format '{{.Architecture}}' "$IMAGE")"
+  os="$(docker image inspect --format '{{.Os}}' "$IMAGE")"
+  test "$arch" = amd64
+  test "$os" = linux
+
+  id="$(docker run -d --rm --pull=never --platform linux/amd64 \
+    --label "dorzak.p00.run=$GITHUB_RUN_ID" \
+    --label "dorzak.p00.job=$GITHUB_JOB" \
+    --label 'dorzak.p00.no-real-data=true' \
+    -e "POSTGRES_USER=$supervisor" \
+    -e "POSTGRES_PASSWORD=$password" \
+    -e POSTGRES_DB=postgres \
+    -p 127.0.0.1::5432 \
+    "$IMAGE" -c "dorzak.instance_nonce_sha256=$nonce_sha")"
+  printf '%s\n' "$id" | rg -x '[0-9a-f]{64}' >/dev/null
+  jq -n --arg id "$id" --arg run "$GITHUB_RUN_ID" --arg job "$GITHUB_JOB" \
+    '{lifecycleId:$id,runId:$run,job:$job}' > "$STATE_FILE"
+  trap cleanup_recorded_container ERR INT TERM
+
+  for _ in $(seq 1 60); do
+    docker exec "$id" pg_isready -U "$supervisor" -d postgres >/dev/null 2>&1 && break
+    sleep 1
+  done
+  docker exec "$id" pg_isready -U "$supervisor" -d postgres >/dev/null
+  docker exec -e "PGPASSWORD=$password" "$id" psql -v ON_ERROR_STOP=1 -U "$supervisor" -d postgres -Atqc \
+    'REVOKE CONNECT ON DATABASE postgres FROM PUBLIC; REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;' >/dev/null
+  version="$(docker exec -e "PGPASSWORD=$password" "$id" psql -v ON_ERROR_STOP=1 -U "$supervisor" -d postgres -Atqc 'SHOW server_version_num')"
+  observed_nonce="$(docker exec -e "PGPASSWORD=$password" "$id" psql -v ON_ERROR_STOP=1 -U "$supervisor" -d postgres -Atqc "SELECT current_setting('dorzak.instance_nonce_sha256')")"
+  case "$version" in (16[0-9][0-9][0-9][0-9]) ;; (*) exit 2;; esac
+  test "$observed_nonce" = "$nonce_sha"
+  port="$(docker port "$id" 5432/tcp | sed -n 's/^127\.0\.0\.1:\([0-9][0-9]*\)$/\1/p')"
+  case "$port" in (*[!0-9]*|'') exit 2;; esac
+  url="postgresql://${supervisor}:${password}@127.0.0.1:${port}/postgres?sslmode=disable"
+  printf '::add-mask::%s\n' "$url"
+
+  local pg_attestation service_attestation
+  pg_attestation="$STATE_ROOT/postgresql-attestation.json"
+  service_attestation="$STATE_ROOT/e2e-service-attestation.json"
+  jq -n --arg identity "$IDENTITY" --arg nonce "$nonce_sha" \
+    '{schemaVersion:2,kind:"oci",identity:$identity,serverMajor:16,immutable:true,instanceNonceSha256:$nonce}' \
+    > "$pg_attestation"
+  jq -n --arg identity "$IDENTITY" --arg nonce "$nonce_sha" --arg lifecycle "$id" --arg role "$supervisor" \
+    '{schemaVersion:1,identity:$identity,serverMajor:16,immutable:true,instanceNonceSha256:$nonce,lifecycleId:$lifecycle,supervisorDatabase:"postgres",supervisorRole:$role,containsRealData:false,canIssueIsolatedCredentials:true,noncandidateAccessDenied:true}' \
+    > "$service_attestation"
+  chmod 600 "$STATE_FILE" "$pg_attestation" "$service_attestation"
+
+  {
+    printf 'P00_PG_IDENTITY_KIND=oci\n'
+    printf 'P00_PG_IDENTITY=%s\n' "$IDENTITY"
+    printf 'P00_PG_ATTESTATION_PATH=%s\n' "$pg_attestation"
+    printf 'P00_PG_ATTESTATION_SHA256=%s\n' "$(sha256_file "$pg_attestation")"
+    printf 'P00_PG_INSTANCE_NONCE_SHA256=%s\n' "$nonce_sha"
+    printf 'P00_E2E_SUPERVISOR_DB_URL=%s\n' "$url"
+    printf 'P00_E2E_SERVICE_LIFECYCLE_ID=%s\n' "$id"
+    printf 'P00_E2E_SERVICE_ATTESTATION_PATH=%s\n' "$service_attestation"
+    printf 'P00_E2E_SERVICE_ATTESTATION_SHA256=%s\n' "$(sha256_file "$service_attestation")"
+  } >> "$GITHUB_ENV"
+  trap - ERR INT TERM
+  printf 'P00_GHA_POSTGRES PASS action=start identity=%s lifecycle=%s\n' "$IDENTITY" "$id"
+}
+
+stop() {
+  test -f "$STATE_FILE"
+  local id run_label job_label
+  id="$(jq -er '.lifecycleId | select(test("^[0-9a-f]{64}$"))' "$STATE_FILE")"
+  run_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")"
+  job_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")"
+  test "$run_label" = "$GITHUB_RUN_ID"
+  test "$job_label" = "$GITHUB_JOB"
+  docker rm -f "$id" >/dev/null
+  if docker inspect "$id" >/dev/null 2>&1; then exit 2; fi
+  rm -f "$STATE_FILE" "$STATE_ROOT/postgresql-attestation.json" "$STATE_ROOT/e2e-service-attestation.json"
+  rmdir "$STATE_ROOT"
+  printf 'P00_GHA_POSTGRES PASS action=stop lifecycle=%s\n' "$id"
+}
+
+case "$ACTION" in
+  start) start ;;
+  stop) stop ;;
+  *) printf 'usage: %s start|stop\n' "$0" >&2; exit 2 ;;
+esac
