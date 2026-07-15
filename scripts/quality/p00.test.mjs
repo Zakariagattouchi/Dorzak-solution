@@ -111,7 +111,7 @@ const record = (job, root, runnerRole = 'local') => {
             : name === 'junit'
               ? `<testsuites><testsuite tests="${job.testCount}" failures="0" errors="0" skipped="0"></testsuite></testsuites>\n`
               : name === 'vitest'
-                ? stableJson({ numTotalTests: 15, numFailedTests: 0, numPendingTests: 0 })
+                ? stableJson({ numTotalTests: 26, numFailedTests: 0, numPendingTests: 0 })
                 : name === 'playwrightJson'
                   ? stableJson({ stats: { expected: 9, unexpected: 0, flaky: 0, skipped: 0 } })
                   : name === 'postgresqlIdentity'
@@ -173,7 +173,7 @@ test('contract freezes ordered jobs, counts, budget, and open Vite debt', () => 
       ['php-style-static', 0],
       ['sqlite', 446],
       ['postgresql-16', 450],
-      ['frontend', 15],
+      ['frontend', 26],
       ['playwright', 9],
     ],
   );
