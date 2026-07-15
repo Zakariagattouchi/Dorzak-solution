@@ -17,7 +17,7 @@
       "command": "scripts/quality/run-p00 postgresql-16",
       "testCount": 450
     },
-    { "name": "frontend", "command": "scripts/quality/run-p00 frontend", "testCount": 10 },
+    { "name": "frontend", "command": "scripts/quality/run-p00 frontend", "testCount": 15 },
     { "name": "playwright", "command": "scripts/quality/run-p00 playwright", "testCount": 9 }
   ],
   "bundle": {
