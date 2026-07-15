@@ -13,33 +13,76 @@ trap 'rm -rf "$TEMP"' EXIT
 mkdir -p "$TEMP/bin" "$TEMP/runner"
 export FAKE_DOCKER_STATE="$TEMP/docker"
 mkdir -p "$FAKE_DOCKER_STATE"
+export REAL_JQ
+REAL_JQ="$(command -v jq)"
 cat > "$TEMP/bin/docker" <<'DOCKER'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%q ' "$@" >> "$FAKE_DOCKER_STATE/calls"
 printf '\n' >> "$FAKE_DOCKER_STATE/calls"
+readonly ID='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 case "$1 $2" in
   'pull docker.io/library/postgres@sha256:c95fd5346040eba2de3c435e14874af18f5d681fb5848d4f081dbead0878af28') exit 0 ;;
   'image inspect')
     case "$4" in ('{{.Architecture}}') printf '%s\n' "${FAKE_ARCH:-amd64}" ;; ('{{.Os}}') printf 'linux\n' ;; (*) exit 2 ;; esac ;;
   'run -d')
+    cidfile=''
+    previous=''
+    for argument in "$@"; do
+      if [[ "$previous" == --cidfile ]]; then cidfile="$argument"; fi
+      previous="$argument"
+    done
     nonce="$(printf '%s\n' "$*" | sed -n 's/.*dorzak\.instance_nonce_sha256=\([0-9a-f]\{64\}\).*/\1/p')"
     printf '%s' "$nonce" > "$FAKE_DOCKER_STATE/nonce"
-    printf '%064d\n' 0 | tr 0 a ;;
+    if [[ -n "$cidfile" ]]; then
+      test ! -e "$cidfile"
+      printf '%s\n' "$ID" > "$cidfile"
+      perl -e 'printf "%04o\n", (stat($ARGV[0]))[2] & 07777' "$cidfile" > "$FAKE_DOCKER_STATE/cid-mode"
+    fi
+    if [[ "${FAKE_FAULT:-}" == invalid-stdout ]]; then printf 'not-a-container-id\n'; else printf '%s\n' "$ID"; fi ;;
   exec\ *)
     if printf '%s\n' "$*" | rg -q 'pg_isready|REVOKE CONNECT'; then exit 0; fi
-    if printf '%s\n' "$*" | rg -q 'server_version_num'; then printf '160014\n'; exit 0; fi
+    if printf '%s\n' "$*" | rg -q 'server_version_num'; then
+      if [[ "${FAKE_FAULT:-}" == bad-version ]]; then printf '150000\n'; else printf '160014\n'; fi
+      exit 0
+    fi
     if printf '%s\n' "$*" | rg -q 'current_setting'; then cat "$FAKE_DOCKER_STATE/nonce"; printf '\n'; exit 0; fi
     exit 2 ;;
-  'port aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') printf '127.0.0.1:54321\n' ;;
+  'port aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+    if [[ "${FAKE_FAULT:-}" == bad-port ]]; then printf '0.0.0.0:invalid\n'; else printf '127.0.0.1:54321\n'; fi ;;
   'inspect --format')
-    if printf '%s\n' "$3" | rg -q 'dorzak.p00.run'; then printf '7001\n'; else printf 'postgresql-16\n'; fi ;;
-  'rm -f') printf '%s' removed > "$FAKE_DOCKER_STATE/removed" ;;
+    case "$3" in
+      *dorzak.p00.kind*) printf 'postgresql-service\n' ;;
+      *dorzak.p00.run*) printf '7001\n' ;;
+      *dorzak.p00.job*) printf 'postgresql-16\n' ;;
+      *dorzak.p00.attempt*) printf '1\n' ;;
+      *dorzak.p00.no-real-data*) printf 'true\n' ;;
+      *) exit 2 ;;
+    esac ;;
+  'rm -f') printf '%s\n' "$3" >> "$FAKE_DOCKER_STATE/removed" ;;
   'inspect aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') test ! -f "$FAKE_DOCKER_STATE/removed" ;;
   *) exit 2 ;;
 esac
 DOCKER
-chmod +x "$TEMP/bin/docker"
+cat > "$TEMP/bin/jq" <<'JQ'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${FAKE_FAULT:-}" == state-write ]] && printf '%s\n' "$*" | rg -q 'lifecycleId'; then
+  exit 73
+fi
+exec "$REAL_JQ" "$@"
+JQ
+cat > "$TEMP/bin/openssl" <<'OPENSSL'
+#!/usr/bin/env bash
+set -euo pipefail
+test "$1 $2" = 'rand -hex'
+case "$3" in
+  32) printf '%064d\n' 0 | tr 0 1 ;;
+  6) printf '%012d\n' 0 | tr 0 2 ;;
+  *) exit 2 ;;
+esac
+OPENSSL
+chmod +x "$TEMP/bin/docker" "$TEMP/bin/jq" "$TEMP/bin/openssl"
 
 export PATH="$TEMP/bin:$PATH"
 export RUNNER_TEMP="$TEMP/runner"
@@ -57,6 +100,52 @@ rg -x 'P00_E2E_SERVICE_LIFECYCLE_ID=[0-9a-f]{64}' "$GITHUB_ENV"
 $HELPER stop
 test "$(rg -c '^rm -f a{64} $' "$FAKE_DOCKER_STATE/calls")" = 1
 test -z "$(rg 'rm -f .*(\*|dorzak-p00-postgres)' "$FAKE_DOCKER_STATE/calls" || true)"
+
+fault_failures=0
+run_fault_case() {
+  local fault="$1"
+  local log="$TEMP/$fault.log"
+  local failed=0
+  rm -rf "$RUNNER_TEMP/dorzak-p00-postgres" "$FAKE_DOCKER_STATE"
+  mkdir -p "$FAKE_DOCKER_STATE"
+  : > "$GITHUB_ENV"
+  export FAKE_FAULT="$fault"
+  set +e
+  "$HELPER" start 2>&1 | rg -v '^::add-mask::' > "$log"
+  local helper_status="${PIPESTATUS[0]}"
+  set -e
+  unset FAKE_FAULT
+
+  if [[ "$helper_status" -eq 0 ]]; then failed=1; fi
+  if [[ "$(rg '^rm -f ' "$FAKE_DOCKER_STATE/calls" || true)" \
+    != 'rm -f aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ' ]]; then
+    failed=1
+  fi
+  if [[ "$(cat "$FAKE_DOCKER_STATE/cid-mode" 2>/dev/null || true)" != 0600 ]]; then failed=1; fi
+  for label in \
+    'dorzak.p00.kind=postgresql-service' \
+    'dorzak.p00.run=7001' \
+    'dorzak.p00.job=postgresql-16' \
+    'dorzak.p00.attempt=1' \
+    'dorzak.p00.no-real-data=true'; do
+    if ! rg -q -- "--label $label" "$FAKE_DOCKER_STATE/calls"; then failed=1; fi
+  done
+  if rg -q \
+    'postgresql://|POSTGRES_PASSWORD|1111111111111111111111111111111111111111111111111111111111111111|docker (rm|stop).*(\*|--filter|--label|--name)|rm -f.*(\*|dorzak-p00-postgres)' \
+    "$log"; then
+    failed=1
+  fi
+  if [[ "$failed" -ne 0 ]]; then
+    printf 'P00_GHA_POSTGRES_FAULT_ASSERTION FAIL case=%s\n' "$fault" >&2
+    fault_failures=$((fault_failures + 1))
+  fi
+}
+
+run_fault_case invalid-stdout
+run_fault_case state-write
+run_fault_case bad-version
+run_fault_case bad-port
+test "$fault_failures" -eq 0
 
 rm -rf "$RUNNER_TEMP/dorzak-p00-postgres" "$FAKE_DOCKER_STATE"
 mkdir -p "$FAKE_DOCKER_STATE"

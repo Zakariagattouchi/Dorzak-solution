@@ -15,15 +15,78 @@ case "$GITHUB_RUN_ID" in (*[!0-9]*|'') exit 2;; esac
 case "$GITHUB_JOB" in (*[!A-Za-z0-9_-]*|'') exit 2;; esac
 readonly STATE_ROOT="$RUNNER_TEMP/dorzak-p00-postgres/$GITHUB_RUN_ID/$GITHUB_JOB/$GITHUB_RUN_ATTEMPT"
 readonly STATE_FILE="$STATE_ROOT/state.json"
+readonly CID_FILE="$STATE_ROOT/container.cid"
 
 sha256_file() { shasum -a 256 "$1" | awk '{print $1}'; }
 sha256_text() { printf '%s' "$1" | shasum -a 256 | awk '{print $1}'; }
 
-cleanup_recorded_container() {
-  test -f "$STATE_FILE" || return 0
-  local id
-  id="$(jq -er '.lifecycleId | select(test("^[0-9a-f]{64}$"))' "$STATE_FILE")"
+is_owned_mode_0600_file() {
+  perl -e '
+    my @facts = lstat($ARGV[0]);
+    exit 1 unless @facts && -f _ && ! -l _;
+    exit(($facts[2] & 07777) == 0600 && $facts[4] == $< ? 0 : 1);
+  ' "$1"
+}
+
+cid_id() {
+  test -e "$CID_FILE" || return 0
+  is_owned_mode_0600_file "$CID_FILE" || return 1
+  test ! -s "$CID_FILE" && return 0
+  perl -e 'local $/; my $bytes = <>; exit($bytes =~ /\A[0-9a-f]{64}\n?\z/ ? 0 : 1)' "$CID_FILE" \
+    || return 1
+  tr -d '\n' < "$CID_FILE"
+}
+
+state_id() {
+  test -e "$STATE_FILE" || return 0
+  is_owned_mode_0600_file "$STATE_FILE" || return 1
+  jq -er --arg run "$GITHUB_RUN_ID" --arg job "$GITHUB_JOB" --arg attempt "$GITHUB_RUN_ATTEMPT" '
+    select(keys == ["attempt", "job", "kind", "lifecycleId", "runId"])
+    | select(.kind == "postgresql-service" and .runId == $run and .job == $job and .attempt == $attempt)
+    | .lifecycleId | select(test("^[0-9a-f]{64}$"))
+  ' "$STATE_FILE"
+}
+
+cleanup_exact_container() {
+  local cid state id kind_label run_label job_label attempt_label data_label
+  cid="$(cid_id)" || return 1
+  state="$(state_id)" || return 1
+  if [[ -n "$cid" && -n "$state" ]]; then test "$cid" = "$state" || return 1; fi
+  id="${cid:-$state}"
+  test -n "$id" || return 0
+  printf '%s\n' "$id" | rg -x '[0-9a-f]{64}' >/dev/null || return 1
+  kind_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")" \
+    || return 1
+  run_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")" \
+    || return 1
+  job_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")" \
+    || return 1
+  attempt_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.attempt"}}' "$id")" \
+    || return 1
+  data_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.no-real-data"}}' "$id")" \
+    || return 1
+  test "$kind_label" = postgresql-service || return 1
+  test "$run_label" = "$GITHUB_RUN_ID" || return 1
+  test "$job_label" = "$GITHUB_JOB" || return 1
+  test "$attempt_label" = "$GITHUB_RUN_ATTEMPT" || return 1
+  test "$data_label" = true || return 1
   docker rm -f "$id" >/dev/null
+}
+
+cleanup_on_exit() {
+  local status="$?" cleanup_status=0
+  trap - EXIT INT TERM
+  set +e
+  cleanup_exact_container
+  cleanup_status="$?"
+  if [[ "$status" -eq 0 && "$cleanup_status" -ne 0 ]]; then status="$cleanup_status"; fi
+  exit "$status"
+}
+
+cleanup_on_signal() {
+  local status="$1"
+  trap - INT TERM
+  exit "$status"
 }
 
 start() {
@@ -33,8 +96,11 @@ start() {
   test ! -e "$STATE_ROOT"
   umask 077
   mkdir -p "$STATE_ROOT"
+  trap cleanup_on_exit EXIT
+  trap 'cleanup_on_signal 130' INT
+  trap 'cleanup_on_signal 143' TERM
 
-  local nonce nonce_sha suffix supervisor password id arch os port url version observed_nonce
+  local nonce nonce_sha suffix supervisor password id cid arch os port url version observed_nonce
   nonce="$(openssl rand -hex 32)"
   nonce_sha="$(sha256_text "$nonce")"
   suffix="$(openssl rand -hex 6)"
@@ -50,8 +116,11 @@ start() {
   test "$os" = linux
 
   id="$(docker run -d --rm --pull=never --platform linux/amd64 \
+    --cidfile "$CID_FILE" \
+    --label 'dorzak.p00.kind=postgresql-service' \
     --label "dorzak.p00.run=$GITHUB_RUN_ID" \
     --label "dorzak.p00.job=$GITHUB_JOB" \
+    --label "dorzak.p00.attempt=$GITHUB_RUN_ATTEMPT" \
     --label 'dorzak.p00.no-real-data=true' \
     -e "POSTGRES_USER=$supervisor" \
     -e "POSTGRES_PASSWORD=$password" \
@@ -59,9 +128,16 @@ start() {
     -p 127.0.0.1::5432 \
     "$IMAGE" -c "dorzak.instance_nonce_sha256=$nonce_sha")"
   printf '%s\n' "$id" | rg -x '[0-9a-f]{64}' >/dev/null
+  cid="$(cid_id)"
+  printf '%s\n' "$cid" | rg -x '[0-9a-f]{64}' >/dev/null
+  test "$id" = "$cid"
+  local state_tmp="$STATE_ROOT/state.json.tmp"
   jq -n --arg id "$id" --arg run "$GITHUB_RUN_ID" --arg job "$GITHUB_JOB" \
-    '{lifecycleId:$id,runId:$run,job:$job}' > "$STATE_FILE"
-  trap cleanup_recorded_container ERR INT TERM
+    --arg attempt "$GITHUB_RUN_ATTEMPT" \
+    '{lifecycleId:$id,runId:$run,job:$job,attempt:$attempt,kind:"postgresql-service"}' \
+    > "$state_tmp"
+  chmod 600 "$state_tmp"
+  mv "$state_tmp" "$STATE_FILE"
 
   for _ in $(seq 1 60); do
     docker exec "$id" pg_isready -U "$supervisor" -d postgres >/dev/null 2>&1 && break
@@ -101,21 +177,22 @@ start() {
     printf 'P00_E2E_SERVICE_ATTESTATION_PATH=%s\n' "$service_attestation"
     printf 'P00_E2E_SERVICE_ATTESTATION_SHA256=%s\n' "$(sha256_file "$service_attestation")"
   } >> "$GITHUB_ENV"
-  trap - ERR INT TERM
   printf 'P00_GHA_POSTGRES PASS action=start identity=%s lifecycle=%s\n' "$IDENTITY" "$id"
+  trap - EXIT INT TERM
 }
 
 stop() {
   test -f "$STATE_FILE"
-  local id run_label job_label
-  id="$(jq -er '.lifecycleId | select(test("^[0-9a-f]{64}$"))' "$STATE_FILE")"
-  run_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")"
-  job_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.job"}}' "$id")"
-  test "$run_label" = "$GITHUB_RUN_ID"
-  test "$job_label" = "$GITHUB_JOB"
-  docker rm -f "$id" >/dev/null
+  local id cid state
+  cid="$(cid_id)"
+  state="$(state_id)"
+  test -n "$state"
+  if [[ -n "$cid" ]]; then test "$cid" = "$state"; fi
+  id="${cid:-$state}"
+  cleanup_exact_container
   if docker inspect "$id" >/dev/null 2>&1; then exit 2; fi
-  rm -f "$STATE_FILE" "$STATE_ROOT/postgresql-attestation.json" "$STATE_ROOT/e2e-service-attestation.json"
+  rm -f "$CID_FILE" "$STATE_FILE" \
+    "$STATE_ROOT/postgresql-attestation.json" "$STATE_ROOT/e2e-service-attestation.json"
   rmdir "$STATE_ROOT"
   printf 'P00_GHA_POSTGRES PASS action=stop lifecycle=%s\n' "$id"
 }
