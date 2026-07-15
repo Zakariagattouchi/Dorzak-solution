@@ -72,6 +72,8 @@
   --color-error-soft: #ffdad6;
   --color-info: #0060a2;
   --color-info-soft: #e8f3ff;
+  --status-pill-success-on-soft: #0b7841;
+  --status-pill-warning-on-soft: #946016;
 
   /* ── F&B Specific ── */
   --color-kitchen-hot: #e8590c;
