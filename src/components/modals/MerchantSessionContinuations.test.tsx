@@ -24,6 +24,7 @@ const doubles = vi.hoisted(() => ({
   clearCart: vi.fn(),
   closeModal: vi.fn(),
   createOrder: vi.fn(),
+  currency: 'QAR',
   fetchProducts: vi.fn(),
   openModal: vi.fn(),
 }));
@@ -89,7 +90,7 @@ vi.mock('../../stores/settingsStore', () => ({
     selector({
       accountInfo: {
         chargeSalesTax: false,
-        currency: 'QAR',
+        currency: doubles.currency,
         taxIncludedInPrice: false,
         taxRate: 0,
       },
@@ -105,6 +106,7 @@ vi.mock('../forms/LocationPicker', () => ({ LocationPicker: () => null }));
 beforeEach(() => {
   vi.clearAllMocks();
   doubles.activeModal = null;
+  doubles.currency = 'QAR';
   doubles.addCustomer.mockResolvedValue(undefined);
   doubles.addProduct.mockResolvedValue(undefined);
   doubles.createOrder.mockResolvedValue({ id: 'ORDER-1', total: 20 });
@@ -186,4 +188,36 @@ test('payment modal suppresses late sale UI, cart, and catalog continuations aft
   expect.soft(doubles.openModal).not.toHaveBeenCalled();
   expect.soft(doubles.fetchProducts).not.toHaveBeenCalled();
   expect.soft(completeButton).toBeDisabled();
+});
+
+test('product modal labels merchant price inputs with the configured ISO currency', async () => {
+  const user = userEvent.setup();
+  doubles.activeModal = 'PRODUCT_CREATE';
+
+  const view = render(<ProductModal />);
+  await user.click(screen.getByRole('button', { name: 'Pricing & Profit' }));
+  expect.soft(screen.queryByLabelText('Selling Price (QAR) *')).toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Cost Price (QAR)')).toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Selling Price ($) *')).not.toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Cost Price ($)')).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: 'Variants (0)' }));
+  expect.soft(screen.queryByPlaceholderText('Price (QAR)')).toBeInTheDocument();
+  expect.soft(screen.queryByPlaceholderText('Price ($)')).not.toBeInTheDocument();
+
+  view.unmount();
+  doubles.currency = 'BHD';
+  render(<ProductModal />);
+  await user.click(screen.getByRole('button', { name: 'Pricing & Profit' }));
+  expect.soft(screen.queryByLabelText('Selling Price (BHD) *')).toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Cost Price (BHD)')).toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Selling Price (QAR) *')).not.toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Cost Price (QAR)')).not.toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Selling Price ($) *')).not.toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Cost Price ($)')).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: 'Variants (0)' }));
+  expect.soft(screen.queryByPlaceholderText('Price (BHD)')).toBeInTheDocument();
+  expect.soft(screen.queryByPlaceholderText('Price (QAR)')).not.toBeInTheDocument();
+  expect.soft(screen.queryByPlaceholderText('Price ($)')).not.toBeInTheDocument();
 });

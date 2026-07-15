@@ -15,11 +15,13 @@ import {
   isMerchantScopeCurrent,
   requireCurrentMerchantScope,
 } from '../../stores/merchantScope';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 export const ProductModal: React.FC = () => {
   const { activeModal, payload, closeModal } = useModalStore();
   const { categories, addProduct } = useProductStore();
   const { addToast } = useToastStore();
+  const currency = useSettingsStore((state) => state.accountInfo.currency);
 
   const [activeTab, setActiveTab] = useState<'BASIC' | 'PRICING' | 'STOCK' | 'VARIANTS' | 'ONLINE'>(
     'BASIC',
@@ -295,7 +297,7 @@ export const ProductModal: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <TextInput
-                label="Selling Price ($) *"
+                label={`Selling Price (${currency}) *`}
                 type="number"
                 step="0.01"
                 value={price}
@@ -303,7 +305,7 @@ export const ProductModal: React.FC = () => {
                 placeholder="0.00"
               />
               <TextInput
-                label="Cost Price ($)"
+                label={`Cost Price (${currency})`}
                 type="number"
                 step="0.01"
                 value={cost}
@@ -407,7 +409,7 @@ export const ProductModal: React.FC = () => {
                   onChange={(e) => setNewVarName(e.target.value)}
                 />
                 <TextInput
-                  placeholder="Price ($)"
+                  placeholder={`Price (${currency})`}
                   type="number"
                   step="0.01"
                   value={newVarPrice}

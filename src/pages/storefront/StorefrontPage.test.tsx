@@ -127,3 +127,43 @@ test('late storefront refresh produces no toast or billing navigation', async ()
   expect.soft(doubles.addToast).not.toHaveBeenCalled();
   expect.soft(doubles.navigate).not.toHaveBeenCalledWith('/billing');
 });
+
+test('storefront labels fulfillment amounts with the configured ISO currency', async () => {
+  const user = userEvent.setup();
+  doubles.accountInfo = {
+    ...initialAccountInfo,
+    currency: 'QAR',
+    latitude: 25.3,
+    longitude: 51.5,
+  };
+
+  const view = render(<StorefrontPage />);
+  await user.click(screen.getByRole('button', { name: 'Delivery, Pickup & Dine-in' }));
+
+  expect.soft(screen.queryByLabelText('Standard Delivery Fee (QAR)')).toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Free Delivery Threshold (QAR)')).toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Minimum Order Value (QAR)')).toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Standard Delivery Fee ($)')).not.toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Free Delivery Threshold ($)')).not.toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Minimum Order Value ($)')).not.toBeInTheDocument();
+
+  view.unmount();
+  doubles.accountInfo = {
+    ...initialAccountInfo,
+    currency: 'BHD',
+    latitude: 25.3,
+    longitude: 51.5,
+  };
+  render(<StorefrontPage />);
+  await user.click(screen.getByRole('button', { name: 'Delivery, Pickup & Dine-in' }));
+
+  expect.soft(screen.queryByLabelText('Standard Delivery Fee (BHD)')).toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Free Delivery Threshold (BHD)')).toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Minimum Order Value (BHD)')).toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Standard Delivery Fee (QAR)')).not.toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Free Delivery Threshold (QAR)')).not.toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Minimum Order Value (QAR)')).not.toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Standard Delivery Fee ($)')).not.toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Free Delivery Threshold ($)')).not.toBeInTheDocument();
+  expect.soft(screen.queryByLabelText('Minimum Order Value ($)')).not.toBeInTheDocument();
+});

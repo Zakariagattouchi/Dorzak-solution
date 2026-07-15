@@ -693,21 +693,21 @@ export const StorefrontPage: React.FC = () => {
             <div style={{ borderTop: '1px solid var(--color-border)', margin: '8px 0' }} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
               <TextInput
-                label="Standard Delivery Fee ($)"
+                label={`Standard Delivery Fee (${accountInfo.currency})`}
                 type="number"
                 step="0.5"
                 value={deliveryFee}
                 onChange={(e) => setDeliveryFee(e.target.value)}
               />
               <TextInput
-                label="Free Delivery Threshold ($)"
+                label={`Free Delivery Threshold (${accountInfo.currency})`}
                 type="number"
                 step="1"
                 value={freeDeliveryThreshold}
                 onChange={(e) => setFreeDeliveryThreshold(e.target.value)}
               />
               <TextInput
-                label="Minimum Order Value ($)"
+                label={`Minimum Order Value (${accountInfo.currency})`}
                 type="number"
                 step="1"
                 value={minOrderAmount}
