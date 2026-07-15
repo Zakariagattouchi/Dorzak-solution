@@ -28,7 +28,9 @@ final class OrderAndStockConcurrencyTest extends TestCase
         $product = $this->product($store, 10);
         $payload = ['store_id' => $store->id, 'product_id' => $product->id, 'quantity' => 1];
 
-        $results = ProcessBarrier::run('create-order', [$payload, $payload]);
+        $run = ProcessBarrier::run('create-order', [$payload, $payload]);
+        self::assertSame('stores', $run['blocked_on']);
+        $results = $run['outcomes'];
 
         self::assertCount(2, $results);
         self::assertCount(2, array_filter($results, fn (array $result) => $result['ok'] === true));
@@ -51,7 +53,9 @@ final class OrderAndStockConcurrencyTest extends TestCase
         $product = $this->product($store, 1);
         $payload = ['store_id' => $store->id, 'product_id' => $product->id, 'quantity' => 1];
 
-        $results = ProcessBarrier::run('create-order', [$payload, $payload]);
+        $run = ProcessBarrier::run('create-order', [$payload, $payload]);
+        self::assertSame('stores', $run['blocked_on']);
+        $results = $run['outcomes'];
 
         self::assertCount(1, array_filter($results, fn (array $result) => $result['ok'] === true));
         $failures = array_values(array_filter($results, fn (array $result) => $result['ok'] === false));
@@ -74,7 +78,9 @@ final class OrderAndStockConcurrencyTest extends TestCase
         app(WalletService::class)->credit($customer, 10, 'P00 seed');
         $payload = ['store_id' => $store->id, 'customer_id' => $customer->id, 'amount' => 8];
 
-        $results = ProcessBarrier::run('redeem-wallet', [$payload, $payload]);
+        $run = ProcessBarrier::run('redeem-wallet', [$payload, $payload]);
+        self::assertSame('wallet_accounts', $run['blocked_on']);
+        $results = $run['outcomes'];
 
         self::assertCount(1, array_filter($results, fn (array $result) => $result['ok'] === true));
         $failures = array_values(array_filter($results, fn (array $result) => $result['ok'] === false));

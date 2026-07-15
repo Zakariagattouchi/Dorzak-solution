@@ -10,9 +10,25 @@ use Symfony\Component\Process\Process;
 
 final class ProcessBarrier
 {
-    /** @return list<array<string, mixed>> */
+    private const TIMEOUT_NANOSECONDS = 15_000_000_000;
+
+    /**
+     * @return array{
+     *     blocked_on: 'stores'|'wallet_accounts',
+     *     outcomes: list<array<string, mixed>>
+     * }
+     */
     public static function run(string $operation, array $payloads): array
     {
+        $blockedOn = match ($operation) {
+            'create-order' => 'stores',
+            'redeem-wallet' => 'wallet_accounts',
+            default => throw new RuntimeException('Concurrency operation is unsupported.'),
+        };
+        if (count($payloads) !== 2) {
+            throw new RuntimeException('Concurrency requires exactly two actors.');
+        }
+
         $qualification = [];
         foreach ([
             'DB_URL', 'P00_PG_IDENTITY', 'P00_PG_ATTESTATION_PATH',
@@ -33,19 +49,22 @@ final class ProcessBarrier
             || getenv('P00_PG_TEST_SUBSTITUTE_URL_PATH') !== false) {
             throw new RuntimeException('Concurrency qualification environment is unsafe.');
         }
+
+        $deadline = hrtime(true) + self::TIMEOUT_NANOSECONDS;
         $actors = [];
         try {
-            foreach ($payloads as $payload) {
+            foreach (['holder', 'contender'] as $index => $role) {
                 try {
                     $input = new InputStream;
                     $process = new Process([
                         PHP_BINARY,
                         __DIR__.'/concurrency-worker.php',
                         $operation,
-                        base64_encode(json_encode($payload, JSON_THROW_ON_ERROR)),
+                        base64_encode(json_encode($payloads[$index], JSON_THROW_ON_ERROR)),
+                        $role,
                     ], dirname(__DIR__, 2), array_merge($_SERVER, $_ENV, $qualification), null, 15);
                     $process->setInput($input);
-                    $actors[] = [$process, $input];
+                    $actors[] = [$process, $input, $role];
                     $process->start();
                 } catch (\Throwable) {
                     throw new RuntimeException('Concurrency actor failed during start phase.');
@@ -53,166 +72,275 @@ final class ProcessBarrier
             }
 
             $outputs = array_fill(0, count($actors), '');
-            $ready = array_fill_keys(array_keys($actors), true);
-            while ($ready !== []) {
-                foreach (array_keys($ready) as $index) {
-                    [$process] = $actors[$index];
-                    self::pump($process, $outputs[$index]);
-                    if (str_contains($outputs[$index], "READY\n")) {
-                        unset($ready[$index]);
+            $bootstrapSeen = array_fill(0, count($actors), false);
+            $pids = self::awaitReady($actors, $outputs, $bootstrapSeen, $deadline);
 
-                        continue;
-                    }
-                    if (! $process->isRunning()) {
-                        throw new RuntimeException('Concurrency actor exited during READY phase.');
-                    }
-                    try {
-                        $process->checkTimeout();
-                    } catch (ProcessTimedOutException) {
-                        throw new RuntimeException('Concurrency READY phase timed out.');
-                    }
-                }
-            }
-            foreach ($actors as [$process, $input]) {
-                $input->write("GO\n");
-                $input->close();
-                $process->setTimeout((microtime(true) - $process->getStartTime()) + 15);
-            }
-            $acknowledgements = array_fill_keys(array_keys($actors), true);
-            while ($acknowledgements !== []) {
-                foreach (array_keys($acknowledgements) as $index) {
-                    [$process] = $actors[$index];
-                    self::pump($process, $outputs[$index]);
-                    if (str_contains($outputs[$index], "GO_RECEIVED\n")) {
-                        $process->setTimeout((microtime(true) - $process->getStartTime()) + 15);
-                        unset($acknowledgements[$index]);
+            self::writeCommand($actors[0][1], 'GO');
+            self::awaitToken(
+                $actors[0][0],
+                $outputs[0],
+                $bootstrapSeen[0],
+                'HELD',
+                $deadline,
+            );
 
-                        continue;
-                    }
-                    if (! $process->isRunning()) {
-                        throw new RuntimeException('Concurrency actor exited during GO acknowledgement phase.');
-                    }
-                    try {
-                        $process->checkTimeout();
-                    } catch (ProcessTimedOutException) {
-                        throw new RuntimeException('Concurrency GO acknowledgement phase timed out.');
-                    }
-                }
-            }
+            self::writeCommand($actors[1][1], 'GO');
+            self::awaitToken(
+                $actors[1][0],
+                $outputs[1],
+                $bootstrapSeen[1],
+                'ATTEMPT',
+                $deadline,
+            );
+            self::awaitBlockingProof(
+                $actors,
+                $outputs,
+                $bootstrapSeen,
+                $pids[0],
+                $pids[1],
+                $deadline,
+            );
 
-            $results = [];
-            $pending = array_fill_keys(array_keys($actors), true);
-            $observationStartedAt = hrtime(true);
-            $snapshot = null;
-            $snapshotAttempted = false;
-            while ($pending !== []) {
-                foreach (array_keys($pending) as $index) {
-                    [$process] = $actors[$index];
-                    self::pump($process, $outputs[$index]);
-                    if (! $process->isRunning()) {
-                        if (! $process->isSuccessful()) {
-                            throw new RuntimeException(self::resultFailure('failed', $snapshot));
-                        }
-                        $lines = array_values(array_filter(explode("\n", trim($outputs[$index]))));
-                        $results[$index] = json_decode((string) end($lines), true, flags: JSON_THROW_ON_ERROR);
-                        unset($pending[$index]);
+            self::writeCommand($actors[0][1], 'RELEASE');
+            $outcomes = self::collectOutcomes($actors, $outputs, $bootstrapSeen, $deadline);
 
-                        continue;
-                    }
-                    try {
-                        $process->checkTimeout();
-                    } catch (ProcessTimedOutException) {
-                        throw new RuntimeException(self::resultFailure('timed out', $snapshot));
-                    }
-                }
-                if ($pending !== [] && ! $snapshotAttempted && hrtime(true) - $observationStartedAt >= 2_000_000_000) {
-                    $snapshotAttempted = true;
-                    try {
-                        $snapshot = self::activitySnapshot();
-                    } catch (\Throwable) {
-                        $snapshot = null;
-                    }
-                }
-            }
-            ksort($results);
-
-            return array_values($results);
+            return ['blocked_on' => $blockedOn, 'outcomes' => $outcomes];
         } finally {
             self::stopActors($actors);
+        }
+    }
+
+    /** @return list<int> */
+    private static function awaitReady(
+        array $actors,
+        array &$outputs,
+        array &$bootstrapSeen,
+        int $deadline,
+    ): array {
+        $pending = array_fill_keys(array_keys($actors), true);
+        $pids = [];
+        while ($pending !== []) {
+            self::assertBeforeDeadline($deadline);
+            foreach (array_keys($pending) as $index) {
+                [$process] = $actors[$index];
+                self::pump($process, $outputs[$index], $bootstrapSeen[$index]);
+                if (preg_match('/(?:^|\n)READY ([1-9][0-9]*)\n/', $outputs[$index], $matches) === 1) {
+                    $pid = filter_var($matches[1], FILTER_VALIDATE_INT);
+                    if (! is_int($pid) || $pid < 1 || in_array($pid, $pids, true)) {
+                        throw new RuntimeException('Concurrency actor READY protocol failed.');
+                    }
+                    $pids[$index] = $pid;
+                    unset($pending[$index]);
+
+                    continue;
+                }
+                self::assertActorRunning($process, $deadline);
+            }
+        }
+        ksort($pids);
+
+        return array_values($pids);
+    }
+
+    private static function awaitToken(
+        Process $process,
+        string &$output,
+        bool &$bootstrapSeen,
+        string $token,
+        int $deadline,
+    ): void {
+        while (true) {
+            self::assertBeforeDeadline($deadline);
+            self::pump($process, $output, $bootstrapSeen);
+            if (preg_match('/(?:^|\n)'.preg_quote($token, '/').'\n/', $output) === 1) {
+                return;
+            }
+            self::assertActorRunning($process, $deadline);
+        }
+    }
+
+    private static function awaitBlockingProof(
+        array $actors,
+        array &$outputs,
+        array &$bootstrapSeen,
+        int $holderPid,
+        int $contenderPid,
+        int $deadline,
+    ): void {
+        while (true) {
+            self::assertBeforeDeadline($deadline);
+            foreach ($actors as $index => [$process]) {
+                self::pump($process, $outputs[$index], $bootstrapSeen[$index]);
+                self::assertActorRunning($process, $deadline);
+            }
+
+            try {
+                $row = DB::selectOne(<<<'SQL'
+                    SELECT wait_event_type, pg_blocking_pids(pid) AS blocking_pids
+                    FROM pg_stat_activity
+                    WHERE pid = CAST(? AS integer)
+                        AND datname = current_database()
+                        AND usename = current_user
+                    SQL, [$contenderPid]);
+            } catch (\Throwable) {
+                throw new RuntimeException('Concurrency blocking proof failed.');
+            }
+            if (is_object($row)
+                && ($row->wait_event_type ?? null) === 'Lock'
+                && self::blockingPids($row->blocking_pids ?? null) === [$holderPid]) {
+                return;
+            }
+        }
+    }
+
+    /** @return list<int> */
+    private static function blockingPids(mixed $value): array
+    {
+        if (! is_string($value) || preg_match('/^\{([1-9][0-9]*)\}$/', $value, $matches) !== 1) {
+            return [];
+        }
+        $pid = filter_var($matches[1], FILTER_VALIDATE_INT);
+
+        return is_int($pid) && $pid > 0 ? [$pid] : [];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function collectOutcomes(
+        array $actors,
+        array &$outputs,
+        array &$bootstrapSeen,
+        int $deadline,
+    ): array {
+        $pending = array_fill_keys(array_keys($actors), true);
+        $outcomes = [];
+        while ($pending !== []) {
+            self::assertBeforeDeadline($deadline);
+            foreach (array_keys($pending) as $index) {
+                [$process, , $role] = $actors[$index];
+                self::pump($process, $outputs[$index], $bootstrapSeen[$index]);
+                if ($process->isRunning()) {
+                    self::assertActorWithinDeadline($process, $deadline);
+
+                    continue;
+                }
+                if (! $process->isSuccessful()) {
+                    throw new RuntimeException('Concurrency actor failed during outcome phase.');
+                }
+                $outcomes[$index] = self::parseOutcome($outputs[$index], $role);
+                unset($pending[$index]);
+            }
+        }
+        ksort($outcomes);
+
+        return array_values($outcomes);
+    }
+
+    /** @return array<string, mixed> */
+    private static function parseOutcome(string $output, string $role): array
+    {
+        $phase = $role === 'holder' ? 'HELD' : 'ATTEMPT';
+        $pattern = '/\AREADY [1-9][0-9]*\n'.preg_quote($phase, '/').'\n([^\r\n]+)\n\z/';
+        if (preg_match($pattern, $output, $matches) !== 1) {
+            throw new RuntimeException('Concurrency actor outcome protocol failed.');
+        }
+        try {
+            $outcome = json_decode($matches[1], true, flags: JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            throw new RuntimeException('Concurrency actor outcome protocol failed.');
+        }
+        if (! is_array($outcome) || ! is_bool($outcome['ok'] ?? null)) {
+            throw new RuntimeException('Concurrency actor outcome protocol failed.');
+        }
+
+        return $outcome;
+    }
+
+    private static function writeCommand(InputStream $input, string $command): void
+    {
+        try {
+            $input->write($command."\n");
+        } catch (\Throwable) {
+            throw new RuntimeException('Concurrency actor command failed.');
+        }
+    }
+
+    private static function assertActorRunning(Process $process, int $deadline): void
+    {
+        self::assertBeforeDeadline($deadline);
+        if (! $process->isRunning()) {
+            throw new RuntimeException('Concurrency actor exited before barrier completion.');
+        }
+        self::assertActorWithinDeadline($process, $deadline);
+    }
+
+    private static function assertActorWithinDeadline(Process $process, int $deadline): void
+    {
+        self::assertBeforeDeadline($deadline);
+        try {
+            $process->checkTimeout();
+        } catch (ProcessTimedOutException) {
+            throw new RuntimeException('Concurrency barrier timed out.');
+        }
+    }
+
+    private static function assertBeforeDeadline(int $deadline): void
+    {
+        if (hrtime(true) >= $deadline) {
+            throw new RuntimeException('Concurrency barrier timed out.');
         }
     }
 
     private static function stopActors(array $actors): void
     {
         foreach ($actors as [$process, $input]) {
-            $input->close();
             try {
-                $process->stop(0);
+                if ($process->isRunning()) {
+                    $input->write("ABORT\n");
+                }
             } catch (\Throwable) {
-                // Preserve the active failure without exposing cleanup internals.
+                // Preserve the active result or failure.
+            }
+        }
+        foreach ($actors as [$process, $input]) {
+            try {
+                $input->close();
+            } catch (\Throwable) {
+                // Preserve the active result or failure.
+            }
+            try {
+                if ($process->isRunning()) {
+                    $process->stop(0);
+                }
+            } catch (\Throwable) {
+                // Preserve the active result or failure.
             }
         }
     }
 
-    private static function pump(Process $process, string &$output): void
+    private static function pump(Process $process, string &$output, bool &$bootstrapSeen): void
     {
         $output .= $process->getIncrementalOutput();
         $process->getIncrementalErrorOutput();
-    }
+        if ($bootstrapSeen) {
+            return;
+        }
 
-    /** @return array{parent_transaction_level: int, sessions: list<array<string, bool|int|string|null>>} */
-    private static function activitySnapshot(): array
-    {
-        $connection = DB::connection();
-        $rows = $connection->select(<<<'SQL'
-            SELECT
-                state,
-                wait_event_type,
-                wait_event,
-                cardinality(pg_blocking_pids(pid)) > 0 AS blocked,
-                cardinality(pg_blocking_pids(pid)) AS blocker_count,
-                CASE
-                    WHEN position('for update' IN lower(query)) > 0
-                        AND position('"stores"' IN lower(query)) > 0 THEN 'store-lock'
-                    WHEN position('for update' IN lower(query)) > 0
-                        AND position('"products"' IN lower(query)) > 0 THEN 'product-lock'
-                    WHEN lower(query) LIKE 'insert into "orders"%'
-                        OR lower(query) LIKE 'update "orders"%'
-                        OR lower(query) LIKE 'insert into "order_items"%'
-                        OR lower(query) LIKE 'update "order_items"%' THEN 'order-write'
-                    WHEN lower(query) LIKE 'update "products"%'
-                        OR lower(query) LIKE 'insert into "stock_movements"%'
-                        OR lower(query) LIKE 'update "stock_movements"%' THEN 'product-write'
-                    WHEN btrim(lower(query)) IN ('commit', 'rollback') THEN 'transaction-end'
-                    ELSE 'other'
-                END AS classifier
-            FROM pg_stat_activity
-            WHERE datname = current_database()
-                AND usename = current_user
-                AND pid <> pg_backend_pid()
-            ORDER BY classifier, state, wait_event_type NULLS FIRST, wait_event NULLS FIRST
-            SQL);
+        $lineEnd = strpos($output, "\n");
+        if ($lineEnd === false) {
+            if (strlen($output) > 256) {
+                throw new RuntimeException('Concurrency actor bootstrap protocol failed.');
+            }
 
-        return [
-            'parent_transaction_level' => $connection->transactionLevel(),
-            'sessions' => array_map(
-                static fn (object $row): array => [
-                    'state' => (string) $row->state,
-                    'wait_event_type' => $row->wait_event_type === null ? null : (string) $row->wait_event_type,
-                    'wait_event' => $row->wait_event === null ? null : (string) $row->wait_event,
-                    'blocked' => filter_var($row->blocked, FILTER_VALIDATE_BOOL),
-                    'blocker_count' => (int) $row->blocker_count,
-                    'classifier' => (string) $row->classifier,
-                ],
-                $rows,
-            ),
-        ];
-    }
-
-    private static function resultFailure(string $reason, ?array $snapshot): string
-    {
-        $message = "Concurrency result phase {$reason}.";
-
-        return $snapshot === null ? $message : $message.' '.json_encode($snapshot, JSON_THROW_ON_ERROR);
+            return;
+        }
+        $prelude = substr($output, 0, $lineEnd);
+        if (preg_match(
+            '/\AP00_POSTGRES_GUARD PASS database=p00_e2e_[0-9a-f]{32}_test server_version_num=16[0-9]{4}\z/',
+            $prelude,
+        ) !== 1) {
+            throw new RuntimeException('Concurrency actor bootstrap protocol failed.');
+        }
+        $output = substr($output, $lineEnd + 1);
+        $bootstrapSeen = true;
     }
 }
