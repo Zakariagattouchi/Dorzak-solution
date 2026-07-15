@@ -38,7 +38,7 @@ The provisioning guard rejects a non-PostgreSQL candidate, non-test database, mi
 
 ## Quality evidence
 
-Run scripts/quality/run-p00 --list for the six canonical jobs. Counts and versions come from scripts/quality/p00-contract.json and docs/superpowers/evidence/p00/manifest.json. The Vite warning for chunks larger than 500 kB is explicit accepted-open debt: its exact text, occurrence, affected files and hash are measured; it is not hidden, waived or grounds to raise the 216700-byte initial gzip limit.
+Run scripts/quality/run-p00 --list for the six canonical jobs. Counts and versions come from scripts/quality/p00-contract.json and docs/superpowers/evidence/p00/manifest.json. The Vite warning for chunks larger than 500 kB is explicit accepted-open debt: its exact text, occurrence, affected files and hash are measured; it is not hidden, waived or grounds to raise the 216797-byte initial gzip limit.
 
 ## Recovery after any failed writer boundary
 
