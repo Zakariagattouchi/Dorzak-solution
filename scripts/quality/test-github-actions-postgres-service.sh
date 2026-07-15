@@ -41,12 +41,12 @@ case "$1 $2" in
     fi
     if [[ "${FAKE_FAULT:-}" == invalid-stdout ]]; then printf 'not-a-container-id\n'; else printf '%s\n' "$ID"; fi ;;
   exec\ *)
-    if printf '%s\n' "$*" | rg -q 'pg_isready|REVOKE CONNECT'; then exit 0; fi
-    if printf '%s\n' "$*" | rg -q 'server_version_num'; then
+    if [[ "$*" == *pg_isready* || "$*" == *'REVOKE CONNECT'* ]]; then exit 0; fi
+    if [[ "$*" == *server_version_num* ]]; then
       if [[ "${FAKE_FAULT:-}" == bad-version ]]; then printf '150000\n'; else printf '160014\n'; fi
       exit 0
     fi
-    if printf '%s\n' "$*" | rg -q 'current_setting'; then cat "$FAKE_DOCKER_STATE/nonce"; printf '\n'; exit 0; fi
+    if [[ "$*" == *current_setting* ]]; then cat "$FAKE_DOCKER_STATE/nonce"; printf '\n'; exit 0; fi
     exit 2 ;;
   'port aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
     if [[ "${FAKE_FAULT:-}" == bad-port ]]; then printf '0.0.0.0:invalid\n'; else printf '127.0.0.1:54321\n'; fi ;;
@@ -67,7 +67,7 @@ DOCKER
 cat > "$TEMP/bin/jq" <<'JQ'
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ "${FAKE_FAULT:-}" == state-write ]] && printf '%s\n' "$*" | rg -q 'lifecycleId'; then
+if [[ "${FAKE_FAULT:-}" == state-write && "$*" == *lifecycleId* ]]; then
   exit 73
 fi
 exec "$REAL_JQ" "$@"
@@ -84,6 +84,23 @@ esac
 OPENSSL
 chmod +x "$TEMP/bin/docker" "$TEMP/bin/jq" "$TEMP/bin/openssl"
 
+HELPER_PATH="$TEMP/helper-path"
+mkdir -p "$HELPER_PATH"
+for command_name in awk bash cat chmod mkdir mv perl rm rmdir sed seq shasum sleep tr; do
+  ln -s "$(command -v "$command_name")" "$HELPER_PATH/$command_name"
+done
+ln -s "$TEMP/bin/docker" "$HELPER_PATH/docker"
+ln -s "$TEMP/bin/jq" "$HELPER_PATH/jq"
+ln -s "$TEMP/bin/openssl" "$HELPER_PATH/openssl"
+cat > "$HELPER_PATH/rg" <<'RG'
+#!/usr/bin/env bash
+set -euo pipefail
+: > "$FAKE_DOCKER_STATE/rg-sentinel-invoked"
+printf 'P00_GHA_POSTGRES_RG_SENTINEL FAIL invoked\n' >&2
+exit 97
+RG
+chmod +x "$HELPER_PATH/rg"
+
 export PATH="$TEMP/bin:$PATH"
 export RUNNER_TEMP="$TEMP/runner"
 export RUNNER_OS=Linux
@@ -92,12 +109,13 @@ export GITHUB_RUN_ID=7001
 export GITHUB_JOB=postgresql-16
 export GITHUB_RUN_ATTEMPT=1
 export GITHUB_ENV="$TEMP/github-env"
-start_output="$($HELPER start)"
+start_output="$(PATH="$HELPER_PATH" "$HELPER" start)"
 test -z "$(printf '%s\n' "$start_output" | rg -v '^::add-mask::' | rg 'postgresql://|POSTGRES_PASSWORD' || true)"
 rg -x 'P00_PG_IDENTITY=docker.io/library/postgres@sha256:c95fd5346040eba2de3c435e14874af18f5d681fb5848d4f081dbead0878af28' "$GITHUB_ENV"
 rg -x 'P00_PG_ATTESTATION_SHA256=[0-9a-f]{64}' "$GITHUB_ENV"
 rg -x 'P00_E2E_SERVICE_LIFECYCLE_ID=[0-9a-f]{64}' "$GITHUB_ENV"
-$HELPER stop
+PATH="$HELPER_PATH" "$HELPER" stop
+test ! -e "$FAKE_DOCKER_STATE/rg-sentinel-invoked"
 test "$(rg -c '^rm -f a{64} $' "$FAKE_DOCKER_STATE/calls")" = 1
 test -z "$(rg 'rm -f .*(\*|dorzak-p00-postgres)' "$FAKE_DOCKER_STATE/calls" || true)"
 

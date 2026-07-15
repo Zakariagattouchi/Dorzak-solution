@@ -54,7 +54,7 @@ cleanup_exact_container() {
   if [[ -n "$cid" && -n "$state" ]]; then test "$cid" = "$state" || return 1; fi
   id="${cid:-$state}"
   test -n "$id" || return 0
-  printf '%s\n' "$id" | rg -x '[0-9a-f]{64}' >/dev/null || return 1
+  [[ "$id" =~ ^[0-9a-f]{64}$ ]] || return 1
   kind_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.kind"}}' "$id")" \
     || return 1
   run_label="$(docker inspect --format '{{index .Config.Labels "dorzak.p00.run"}}' "$id")" \
@@ -127,9 +127,9 @@ start() {
     -e POSTGRES_DB=postgres \
     -p 127.0.0.1::5432 \
     "$IMAGE" -c "dorzak.instance_nonce_sha256=$nonce_sha")"
-  printf '%s\n' "$id" | rg -x '[0-9a-f]{64}' >/dev/null
+  [[ "$id" =~ ^[0-9a-f]{64}$ ]]
   cid="$(cid_id)"
-  printf '%s\n' "$cid" | rg -x '[0-9a-f]{64}' >/dev/null
+  [[ "$cid" =~ ^[0-9a-f]{64}$ ]]
   test "$id" = "$cid"
   local state_tmp="$STATE_ROOT/state.json.tmp"
   jq -n --arg id "$id" --arg run "$GITHUB_RUN_ID" --arg job "$GITHUB_JOB" \
