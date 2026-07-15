@@ -11,11 +11,11 @@
       "command": "scripts/quality/run-p00 php-style-static",
       "testCount": 0
     },
-    { "name": "sqlite", "command": "scripts/quality/run-p00 sqlite", "testCount": 446 },
+    { "name": "sqlite", "command": "scripts/quality/run-p00 sqlite", "testCount": 451 },
     {
       "name": "postgresql-16",
       "command": "scripts/quality/run-p00 postgresql-16",
-      "testCount": 450
+      "testCount": 455
     },
     { "name": "frontend", "command": "scripts/quality/run-p00 frontend", "testCount": 26 },
     { "name": "playwright", "command": "scripts/quality/run-p00 playwright", "testCount": 9 }

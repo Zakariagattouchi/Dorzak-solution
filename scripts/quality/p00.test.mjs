@@ -171,8 +171,8 @@ test('contract freezes ordered jobs, counts, budget, and open Vite debt', () => 
     [
       ['composer-validation', 11],
       ['php-style-static', 0],
-      ['sqlite', 446],
-      ['postgresql-16', 450],
+      ['sqlite', 451],
+      ['postgresql-16', 455],
       ['frontend', 26],
       ['playwright', 9],
     ],
