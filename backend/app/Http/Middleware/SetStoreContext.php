@@ -2,9 +2,13 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
+use App\Support\ImpersonationToken;
 use App\Support\StoreContext;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Laravel\Sanctum\PersonalAccessToken;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -18,6 +22,37 @@ class SetStoreContext
 
     public function handle(Request $request, Closure $next): Response
     {
+        $presentedToken = ImpersonationToken::fromRequest($request);
+
+        if ($presentedToken !== null) {
+            if (! $this->tokenIsCurrent($presentedToken)) {
+                return $this->rejectImpersonationOrContinueLogout($request, $next, $presentedToken);
+            }
+
+            $tokenable = $presentedToken->tokenable;
+
+            if (! $tokenable instanceof User) {
+                abort(401);
+            }
+
+            $user = $tokenable->withAccessToken($presentedToken);
+            Auth::guard('sanctum')->setUser($user);
+            $request->setUserResolver(static fn (?string $guard = null): User => $user);
+
+            if (ImpersonationToken::isImpersonation($presentedToken)) {
+                $storeId = ImpersonationToken::boundStoreId($presentedToken);
+                $membership = $storeId === null ? null : $user->currentMembership($storeId);
+
+                if ($membership === null || ! $membership->isActive()) {
+                    return $this->rejectImpersonationOrContinueLogout($request, $next, $presentedToken);
+                }
+
+                $this->context->setMembership($membership);
+
+                return $next($request);
+            }
+        }
+
         $user = $request->user();
 
         // Always resolve fresh for this request. (The scoped StoreContext is not
@@ -34,5 +69,39 @@ class SetStoreContext
         }
 
         return $next($request);
+    }
+
+    private function tokenIsCurrent(PersonalAccessToken $token): bool
+    {
+        $expiration = config('sanctum.expiration');
+        $expiredByAge = is_numeric($expiration)
+            && (int) $expiration > 0
+            && ($token->created_at === null || ! $token->created_at->gt(now()->subMinutes((int) $expiration)));
+
+        return ! $expiredByAge
+            && ($token->expires_at === null || ! $token->expires_at->isPast());
+    }
+
+    private function rejectImpersonationOrContinueLogout(
+        Request $request,
+        Closure $next,
+        PersonalAccessToken $token,
+    ): Response {
+        if (ImpersonationToken::isImpersonation($token)
+            && $request->isMethod('POST')
+            && $request->is('api/v1/auth/logout')) {
+            $this->context->setMembership(null);
+
+            return $next($request);
+        }
+
+        if (ImpersonationToken::isImpersonation($token)) {
+            abort(response()->json([
+                'message' => 'The impersonation token has an invalid store context.',
+                'code' => 'INVALID_IMPERSONATION_CONTEXT',
+            ], 403));
+        }
+
+        abort(401);
     }
 }

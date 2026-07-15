@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\AuthSessionResource;
 use App\Http\Resources\PlatformSessionResource;
 use App\Models\User;
+use App\Support\ImpersonationToken;
 use App\Support\StoreContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -107,10 +108,15 @@ class AuthController extends Controller
     /** POST /auth/logout — revoke current token and/or invalidate the session. */
     public function logout(Request $request): JsonResponse
     {
+        $presentedToken = ImpersonationToken::fromRequest($request);
+        $presentedToken?->delete();
+
         $token = $request->user()?->currentAccessToken();
 
         // Personal access token (bearer) — revoke just this one.
-        if ($token !== null && ! $token instanceof TransientToken) {
+        if ($token !== null
+            && ! $token instanceof TransientToken
+            && ($presentedToken === null || ! $token->is($presentedToken))) {
             $token->delete();
         }
 

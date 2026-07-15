@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Platform;
 
+use App\Enums\StaffRole;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -130,7 +131,9 @@ class SuperAdminTest extends TestCase
 
     public function test_admin_can_impersonate_a_store_owner(): void
     {
-        ['store' => $store, 'user' => $owner] = $this->createStoreWithOwner();
+        ['store' => $earlierStore, 'user' => $owner] = $this->createStoreWithOwner();
+        $selectedStore = Store::factory()->create();
+        $this->attachMember($selectedStore, $owner, StaffRole::OWNER);
 
         // Use a real bearer token (not Sanctum::actingAs) so the follow-up call
         // below is authenticated by the returned impersonation token, not a
@@ -138,26 +141,177 @@ class SuperAdminTest extends TestCase
         $adminToken = $this->admin->createToken('web')->plainTextToken;
 
         $response = $this->withToken($adminToken)
-            ->postJson("/api/v1/platform/stores/{$store->id}/impersonate")
+            ->postJson("/api/v1/platform/stores/{$selectedStore->id}/impersonate")
             ->assertOk()
-            ->assertJsonPath('data.store.id', $store->id)
+            ->assertJsonPath('data.store.id', $selectedStore->id)
             ->assertJsonPath('data.acting_as.email', $owner->email);
 
         $token = $response->json('data.token');
+        $tokenId = (int) explode('|', $token, 2)[0];
+        $this->assertSame(
+            ['store.impersonation', 'store:'.$selectedStore->id],
+            $owner->tokens()->findOrFail($tokenId)->abilities,
+        );
 
-        // The impersonation token operates as the owner inside their store.
+        // The token is bound to the selected store even when the owner has an
+        // earlier membership and a hostile store header requests that store.
         $this->app['auth']->forgetGuards();
         $this->withToken($token)
             ->getJson('/api/v1/auth/me')
             ->assertOk()
             ->assertJsonPath('data.user.email', $owner->email)
-            ->assertJsonPath('data.store.id', $store->id);
+            ->assertJsonPath('data.store.id', $selectedStore->id);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)
+            ->withHeader('X-Store-Id', (string) $earlierStore->id)
+            ->getJson('/api/v1/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.user.email', $owner->email)
+            ->assertJsonPath('data.store.id', $selectedStore->id);
+
+        // A real bearer must take precedence over a simultaneous cookie admin.
+        $this->app['auth']->forgetGuards();
+        $this->actingAs($this->admin, 'web')
+            ->withToken($token)
+            ->getJson('/api/v1/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.user.email', $owner->email)
+            ->assertJsonPath('data.store.id', $selectedStore->id);
 
         $this->assertDatabaseHas('platform_audit_logs', [
             'action' => 'store.impersonate',
             'admin_user_id' => $this->admin->id,
-            'target_id' => $store->id,
+            'target_id' => $selectedStore->id,
         ]);
+    }
+
+    public function test_invalid_impersonation_contexts_fail_closed(): void
+    {
+        ['store' => $store, 'user' => $owner] = $this->createStoreWithOwner();
+        $name = 'impersonation:admin:'.$this->admin->id;
+        $marker = 'store.impersonation';
+        $binding = 'store:'.$store->id;
+
+        $invalidAbilities = [
+            'legacy wildcard' => ['*'],
+            'missing marker' => [$binding],
+            'missing binding' => [$marker],
+            'duplicate marker' => [$marker, $marker, $binding],
+            'duplicate binding' => [$marker, $binding, $binding],
+            'extra ability' => [$marker, $binding, 'orders.view'],
+            'wildcard binding' => [$marker, '*'],
+            'malformed binding' => [$marker, 'store:0'],
+            'binding suffix' => [$marker, $binding.'junk'],
+            'leading-zero binding' => [$marker, 'store:0'.$store->id],
+        ];
+
+        foreach ($invalidAbilities as $case => $abilities) {
+            $token = $owner->createToken($name, $abilities, now()->addHour())->plainTextToken;
+            $this->app['auth']->forgetGuards();
+
+            $this->withToken($token)
+                ->getJson('/api/v1/auth/me')
+                ->assertForbidden("{$case} must fail closed")
+                ->assertJsonPath('code', 'INVALID_IMPERSONATION_CONTEXT');
+        }
+    }
+
+    public function test_invalid_impersonation_contexts_cannot_reach_merchant_routes(): void
+    {
+        ['store' => $store, 'user' => $owner] = $this->createStoreWithOwner();
+        $name = 'impersonation:admin:'.$this->admin->id;
+        $invalidAbilities = [
+            ['*'],
+            ['store.impersonation', 'store:'.$store->id.'junk'],
+        ];
+
+        foreach ($invalidAbilities as $abilities) {
+            $token = $owner->createToken($name, $abilities, now()->addHour())->plainTextToken;
+            $this->app['auth']->forgetGuards();
+
+            $this->withToken($token)
+                ->getJson('/api/v1/settings')
+                ->assertForbidden()
+                ->assertJsonPath('code', 'INVALID_IMPERSONATION_CONTEXT');
+        }
+    }
+
+    public function test_near_miss_legacy_names_are_not_impersonation_tokens(): void
+    {
+        ['store' => $store, 'user' => $owner] = $this->createStoreWithOwner();
+        $nearMissNames = [
+            'impersonation:admin:0'.$this->admin->id,
+            'impersonation:admin:'.$this->admin->id.':suffix',
+        ];
+
+        foreach ($nearMissNames as $name) {
+            $token = $owner->createToken($name, ['*'], now()->addHour())->plainTextToken;
+            $this->app['auth']->forgetGuards();
+
+            $this->withToken($token)
+                ->getJson('/api/v1/auth/me')
+                ->assertOk()
+                ->assertJsonPath('data.user.id', $owner->id)
+                ->assertJsonPath('data.store.id', $store->id);
+        }
+    }
+
+    public function test_expired_impersonation_tokens_do_not_fall_back_to_cookie_authentication(): void
+    {
+        ['store' => $store, 'user' => $owner] = $this->createStoreWithOwner();
+        $abilities = ['store.impersonation', 'store:'.$store->id];
+        $name = 'impersonation:admin:'.$this->admin->id;
+
+        $expiredAt = $owner->createToken($name, $abilities, now()->subMinute());
+        $this->actingAs($this->admin, 'web')
+            ->withToken($expiredAt->plainTextToken)
+            ->getJson('/api/v1/auth/me')
+            ->assertForbidden()
+            ->assertJsonPath('code', 'INVALID_IMPERSONATION_CONTEXT');
+
+        config(['sanctum.expiration' => 60]);
+        $expiredByAge = $owner->createToken($name, $abilities, now()->addHour());
+        $expiredByAge->accessToken->forceFill(['created_at' => now()->subMinutes(61)])->save();
+        $this->app['auth']->forgetGuards();
+
+        $this->actingAs($this->admin, 'web')
+            ->withToken($expiredByAge->plainTextToken)
+            ->getJson('/api/v1/auth/me')
+            ->assertForbidden()
+            ->assertJsonPath('code', 'INVALID_IMPERSONATION_CONTEXT');
+    }
+
+    public function test_logout_can_self_revoke_invalid_impersonation_bearers_only(): void
+    {
+        ['store' => $store, 'user' => $owner] = $this->createStoreWithOwner();
+        $adminToken = $this->admin->createToken('operator');
+        $unrelatedOwnerToken = $owner->createToken('owner-device');
+        $name = 'impersonation:admin:'.$this->admin->id;
+        $invalidAbilities = [
+            ['*'],
+            ['store.impersonation', 'store:0'],
+        ];
+
+        foreach ($invalidAbilities as $abilities) {
+            $invalid = $owner->createToken($name, $abilities, now()->addHour());
+
+            $this->actingAs($this->admin, 'web')
+                ->withToken($invalid->plainTextToken)
+                ->getJson('/api/v1/auth/me')
+                ->assertForbidden()
+                ->assertJsonPath('code', 'INVALID_IMPERSONATION_CONTEXT');
+
+            $this->app['auth']->forgetGuards();
+            $this->actingAs($this->admin, 'web')
+                ->withToken($invalid->plainTextToken)
+                ->postJson('/api/v1/auth/logout')
+                ->assertNoContent();
+
+            $this->assertDatabaseMissing('personal_access_tokens', ['id' => $invalid->accessToken->id]);
+            $this->assertDatabaseHas('personal_access_tokens', ['id' => $adminToken->accessToken->id]);
+            $this->assertDatabaseHas('personal_access_tokens', ['id' => $unrelatedOwnerToken->accessToken->id]);
+        }
     }
 
     public function test_impersonating_a_store_without_an_owner_fails(): void

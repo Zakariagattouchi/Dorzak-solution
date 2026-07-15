@@ -6,6 +6,7 @@ use App\Enums\StaffRole;
 use App\Http\Controllers\Controller;
 use App\Models\PlatformAuditLog;
 use App\Models\Store;
+use App\Support\ImpersonationToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -34,7 +35,7 @@ class ImpersonationController extends Controller
         // the owner's membership and grants full back-office access to this store.
         $token = $owner->createToken(
             'impersonation:admin:'.$request->user()->id,
-            ['*'],
+            ImpersonationToken::abilitiesForStore($store->id),
             now()->addHour(),
         )->plainTextToken;
 
