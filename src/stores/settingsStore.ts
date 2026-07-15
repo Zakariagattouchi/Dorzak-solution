@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import { initialAccountInfo } from '../data/mockData';
 import { settingsApi } from '../api/endpoints';
 import { toAccountInfo, settingsGroupPayloads } from '../api/adapters';
+import {
+  captureMerchantScope,
+  isMerchantScopeCurrent,
+  requireCurrentMerchantScope,
+} from './merchantScope';
 
 const storageKey = 'dorzak-merchant-lang';
 type Account = typeof initialAccountInfo;
@@ -33,28 +38,35 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   loading: false,
 
   fetchSettings: async () => {
+    const scope = captureMerchantScope();
     set({ loading: true });
     try {
       const res: any = await settingsApi.get();
+      requireCurrentMerchantScope(scope);
       const mapped = toAccountInfo(res.data);
       const accountInfo = { ...initialAccountInfo, ...mapped } as Account;
       applyDir(accountInfo.language);
       set({ accountInfo, loading: false });
     } catch {
+      if (!isMerchantScopeCurrent(scope)) return;
       set({ loading: false });
     }
   },
 
   updateSettings: async (updates) => {
+    const scope = captureMerchantScope();
     const merged = { ...get().accountInfo, ...updates } as Account;
     const groups = settingsGroupPayloads(merged, updates);
 
     let envelope: any = null;
     for (const [group, payload] of groups) {
+      requireCurrentMerchantScope(scope);
       const res: any = await settingsApi.update(group, payload);
+      requireCurrentMerchantScope(scope);
       envelope = res.data;
     }
 
+    requireCurrentMerchantScope(scope);
     const accountInfo = envelope
       ? ({ ...initialAccountInfo, ...toAccountInfo(envelope) } as Account)
       : merged;

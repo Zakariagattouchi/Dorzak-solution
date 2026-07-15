@@ -15,6 +15,8 @@ const doubles = vi.hoisted(() => ({
   fetchCategories: vi.fn(),
   fetchCustomers: vi.fn(),
   fetchOrders: vi.fn(),
+  nextPollingInstance: 0,
+  pollingEvents: [] as string[],
 }));
 
 vi.mock('../stores/authStore', () => ({
@@ -35,7 +37,26 @@ vi.mock('../stores/orderStore', () => ({
 vi.mock('../stores/settingsStore', () => ({
   useSettingsStore: () => ({ fetchSettings: doubles.fetchSettings }),
 }));
-vi.mock('../hooks/useOrderPolling', () => ({ useOrderPolling: vi.fn() }));
+vi.mock('../hooks/useOrderPolling', async () => {
+  const React = await import('react');
+
+  return {
+    useOrderPolling: (enabled: boolean) => {
+      const instance = React.useRef<number | null>(null);
+      if (instance.current === null) {
+        doubles.nextPollingInstance += 1;
+        instance.current = doubles.nextPollingInstance;
+      }
+      React.useEffect(() => {
+        if (!enabled) return;
+        doubles.pollingEvents.push(`mount:${instance.current}`);
+        return () => {
+          doubles.pollingEvents.push(`unmount:${instance.current}`);
+        };
+      }, [enabled]);
+    },
+  };
+});
 vi.mock('../components/navigation/Sidebar', () => ({ Sidebar: () => null }));
 vi.mock('../components/navigation/Topbar', () => ({ Topbar: () => null }));
 vi.mock('../components/navigation/ImpersonationBanner', () => ({
@@ -76,6 +97,8 @@ beforeEach(() => {
   doubles.auth.status = 'idle';
   doubles.auth.store = null;
   doubles.auth.user = null;
+  doubles.nextPollingInstance = 0;
+  doubles.pollingEvents.length = 0;
 });
 
 test('guards shell states and hydrates merchant data with settings first', async () => {
@@ -166,4 +189,63 @@ test('cancels deferred merchant hydration after unmount or auth-state exit', asy
   ]) {
     expect(fetchDomain).not.toHaveBeenCalled();
   }
+});
+
+test('restarts merchant hydration and polling when the store identity changes', async () => {
+  doubles.auth.status = 'authenticated';
+  doubles.auth.user = { is_platform_admin: false };
+  doubles.auth.store = { id: 1, name: 'Merchant A' };
+  const merchantASettings = deferred<void>();
+  const merchantBSettings = deferred<void>();
+  doubles.fetchSettings
+    .mockReturnValueOnce(merchantASettings.promise)
+    .mockReturnValueOnce(merchantBSettings.promise);
+
+  const view = renderShell();
+  expect(await screen.findByRole('heading', { name: 'Merchant route' })).toBeInTheDocument();
+  await waitFor(() => expect(doubles.fetchSettings).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(doubles.pollingEvents).toEqual(['mount:1']));
+
+  doubles.auth.store = { id: 1, name: 'Merchant A renamed' };
+  await act(async () => {
+    view.rerender(shellRoutes());
+  });
+  expect(doubles.fetchSettings).toHaveBeenCalledTimes(1);
+  expect(doubles.pollingEvents).toEqual(['mount:1']);
+
+  doubles.auth.store = { id: 2, name: 'Merchant B' };
+  view.rerender(shellRoutes());
+  await waitFor(() => expect(doubles.fetchSettings).toHaveBeenCalledTimes(2));
+  await waitFor(() => {
+    expect(doubles.pollingEvents).toEqual(['mount:1', 'unmount:1', 'mount:2']);
+  });
+
+  await act(async () => {
+    merchantASettings.resolve();
+    await merchantASettings.promise;
+  });
+  for (const fetchDomain of [
+    doubles.fetchProducts,
+    doubles.fetchCategories,
+    doubles.fetchCustomers,
+    doubles.fetchOrders,
+  ]) {
+    expect(fetchDomain).not.toHaveBeenCalled();
+  }
+
+  merchantBSettings.resolve();
+  await waitFor(() => {
+    expect(doubles.fetchProducts).toHaveBeenCalledTimes(1);
+    expect(doubles.fetchCategories).toHaveBeenCalledTimes(1);
+    expect(doubles.fetchCustomers).toHaveBeenCalledTimes(1);
+    expect(doubles.fetchOrders).toHaveBeenCalledTimes(1);
+  });
+
+  doubles.auth.store = null;
+  view.rerender(shellRoutes());
+  expect(screen.queryByRole('heading', { name: 'Merchant route' })).not.toBeInTheDocument();
+  expect(screen.getByRole('status', { name: 'Loading your store…' })).toBeInTheDocument();
+  await waitFor(() => {
+    expect(doubles.pollingEvents).toEqual(['mount:1', 'unmount:1', 'mount:2', 'unmount:2']);
+  });
 });

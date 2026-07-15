@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import { Order, OrderStatus, PaymentStatus } from '../data/mockData';
 import { orderApi } from '../api/endpoints';
 import { toOrder } from '../api/adapters';
+import {
+  captureMerchantScope,
+  isMerchantScopeCurrent,
+  requireCurrentMerchantScope,
+} from './merchantScope';
 
 interface OrderState {
   orders: Order[];
@@ -27,16 +32,20 @@ export const useOrderStore = create<OrderState>((set) => ({
   unseenOrderIds: [],
 
   fetchOrders: async () => {
+    const scope = captureMerchantScope();
     set({ loading: true, error: null });
     try {
       const res: any = await orderApi.list({ per_page: 100 });
+      requireCurrentMerchantScope(scope);
       set({ orders: res.data.map(toOrder), loading: false });
     } catch (e: any) {
+      if (!isMerchantScopeCurrent(scope)) return;
       set({ loading: false, error: e.message ?? 'Failed to load orders' });
     }
   },
 
   createOrder: async (orderData, customerId) => {
+    const scope = captureMerchantScope();
     const payload = {
       items: orderData.items.map((i) => ({
         product_id: Number(i.productId),
@@ -51,6 +60,7 @@ export const useOrderStore = create<OrderState>((set) => ({
       source: 'pos',
     };
     const res: any = await orderApi.create(payload);
+    requireCurrentMerchantScope(scope);
     const created = toOrder(res.data);
     set((s) => ({ orders: [created, ...s.orders] }));
     return created;
@@ -58,7 +68,9 @@ export const useOrderStore = create<OrderState>((set) => ({
 
   updateStatus: async (order, status) => {
     if (!order.apiId) throw new Error('Order identifier is missing.');
+    const scope = captureMerchantScope();
     const res: any = await orderApi.updateStatus(Number(order.apiId), status);
+    requireCurrentMerchantScope(scope);
     const updated = toOrder(res.data);
     set((s) => ({ orders: s.orders.map((item) => (item.id === order.id ? updated : item)) }));
     return updated;
@@ -66,7 +78,9 @@ export const useOrderStore = create<OrderState>((set) => ({
 
   updatePaymentStatus: async (order, status) => {
     if (!order.apiId) throw new Error('Order identifier is missing.');
+    const scope = captureMerchantScope();
     const res: any = await orderApi.updatePaymentStatus(Number(order.apiId), status);
+    requireCurrentMerchantScope(scope);
     const updated = toOrder(res.data);
     set((s) => ({ orders: s.orders.map((item) => (item.id === order.id ? updated : item)) }));
     return updated;

@@ -8,6 +8,7 @@
 
 const API_BASE = (import.meta as any).env?.VITE_API_URL || '/api/v1';
 const TOKEN_KEY = 'dorzak-token';
+let authSessionRevision = 0;
 
 export interface ApiError {
   status: number;
@@ -24,12 +25,24 @@ export function getToken(): string | null {
     return null;
   }
 }
+export function advanceAuthSessionRevision(): void {
+  authSessionRevision += 1;
+}
 export function setToken(token: string | null): void {
+  advanceAuthSessionRevision();
   try {
     if (token) localStorage.setItem(TOKEN_KEY, token);
     else localStorage.removeItem(TOKEN_KEY);
   } catch {
     /* ignore */
+  }
+}
+
+function clearAuthenticationForRevision(revision: number): void {
+  if (revision !== authSessionRevision) return;
+  setToken(null);
+  if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+    window.location.assign('/login');
   }
 }
 
@@ -60,8 +73,10 @@ export async function request<T = unknown>(path: string, opts: Options = {}): Pr
     'X-Requested-With': 'XMLHttpRequest',
   };
 
-  const token = getToken();
-  if (opts.auth !== false && token) headers.Authorization = `Bearer ${token}`;
+  const usesAuthentication = opts.auth !== false;
+  const requestAuthRevision = authSessionRevision;
+  const token = usesAuthentication ? getToken() : null;
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   let body: BodyInit | undefined;
   if (opts.body instanceof FormData) {
@@ -74,9 +89,8 @@ export async function request<T = unknown>(path: string, opts: Options = {}): Pr
   const res = await fetch(url.toString(), { method, headers, body });
 
   if (res.status === 401) {
-    setToken(null);
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-      window.location.assign('/login');
+    if (usesAuthentication) {
+      clearAuthenticationForRevision(requestAuthRevision);
     }
     throw normalize(res, { message: 'Unauthenticated.' });
   }
@@ -92,10 +106,14 @@ export async function request<T = unknown>(path: string, opts: Options = {}): Pr
 
 /** Fetch an authenticated file (e.g. a CSV export) and trigger a browser download. */
 export async function downloadFile(path: string, filename: string, base?: string): Promise<void> {
+  const requestAuthRevision = authSessionRevision;
   const token = getToken();
   const b = base ?? API_BASE;
   const url = b.startsWith('http') ? `${b}${path}` : `${window.location.origin}${b}${path}`;
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (res.status === 401) {
+    clearAuthenticationForRevision(requestAuthRevision);
+  }
   if (!res.ok) throw normalize(res, await res.json().catch(() => ({})));
   const blob = await res.blob();
   const href = URL.createObjectURL(blob);
@@ -109,6 +127,7 @@ export async function downloadFile(path: string, filename: string, base?: string
 }
 
 export async function requestBlob(path: string): Promise<Blob> {
+  const requestAuthRevision = authSessionRevision;
   const token = getToken();
   // Use the shared API_BASE: an empty VITE_API_URL must fall back to /api/v1
   // (`||`, not `??` — the env var is "" in dev, which `??` would let through
@@ -123,6 +142,9 @@ export async function requestBlob(path: string): Promise<Blob> {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
+  if (response.status === 401) {
+    clearAuthenticationForRevision(requestAuthRevision);
+  }
   if (!response.ok) throw normalize(response, { message: 'Payment proof is unavailable.' });
   return response.blob();
 }

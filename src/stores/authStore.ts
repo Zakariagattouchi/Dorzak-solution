@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import { authApi, platformApi } from '../api/endpoints';
-import { ApiError, getToken, setToken } from '../api/apiClient';
+import { advanceAuthSessionRevision, ApiError, getToken, setToken } from '../api/apiClient';
+import { initialAccountInfo } from '../data/mockData';
+import { useCartStore } from './cartStore';
+import { useCustomerStore } from './customerStore';
+import { invalidateMerchantScope } from './merchantScope';
+import { useModalStore } from './modalStore';
+import { useOrderStore } from './orderStore';
+import { useProductStore } from './productStore';
+import { useSettingsStore } from './settingsStore';
+import { useToastStore } from './toastStore';
 
 interface SessionUser {
   id: number;
@@ -59,6 +68,127 @@ interface AuthState {
   can: (ability: string) => boolean;
 }
 
+type AuthSetter = (partial: Partial<AuthState>) => void;
+type AuthSnapshot = {
+  status: AuthState['status'];
+  storeId: number | null;
+  token: string | null;
+  userId: number | null;
+};
+
+let authAttemptEpoch = 0;
+
+const beginAuthAttempt = (): number => {
+  authAttemptEpoch += 1;
+  return authAttemptEpoch;
+};
+
+const isCurrentAuthAttempt = (attempt: number): boolean => attempt === authAttemptEpoch;
+
+const captureAuthSnapshot = (state: AuthState): AuthSnapshot => ({
+  status: state.status,
+  storeId: state.store?.id ?? null,
+  token: getToken(),
+  userId: state.user?.id ?? null,
+});
+
+const clearMerchantState = (): void => {
+  invalidateMerchantScope();
+  useProductStore.setState({ products: [], categories: [], loading: false, error: null });
+  useCustomerStore.setState({ customers: [], loading: false, error: null });
+  useOrderStore.setState({ orders: [], loading: false, error: null, unseenOrderIds: [] });
+  useSettingsStore.setState({ accountInfo: { ...initialAccountInfo }, loading: false });
+  useCartStore.getState().clearCart();
+  useModalStore.getState().closeModal();
+  for (const toast of [...useToastStore.getState().toasts]) {
+    useToastStore.getState().removeToast(toast.id);
+  }
+};
+
+const withholdMerchantSession = (set: AuthSetter): void => {
+  set({
+    user: null,
+    store: null,
+    role: null,
+    abilities: [],
+    status: 'loading',
+    error: null,
+  });
+  clearMerchantState();
+};
+
+const publishGuestSession = (set: AuthSetter): void => {
+  withholdMerchantSession(set);
+  set({
+    user: null,
+    store: null,
+    role: null,
+    abilities: [],
+    status: 'guest',
+    error: null,
+    impersonating: null,
+  });
+};
+
+const isSessionReplacement = (previous: AuthSnapshot, data: any, token?: string): boolean =>
+  previous.status !== 'authenticated' ||
+  previous.userId !== (data.user?.id ?? null) ||
+  previous.storeId !== (data.store?.id ?? null) ||
+  (token !== undefined && previous.token !== token);
+
+const publishAuthenticatedSession = (
+  set: AuthSetter,
+  previous: AuthSnapshot,
+  data: any,
+  token?: string,
+  merchantStateAlreadyCleared = false,
+): void => {
+  const sessionReplacement = isSessionReplacement(previous, data, token);
+  if (!merchantStateAlreadyCleared && sessionReplacement) {
+    withholdMerchantSession(set);
+  }
+  if (token !== undefined) {
+    setToken(token);
+  } else if (sessionReplacement) {
+    advanceAuthSessionRevision();
+  }
+  set({
+    user: data.user,
+    store: data.store,
+    role: data.role,
+    abilities: data.abilities,
+    status: 'authenticated',
+    error: null,
+  });
+};
+
+const hydrateSession = async (
+  set: AuthSetter,
+  get: () => AuthState,
+  attempt: number,
+  previous: AuthSnapshot,
+  merchantStateAlreadyCleared = false,
+): Promise<void> => {
+  if (!isCurrentAuthAttempt(attempt)) return;
+  if (!getToken()) {
+    publishGuestSession(set);
+    return;
+  }
+
+  set({ status: 'loading', error: null });
+  try {
+    const { data } = (await authApi.me()) as any;
+    if (!isCurrentAuthAttempt(attempt)) return;
+    publishAuthenticatedSession(set, previous, data, undefined, merchantStateAlreadyCleared);
+  } catch {
+    if (!isCurrentAuthAttempt(attempt)) return;
+    setToken(null);
+    writeLocal(ADMIN_TOKEN_KEY, null);
+    writeLocal(IMPERSONATING_KEY, null);
+    publishGuestSession(set);
+  }
+};
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   store: null,
@@ -69,40 +199,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   impersonating: readLocal(IMPERSONATING_KEY),
 
   bootstrap: async () => {
-    if (!getToken()) {
-      set({ status: 'guest' });
-      return;
-    }
-    set({ status: 'loading' });
-    try {
-      const { data } = (await authApi.me()) as any;
-      set({
-        user: data.user,
-        store: data.store,
-        role: data.role,
-        abilities: data.abilities,
-        status: 'authenticated',
-        error: null,
-      });
-    } catch {
-      setToken(null);
-      set({ status: 'guest', user: null, store: null, role: null, abilities: [] });
-    }
+    const attempt = beginAuthAttempt();
+    const previous = captureAuthSnapshot(get());
+    await hydrateSession(set, get, attempt, previous);
   },
 
   login: async (email, password) => {
+    const attempt = beginAuthAttempt();
+    const previous = captureAuthSnapshot(get());
     set({ error: null });
     try {
       const { data } = (await authApi.login(email, password)) as any;
-      setToken(data.token);
-      set({
-        user: data.user,
-        store: data.store,
-        role: data.role,
-        abilities: data.abilities,
-        status: 'authenticated',
-      });
+      if (!isCurrentAuthAttempt(attempt)) return;
+      publishAuthenticatedSession(set, previous, data, data.token);
     } catch (e) {
+      if (!isCurrentAuthAttempt(attempt)) throw e;
       const err = e as ApiError;
       set({ error: err.errors?.email?.[0] ?? err.message ?? 'Login failed' });
       throw e;
@@ -110,18 +221,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   register: async (payload) => {
+    const attempt = beginAuthAttempt();
+    const previous = captureAuthSnapshot(get());
     set({ error: null });
     try {
       const { data } = (await authApi.register(payload)) as any;
-      setToken(data.token);
-      set({
-        user: data.user,
-        store: data.store,
-        role: data.role,
-        abilities: data.abilities,
-        status: 'authenticated',
-      });
+      if (!isCurrentAuthAttempt(attempt)) return;
+      publishAuthenticatedSession(set, previous, data, data.token);
     } catch (e) {
+      if (!isCurrentAuthAttempt(attempt)) throw e;
       const err = e as ApiError;
       const firstError = err.errors ? Object.values(err.errors)[0]?.[0] : undefined;
       set({ error: firstError ?? err.message ?? 'Signup failed' });
@@ -130,42 +238,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    beginAuthAttempt();
+    let logoutRequest: Promise<unknown>;
     try {
-      await authApi.logout();
-    } catch {
-      /* ignore */
+      logoutRequest = authApi.logout();
+    } catch (error) {
+      logoutRequest = Promise.reject(error);
     }
     setToken(null);
     writeLocal(ADMIN_TOKEN_KEY, null);
     writeLocal(IMPERSONATING_KEY, null);
-    set({
-      user: null,
-      store: null,
-      role: null,
-      abilities: [],
-      status: 'guest',
-      impersonating: null,
-    });
+    publishGuestSession(set);
+    try {
+      await logoutRequest;
+    } catch {
+      /* ignore */
+    }
   },
 
   // Enter a store's back office as its owner. Stash the operator's own token so
   // stopImpersonating() can restore it without re-authenticating.
   impersonate: async (storeId) => {
+    const attempt = beginAuthAttempt();
+    const adminToken = getToken();
     const { data } = (await platformApi.stores.impersonate(storeId)) as any;
-    writeLocal(ADMIN_TOKEN_KEY, getToken());
+    if (!isCurrentAuthAttempt(attempt)) return;
+    withholdMerchantSession(set);
+    writeLocal(ADMIN_TOKEN_KEY, adminToken);
     writeLocal(IMPERSONATING_KEY, data.store.name);
     setToken(data.token);
     set({ impersonating: data.store.name });
-    await get().bootstrap();
+    await hydrateSession(set, get, attempt, captureAuthSnapshot(get()), true);
   },
 
   stopImpersonating: async () => {
+    const attempt = beginAuthAttempt();
     const adminToken = readLocal(ADMIN_TOKEN_KEY);
+    withholdMerchantSession(set);
     setToken(adminToken);
     writeLocal(ADMIN_TOKEN_KEY, null);
     writeLocal(IMPERSONATING_KEY, null);
     set({ impersonating: null });
-    await get().bootstrap();
+    await hydrateSession(set, get, attempt, captureAuthSnapshot(get()), true);
   },
 
   can: (ability) => {

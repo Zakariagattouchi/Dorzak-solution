@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { Sidebar } from '../components/navigation/Sidebar';
 import { Topbar } from '../components/navigation/Topbar';
 import { ImpersonationBanner } from '../components/navigation/ImpersonationBanner';
-import { ModalHost } from '../components/modals/ModalHost';
 import { ToastHost } from '../components/feedback/ToastHost';
 import { useAuthStore } from '../stores/authStore';
 import { useProductStore } from '../stores/productStore';
@@ -11,6 +10,15 @@ import { useCustomerStore } from '../stores/customerStore';
 import { useOrderStore } from '../stores/orderStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useOrderPolling } from '../hooks/useOrderPolling';
+
+const ModalHost = lazy(() =>
+  import('../components/modals/ModalHost').then((module) => ({ default: module.ModalHost })),
+);
+
+const MerchantOrderPolling: React.FC = () => {
+  useOrderPolling(true);
+  return null;
+};
 
 export const AppShell: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -23,6 +31,8 @@ export const AppShell: React.FC = () => {
   // A store-less platform admin belongs in the platform console, not here.
   const isPlatformOnly =
     status === 'authenticated' && store === null && user?.is_platform_admin === true;
+  const isMerchantStorePending =
+    status === 'authenticated' && store === null && user?.is_platform_admin !== true;
 
   // Establish the session on first mount.
   useEffect(() => {
@@ -31,7 +41,7 @@ export const AppShell: React.FC = () => {
 
   // Once authenticated as a MERCHANT, hydrate the store data (settings first — money formatting depends on it).
   useEffect(() => {
-    if (status !== 'authenticated' || isPlatformOnly) {
+    if (status !== 'authenticated' || isPlatformOnly || !store) {
       return;
     }
 
@@ -51,6 +61,7 @@ export const AppShell: React.FC = () => {
   }, [
     status,
     isPlatformOnly,
+    store?.id,
     fetchSettings,
     fetchProducts,
     fetchCategories,
@@ -58,10 +69,7 @@ export const AppShell: React.FC = () => {
     fetchOrders,
   ]);
 
-  // Live polling for new orders (sound + badge) while logged in.
-  useOrderPolling(status === 'authenticated');
-
-  if (status === 'idle' || status === 'loading') {
+  if (status === 'idle' || status === 'loading' || isMerchantStorePending) {
     return (
       <div
         role="status"
@@ -105,8 +113,11 @@ export const AppShell: React.FC = () => {
           <Outlet />
         </main>
       </div>
-      <ModalHost />
+      <Suspense fallback={null}>
+        <ModalHost />
+      </Suspense>
       <ToastHost />
+      <MerchantOrderPolling key={store?.id} />
     </div>
   );
 };
