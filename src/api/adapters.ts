@@ -219,7 +219,7 @@ const GROUP_KEYS: Record<string, (keyof Account)[]> = {
     'longitude',
   ],
   currency: ['currency', 'symbolPlacement'],
-  taxes: ['taxRate', 'taxId', 'taxIncludedInPrice'],
+  taxes: ['taxRate', 'taxId', 'taxIncludedInPrice', 'chargeSalesTax'],
   receipts: [
     'receiptHeader',
     'receiptFooter',

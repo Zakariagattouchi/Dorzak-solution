@@ -47,5 +47,21 @@ describe('API adapters', () => {
         { currency: 'QAR' },
       ),
     ).toEqual([['currency', { currency: 'QAR', symbol_placement: 'BEFORE' }]]);
+    expect(
+      settingsGroupPayloads(
+        { ...initialAccountInfo, chargeSalesTax: false },
+        { chargeSalesTax: false },
+      ),
+    ).toEqual([
+      [
+        'taxes',
+        {
+          charge_sales_tax: false,
+          tax_rate: 0,
+          tax_id: '',
+          tax_included_in_price: false,
+        },
+      ],
+    ]);
   });
 });

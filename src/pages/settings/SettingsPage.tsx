@@ -180,6 +180,7 @@ export const SettingsPage: React.FC = () => {
     setTagline(accountInfo.tagline ?? '');
     setPhone(accountInfo.phone ?? '');
     setWhatsapp(accountInfo.whatsapp ?? '');
+    setLanguageValue(accountInfo.language || 'en');
     setOwnerName(accountInfo.ownerName ?? '');
     setEmail(accountInfo.email ?? '');
     setAddress(accountInfo.address ?? '');
@@ -273,6 +274,7 @@ export const SettingsPage: React.FC = () => {
         taxRate: parseFloat(taxRate) || 0,
         taxId,
         taxIncludedInPrice: taxIncluded,
+        chargeSalesTax,
         receiptHeader,
         receiptFooter,
         receiptShowLogo,
