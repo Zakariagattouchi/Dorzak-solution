@@ -137,6 +137,143 @@ export const contractSha256 = sha256(contractBytes);
 invariant(contract.schemaVersion === 1, 'Unsupported P00 contract');
 invariant(contract.jobs.length === 6, 'P00 contract must have six jobs');
 
+function canonicalRegularFile(root, path, label) {
+  const resolvedRoot = resolve(root);
+  const rootStat = lstatSync(resolvedRoot);
+  invariant(
+    rootStat.isDirectory() &&
+      !rootStat.isSymbolicLink() &&
+      realpathSync(resolvedRoot) === resolvedRoot,
+    'Static-analysis root is not one canonical directory',
+  );
+  invariant(
+    typeof path === 'string' && path.length > 0 && !path.includes('\\'),
+    label + ' path is invalid',
+  );
+  const candidate = resolve(resolvedRoot, path);
+  invariant(candidate.startsWith(resolvedRoot + '/'), label + ' path escapes the repository root');
+  const stat = lstatSync(candidate);
+  invariant(
+    stat.isFile() && !stat.isSymbolicLink() && realpathSync(candidate) === candidate,
+    label + ' is not one canonical regular file',
+  );
+  return candidate;
+}
+
+function lockedPackageVersion(lock, packageName, label) {
+  const packages = [
+    ...(Array.isArray(lock.packages) ? lock.packages : []),
+    ...(Array.isArray(lock['packages-dev']) ? lock['packages-dev'] : []),
+  ];
+  const matches = packages.filter((item) => item?.name === packageName);
+  invariant(matches.length === 1, label + ' lock entry is not unique');
+  invariant(typeof matches[0].version === 'string', label + ' lock version is missing');
+  const value = matches[0].version.replace(/^v/, '');
+  invariant(/^\d+\.\d+\.\d+$/.test(value), label + ' lock version is not exact');
+  return value;
+}
+
+export function measureStaticAnalysisDebt({
+  root = ROOT,
+  phpVersion = command('php', ['-r', 'echo PHP_VERSION;']),
+} = {}) {
+  assertExactKeys(
+    contract.staticAnalysisDebt,
+    [
+      'status',
+      'baselinePath',
+      'baselineSha256',
+      'baselineCountDirectives',
+      'baselineDiagnosticCount',
+      'historicalRedDiagnosticCount',
+      'historicalRedOutputSha256',
+      'larastanVersion',
+      'phpstanVersion',
+      'phpVersion',
+    ],
+    '$.contract.staticAnalysisDebt',
+  );
+  invariant(
+    contract.staticAnalysisDebt.status === 'accepted-versioned-non-increasing',
+    'Static-analysis debt status changed',
+  );
+  invariant(
+    contract.staticAnalysisDebt.baselinePath === 'backend/phpstan-baseline.neon',
+    'Static-analysis baseline path changed',
+  );
+  invariant(
+    contract.staticAnalysisDebt.historicalRedDiagnosticCount ===
+      contract.staticAnalysisDebt.baselineDiagnosticCount,
+    'Static-analysis historical RED count changed',
+  );
+  invariant(
+    SHA64.test(contract.staticAnalysisDebt.historicalRedOutputSha256),
+    'Static-analysis historical RED hash is invalid',
+  );
+  const baselinePath = canonicalRegularFile(
+    root,
+    contract.staticAnalysisDebt.baselinePath,
+    'Static-analysis baseline',
+  );
+  const baselineBytes = readFileSync(baselinePath);
+  invariant(
+    sha256(baselineBytes) === contract.staticAnalysisDebt.baselineSha256,
+    'Static-analysis baseline bytes changed',
+  );
+  const countLines = baselineBytes
+    .toString('utf8')
+    .split(/\r?\n/)
+    .filter((line) => /^\s*count:/.test(line));
+  const counts = countLines.map((line) => {
+    const match = line.match(/^\s*count:\s+([1-9]\d*)\s*$/);
+    invariant(match, 'Static-analysis baseline count directive is invalid');
+    return Number(match[1]);
+  });
+  invariant(
+    counts.length === contract.staticAnalysisDebt.baselineCountDirectives,
+    'Static-analysis baseline directive count changed',
+  );
+  invariant(
+    counts.reduce((total, count) => total + count, 0) ===
+      contract.staticAnalysisDebt.baselineDiagnosticCount,
+    'Static-analysis baseline diagnostic count changed',
+  );
+  const composerLock = readJson(
+    canonicalRegularFile(root, 'backend/composer.lock', 'Static-analysis Composer lock'),
+  );
+  const larastanVersion = lockedPackageVersion(composerLock, 'larastan/larastan', 'Larastan');
+  const phpstanVersion = lockedPackageVersion(composerLock, 'phpstan/phpstan', 'PHPStan');
+  invariant(
+    larastanVersion === contract.staticAnalysisDebt.larastanVersion,
+    'Larastan version changed',
+  );
+  invariant(
+    phpstanVersion === contract.staticAnalysisDebt.phpstanVersion,
+    'PHPStan version changed',
+  );
+  invariant(
+    phpVersion === contract.staticAnalysisDebt.phpVersion,
+    'PHP version differs from static-analysis debt contract',
+  );
+  const measured = {
+    status: contract.staticAnalysisDebt.status,
+    baselinePath: contract.staticAnalysisDebt.baselinePath,
+    baselineSha256: sha256(baselineBytes),
+    baselineCountDirectives: counts.length,
+    baselineDiagnosticCount: counts.reduce((total, count) => total + count, 0),
+    historicalRedDiagnosticCount: contract.staticAnalysisDebt.historicalRedDiagnosticCount,
+    historicalRedOutputSha256: contract.staticAnalysisDebt.historicalRedOutputSha256,
+    larastanVersion,
+    phpstanVersion,
+    phpVersion,
+  };
+  invariant(
+    stableJson(measured) === stableJson(contract.staticAnalysisDebt),
+    'Static-analysis debt differs from its closed contract',
+  );
+  return measured;
+}
+
 function command(file, args, cwd = ROOT) {
   return execFileSync(file, args, {
     cwd,
@@ -232,10 +369,11 @@ function collectInputs() {
     requiredEnvironment('P00_RUNNER_CLASS') === runnerClasses[runnerRole],
     'Runner role/class binding mismatch',
   );
+  const phpVersion = command('php', ['-r', 'echo PHP_VERSION;']);
   const portableInputs = {
     contractSha256,
     runtime: {
-      php: command('php', ['-r', 'echo PHP_VERSION;']),
+      php: phpVersion,
       composer: version('composer', ['--version'], join(ROOT, 'backend')),
       node: process.versions.node,
       npm: version('npm', ['--version']),
@@ -261,6 +399,7 @@ function collectInputs() {
       gzip: 'node-zlib-level-9',
     },
     runnerClasses,
+    staticAnalysisDebt: measureStaticAnalysisDebt({ phpVersion }),
   };
   invariant(
     portableInputs.runtime.php === requiredEnvironment('P00_PHP_VERSION'),
@@ -997,6 +1136,7 @@ const inputsSchema = {
     'playwright',
     'bundleAlgorithms',
     'runnerClasses',
+    'staticAnalysisDebt',
   ],
   properties: {
     contractSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
@@ -1053,6 +1193,17 @@ const inputsSchema = {
         local: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' },
         ci: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' },
       },
+    },
+    staticAnalysisDebt: {
+      type: 'object',
+      additionalProperties: false,
+      required: Object.keys(contract.staticAnalysisDebt),
+      properties: Object.fromEntries(
+        Object.entries(contract.staticAnalysisDebt).map(([name, value]) => [
+          name,
+          { const: value },
+        ]),
+      ),
     },
   },
 };

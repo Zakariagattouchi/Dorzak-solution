@@ -1,10 +1,22 @@
 {
   "schemaVersion": 1,
   "jobs": [
-    { "name": "composer-validation", "command": "scripts/quality/run-p00 composer-validation", "testCount": 11 },
-    { "name": "php-style-static", "command": "scripts/quality/run-p00 php-style-static", "testCount": 0 },
+    {
+      "name": "composer-validation",
+      "command": "scripts/quality/run-p00 composer-validation",
+      "testCount": 11
+    },
+    {
+      "name": "php-style-static",
+      "command": "scripts/quality/run-p00 php-style-static",
+      "testCount": 0
+    },
     { "name": "sqlite", "command": "scripts/quality/run-p00 sqlite", "testCount": 446 },
-    { "name": "postgresql-16", "command": "scripts/quality/run-p00 postgresql-16", "testCount": 450 },
+    {
+      "name": "postgresql-16",
+      "command": "scripts/quality/run-p00 postgresql-16",
+      "testCount": 450
+    },
     { "name": "frontend", "command": "scripts/quality/run-p00 frontend", "testCount": 8 },
     { "name": "playwright", "command": "scripts/quality/run-p00 playwright", "testCount": 9 }
   ],
@@ -14,6 +26,18 @@
     "debtStatus": "accepted-open",
     "warning": "(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.",
     "expectedOccurrences": 1
+  },
+  "staticAnalysisDebt": {
+    "status": "accepted-versioned-non-increasing",
+    "baselinePath": "backend/phpstan-baseline.neon",
+    "baselineSha256": "bce2bb249cd8e113909bd12ba6f159ebde50ab657b702ab61ae7768ddcc1bbc5",
+    "baselineCountDirectives": 312,
+    "baselineDiagnosticCount": 384,
+    "historicalRedDiagnosticCount": 384,
+    "historicalRedOutputSha256": "4f810b0161e0355546d84d5d58bcf3bcbfd5bcacc0ee4857d43b30dc64029a2d",
+    "larastanVersion": "3.10.0",
+    "phpstanVersion": "2.2.5",
+    "phpVersion": "8.5.6"
   },
   "qualitySelfTests": { "dispatcher": 2, "node": 9, "total": 11 }
 }

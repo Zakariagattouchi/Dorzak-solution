@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import * as p00 from './p00.mjs';
 import {
   aggregateRequiredGates,
   assertAggregate,
@@ -35,6 +36,18 @@ const sha64 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const temp = (name) => realpathSync(mkdtempSync(join(tmpdir(), 'dorzak-p00-' + name + '-')));
 const json = (path, value) => writeFileSync(path, stableJson(value));
+const staticAnalysisDebt = {
+  status: 'accepted-versioned-non-increasing',
+  baselinePath: 'backend/phpstan-baseline.neon',
+  baselineSha256: 'bce2bb249cd8e113909bd12ba6f159ebde50ab657b702ab61ae7768ddcc1bbc5',
+  baselineCountDirectives: 312,
+  baselineDiagnosticCount: 384,
+  historicalRedDiagnosticCount: 384,
+  historicalRedOutputSha256: '4f810b0161e0355546d84d5d58bcf3bcbfd5bcacc0ee4857d43b30dc64029a2d',
+  larastanVersion: '3.10.0',
+  phpstanVersion: '2.2.5',
+  phpVersion: '8.5.6',
+};
 const inputs = () => ({
   contractSha256,
   runtime: { php: '8.5.1', composer: '2.8.0', node: process.versions.node, npm: '10.9.0' },
@@ -50,6 +63,7 @@ const inputs = () => ({
     gzip: 'node-zlib-level-9',
   },
   runnerClasses: { local: 'local-linux-x64', ci: 'ci-linux-x64' },
+  staticAnalysisDebt: structuredClone(staticAnalysisDebt),
 });
 const platformObservation = (runnerRole = 'local') => ({
   os: 'linux',
@@ -137,6 +151,20 @@ const resultSet = (directory, mutate = () => {}) => {
   return records;
 };
 
+const staticDebtFixture = (name) => {
+  const root = temp('static-debt-' + name);
+  mkdirSync(join(root, 'backend'));
+  writeFileSync(
+    join(root, staticAnalysisDebt.baselinePath),
+    readFileSync(join(repositoryRoot, staticAnalysisDebt.baselinePath)),
+  );
+  json(join(root, 'backend/composer.lock'), {
+    packages: [{ name: 'larastan/larastan', version: 'v3.10.0' }],
+    'packages-dev': [{ name: 'phpstan/phpstan', version: '2.2.5' }],
+  });
+  return root;
+};
+
 test('contract freezes ordered jobs, counts, budget, and open Vite debt', () => {
   assert.deepEqual(
     contract.jobs.map((job) => [job.name, job.testCount]),
@@ -152,6 +180,63 @@ test('contract freezes ordered jobs, counts, budget, and open Vite debt', () => 
   assert.equal(contract.bundle.initialGzipLimitBytes, 216797);
   assert.equal(contract.bundle.debtStatus, 'accepted-open');
   assert.equal(contract.bundle.expectedOccurrences, 1);
+  assert.deepEqual(contract.staticAnalysisDebt, staticAnalysisDebt);
+  assert.deepEqual(p00.measureStaticAnalysisDebt(), staticAnalysisDebt);
+  const validDebtRoot = staticDebtFixture('valid');
+  assert.deepEqual(
+    p00.measureStaticAnalysisDebt({ root: validDebtRoot, phpVersion: '8.5.6' }),
+    staticAnalysisDebt,
+  );
+  const baselinePath = join(validDebtRoot, staticAnalysisDebt.baselinePath);
+  const baselineBytes = readFileSync(baselinePath);
+  writeFileSync(baselinePath, Buffer.concat([baselineBytes, Buffer.from('# tampered bytes\n')]));
+  assert.throws(
+    () => p00.measureStaticAnalysisDebt({ root: validDebtRoot, phpVersion: '8.5.6' }),
+    /baseline/i,
+  );
+  writeFileSync(baselinePath, baselineBytes);
+  writeFileSync(
+    baselinePath,
+    baselineBytes
+      .toString('utf8')
+      .replace(/count:\s+(\d+)/, (_, count) => `count: ${Number(count) + 1}`),
+  );
+  assert.throws(
+    () => p00.measureStaticAnalysisDebt({ root: validDebtRoot, phpVersion: '8.5.6' }),
+    /baseline/i,
+  );
+  writeFileSync(baselinePath, baselineBytes);
+  const lockPath = join(validDebtRoot, 'backend/composer.lock');
+  const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
+  lock.packages[0].version = 'v3.10.1';
+  json(lockPath, lock);
+  assert.throws(
+    () => p00.measureStaticAnalysisDebt({ root: validDebtRoot, phpVersion: '8.5.6' }),
+    /Larastan/i,
+  );
+  lock.packages[0].version = 'v3.10.0';
+  lock['packages-dev'][0].version = '2.2.6';
+  json(lockPath, lock);
+  assert.throws(
+    () => p00.measureStaticAnalysisDebt({ root: validDebtRoot, phpVersion: '8.5.6' }),
+    /PHPStan/i,
+  );
+  lock['packages-dev'][0].version = '2.2.5';
+  json(lockPath, lock);
+  assert.throws(
+    () => p00.measureStaticAnalysisDebt({ root: validDebtRoot, phpVersion: '8.5.7' }),
+    /PHP version/i,
+  );
+  const linkedDebtRoot = staticDebtFixture('linked');
+  unlinkSync(join(linkedDebtRoot, staticAnalysisDebt.baselinePath));
+  symlinkSync(
+    join(repositoryRoot, staticAnalysisDebt.baselinePath),
+    join(linkedDebtRoot, staticAnalysisDebt.baselinePath),
+  );
+  assert.throws(
+    () => p00.measureStaticAnalysisDebt({ root: linkedDebtRoot, phpVersion: '8.5.6' }),
+    /baseline/i,
+  );
   const packageJson = JSON.parse(readFileSync(join(repositoryRoot, 'package.json'), 'utf8'));
   assert.equal(packageJson.scripts['bundle:check'], 'node scripts/quality/p00.mjs bundle dist');
   const viteConfig = readFileSync(join(repositoryRoot, 'vite.config.ts'), 'utf8');
@@ -302,6 +387,10 @@ test('aggregate accepts only six same-SHA same-input exact-count attempt-one rec
     (values) => {
       values[5].inputFingerprintSha256 = 'f'.repeat(64);
     },
+    (values) => {
+      values[0].inputs.staticAnalysisDebt.baselineDiagnosticCount += 1;
+      values[0].inputFingerprintSha256 = sha256(stableJson(values[0].inputs));
+    },
   ];
   for (const [index, mutate] of mutations.entries()) {
     const directory = temp('aggregate-fail-' + index);
@@ -447,6 +536,23 @@ test('evidence builder validates hashes, review, two runs, debt, and secret reje
     reviewMarkdownPath: reviewMarkdown,
   });
   assert.equal(validateEvidence(manifest).files.length, 7);
+  assert.equal(readdirSync(join(root, 'output')).length, 8);
+  assert.deepEqual(manifest.inputs.staticAnalysisDebt, staticAnalysisDebt);
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(root, 'output/local-full-matrix.json'))).inputs.staticAnalysisDebt,
+    staticAnalysisDebt,
+  );
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(root, 'output/ci-run-1.json'))).inputs.staticAnalysisDebt,
+    staticAnalysisDebt,
+  );
+  const generatedDebtSchema = JSON.parse(readFileSync(join(root, 'output/manifest.schema.json')))
+    .properties.inputs.properties.staticAnalysisDebt;
+  assert.equal(generatedDebtSchema.additionalProperties, false);
+  assert.deepEqual(generatedDebtSchema.required, Object.keys(staticAnalysisDebt));
+  for (const [name, value] of Object.entries(staticAnalysisDebt)) {
+    assert.deepEqual(generatedDebtSchema.properties[name], { const: value });
+  }
   const manifestPath = join(root, 'output', 'manifest.json');
   const originalManifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   for (const mutate of [
@@ -462,6 +568,9 @@ test('evidence builder validates hashes, review, two runs, debt, and secret reje
     (value) => {
       value.ciRuns[0].provider = 'different-provider';
     },
+    (value) => {
+      value.inputs.staticAnalysisDebt.baselineDiagnosticCount += 1;
+    },
   ]) {
     const changedSummary = structuredClone(originalManifest);
     mutate(changedSummary);
@@ -475,10 +584,7 @@ test('evidence builder validates hashes, review, two runs, debt, and secret reje
   );
   assert.throws(() => stableJson({ authorization: 'Bearer unsafe-value' }));
   const crossBinding = ci('run-2', secondPostgresqlObservation);
-  crossBinding.jobs[0].inputs = {
-    ...crossBinding.jobs[0].inputs,
-    runtime: { ...crossBinding.jobs[0].inputs.runtime, php: '9.9.9' },
-  };
+  crossBinding.jobs[0].inputs.staticAnalysisDebt.baselineDiagnosticCount += 1;
   crossBinding.jobs[0].inputFingerprintSha256 = sha256(stableJson(crossBinding.jobs[0].inputs));
   json(ci2, crossBinding);
   assert.throws(() =>
@@ -608,6 +714,7 @@ test('aggregate cross-binds portable inputs while preserving per-job platform ob
     );
   });
   const variedAggregate = aggregateRequiredGates(varied);
+  assert.deepEqual(variedAggregate.inputs.staticAnalysisDebt, staticAnalysisDebt);
   assert.notEqual(
     variedAggregate.jobs[0].platformObservationFingerprintSha256,
     variedAggregate.jobs[5].platformObservationFingerprintSha256,

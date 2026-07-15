@@ -22,6 +22,18 @@ const sha64c = 'c'.repeat(64);
 const nonce = 'd'.repeat(64);
 const identity =
   'docker.io/library/postgres@sha256:c95fd5346040eba2de3c435e14874af18f5d681fb5848d4f081dbead0878af28';
+const staticAnalysisDebt = {
+  status: 'accepted-versioned-non-increasing',
+  baselinePath: 'backend/phpstan-baseline.neon',
+  baselineSha256: 'bce2bb249cd8e113909bd12ba6f159ebde50ab657b702ab61ae7768ddcc1bbc5',
+  baselineCountDirectives: 312,
+  baselineDiagnosticCount: 384,
+  historicalRedDiagnosticCount: 384,
+  historicalRedOutputSha256: '4f810b0161e0355546d84d5d58bcf3bcbfd5bcacc0ee4857d43b30dc64029a2d',
+  larastanVersion: '3.10.0',
+  phpstanVersion: '2.2.5',
+  phpVersion: '8.5.6',
+};
 const jobs = contract.jobs.map((job) => job.name);
 const artifactNames = [...jobs, 'required-gates'];
 const temp = (name) => realpathSync(mkdtempSync(join(tmpdir(), 'dorzak-p00-gha-' + name + '-')));
@@ -81,6 +93,7 @@ function inputs() {
       gzip: 'node-zlib-level-9',
     },
     runnerClasses: { local: 'local-macos-arm64', ci: 'github-hosted-ubuntu-24.04-x64' },
+    staticAnalysisDebt: structuredClone(staticAnalysisDebt),
   };
 }
 
@@ -283,6 +296,13 @@ test('normalizes one exact successful attempt-one run and preserves per-job obse
   assert.equal(normalized.runId, '1001');
   assert.equal(normalized.jobs.length, 6);
   assert.equal(new Set(normalized.jobs.map((job) => job.platformObservation.osRelease)).size, 6);
+  assert.deepEqual(normalized.inputs.staticAnalysisDebt, staticAnalysisDebt);
+  assert.equal(
+    normalized.jobs.every(
+      (job) => stableJson(job.inputs.staticAnalysisDebt) === stableJson(staticAnalysisDebt),
+    ),
+    true,
+  );
   assert.deepEqual(JSON.parse(readFileSync(output, 'utf8')), normalized);
 });
 
@@ -427,6 +447,35 @@ test('rejects changed reporter bytes and wrong runner class', () => {
       expectedNonce: nonce,
     }),
   );
+
+  const debt = fixture('static-debt-one-job');
+  const debtJobDirectory = join(debt.jobRoot, 'sqlite');
+  const debtResultPath = join(debtJobDirectory, 'result.json');
+  const debtResult = JSON.parse(readFileSync(debtResultPath, 'utf8'));
+  debtResult.inputs.staticAnalysisDebt.baselineDiagnosticCount += 1;
+  debtResult.inputFingerprintSha256 = sha256(stableJson(debtResult.inputs));
+  writeFileSync(debtResultPath, stableJson(debtResult));
+  const debtZip = storedZip(
+    readdirSync(debtJobDirectory)
+      .sort()
+      .map((path) => ({ name: path, content: readFileSync(join(debtJobDirectory, path)) })),
+  );
+  writeFileSync(join(debt.zipRoot, 'sqlite.zip'), debtZip);
+  const debtArtifact = debt.metadata.artifacts.find((artifact) => artifact.name === 'sqlite');
+  debtArtifact.digest = 'sha256:' + sha256(debtZip);
+  debtArtifact.sizeInBytes = debtZip.length;
+  writeMetadata(debt.metadata, debt.metadataPath);
+  const debtOutput = join(debt.root, 'rejected.json');
+  assert.throws(() =>
+    normalize({
+      metadataPath: debt.metadataPath,
+      zipDirectory: debt.zipRoot,
+      outputPath: debtOutput,
+      expectedSha: sha40,
+      expectedNonce: nonce,
+    }),
+  );
+  assert.equal(existsSync(debtOutput), false);
 });
 
 test('cleans partial publication after injected faults', () => {
