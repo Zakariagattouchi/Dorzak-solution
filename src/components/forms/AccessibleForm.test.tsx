@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { expect, test } from 'vitest';
 import { expectNoA11yViolations } from '../../test/axe';
+import { DataTable } from '../tables/DataTable';
 import { CheckboxInput } from './CheckboxInput';
 import { SelectInput } from './SelectInput';
 import { TextInput } from './TextInput';
@@ -29,6 +30,21 @@ function AccessibleForm() {
   );
 }
 
+function CompactBooleanControls() {
+  const [online, setOnline] = useState(false);
+
+  return (
+    <>
+      <ToggleSwitch checked={online} onChange={setOnline} ariaLabel="Online catalog activation" />
+      <DataTable
+        columns={[{ key: 'name', header: 'Product' }]}
+        data={[{ id: 'product-1', name: 'Coffee' }]}
+        keyExtractor={(product) => product.id}
+      />
+    </>
+  );
+}
+
 test('associates labels and errors and supports keyboard boolean controls', async () => {
   const user = userEvent.setup();
   const { container } = render(<AccessibleForm />);
@@ -46,4 +62,22 @@ test('associates labels and errors and supports keyboard boolean controls', asyn
   await user.keyboard('[Space]');
   expect(checkbox).toBeChecked();
   await expectNoA11yViolations(container);
+});
+
+test('names compact boolean controls without adding visible labels', async () => {
+  const user = userEvent.setup();
+  render(<CompactBooleanControls />);
+  const online = screen.queryByRole('switch', { name: 'Online catalog activation' });
+  const product = screen.queryByRole('checkbox', { name: 'Select row product-1' });
+
+  expect.soft(online).toBeInTheDocument();
+  expect.soft(product).toBeInTheDocument();
+  expect(screen.queryByText('Online catalog activation')).not.toBeInTheDocument();
+  expect(screen.queryByText('Select row product-1')).not.toBeInTheDocument();
+  if (!online || !product) return;
+
+  await user.click(online);
+  expect(online).toHaveAttribute('aria-checked', 'true');
+  await user.click(product);
+  expect(product).toBeChecked();
 });

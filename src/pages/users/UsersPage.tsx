@@ -312,6 +312,7 @@ export const UsersPage: React.FC = () => {
                   <>
                     <ToggleSwitch
                       checked={member.active}
+                      ariaLabel={`${member.name} active status`}
                       onChange={() => toggleActive(member.id)}
                     />
                     <button

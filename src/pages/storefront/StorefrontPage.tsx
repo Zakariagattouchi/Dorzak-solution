@@ -335,6 +335,7 @@ export const StorefrontPage: React.FC = () => {
               </div>
               <ToggleSwitch
                 checked={accountInfo.onlineStoreEnabled}
+                ariaLabel="Online catalog activation"
                 onChange={async () => {
                   await toggleOnlineStore();
                   addToast(

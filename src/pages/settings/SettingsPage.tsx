@@ -1484,6 +1484,6 @@ const PaymentMethodCard: React.FC<{
         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{description}</div>
       </div>
     </div>
-    <ToggleSwitch checked={checked} onChange={onChange} />
+    <ToggleSwitch checked={checked} onChange={onChange} ariaLabel={`${label} payment method`} />
   </div>
 );

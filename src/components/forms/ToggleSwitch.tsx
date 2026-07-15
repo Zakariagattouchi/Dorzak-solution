@@ -1,16 +1,20 @@
 import React from 'react';
 
-interface ToggleSwitchProps {
+type AccessibleNameProps =
+  | { label: string; ariaLabel?: string }
+  | { label?: undefined; ariaLabel: string };
+
+type ToggleSwitchProps = {
   checked: boolean;
   onChange: (checked: boolean) => void;
-  label?: string;
   description?: string;
-}
+} & AccessibleNameProps;
 
 export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
   checked,
   onChange,
   label,
+  ariaLabel,
   description,
 }) => {
   const generatedId = React.useId();
@@ -32,7 +36,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
         type="button"
         role="switch"
         aria-checked={checked}
-        aria-label={label}
+        aria-label={ariaLabel ?? label}
         aria-describedby={descriptionId}
         onClick={() => onChange(!checked)}
         className={`toggle-switch ${checked ? 'active' : ''}`}

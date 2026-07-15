@@ -48,7 +48,11 @@ export function DataTable<T>({
           <tr>
             {selectable && (
               <th style={{ width: '40px' }}>
-                <CheckboxInput checked={allSelected} onChange={toggleSelectAll} />
+                <CheckboxInput
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  ariaLabel="Select all rows"
+                />
               </th>
             )}
             {columns.map((col) => (
@@ -78,7 +82,11 @@ export function DataTable<T>({
                 >
                   {selectable && (
                     <td onClick={(e) => e.stopPropagation()}>
-                      <CheckboxInput checked={isSelected} onChange={() => toggleRow(key)} />
+                      <CheckboxInput
+                        checked={isSelected}
+                        onChange={() => toggleRow(key)}
+                        ariaLabel={`Select row ${key}`}
+                      />
                     </td>
                   )}
                   {columns.map((col) => (

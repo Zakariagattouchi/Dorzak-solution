@@ -1,23 +1,28 @@
 import React from 'react';
 import { AppIcon } from '../icons/AppIcon';
 
-interface CheckboxInputProps {
+type AccessibleNameProps =
+  | { label: string; ariaLabel?: string }
+  | { label?: undefined; ariaLabel: string };
+
+type CheckboxInputProps = {
   checked: boolean;
   onChange: (checked: boolean) => void;
-  label?: string;
   className?: string;
-}
+} & AccessibleNameProps;
 
 export const CheckboxInput: React.FC<CheckboxInputProps> = ({
   checked,
   onChange,
   label,
+  ariaLabel,
   className = '',
 }) => (
   <label className={`checkbox-wrapper ${className}`} onClick={(event) => event.stopPropagation()}>
     <input
       type="checkbox"
       checked={checked}
+      aria-label={ariaLabel}
       onChange={(event) => onChange(event.target.checked)}
       style={{
         position: 'absolute',
