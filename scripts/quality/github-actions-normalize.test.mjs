@@ -235,7 +235,7 @@ function fixture(name) {
   });
   const metadata = {
     schemaVersion: 1,
-    repository: 'Zakariagattouchi/dorzak',
+    repository: 'Zakariagattouchi/Dorzak-solution',
     integrationBranch: 'main',
     workflowPath: '.github/workflows/p00-quality.yml',
     evidenceNonce: nonce,

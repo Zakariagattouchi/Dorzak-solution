@@ -305,7 +305,7 @@ function validateMetadata(metadata, expectedSha, expectedNonce) {
     '$.metadata',
   );
   invariant(metadata.schemaVersion === 1, 'Metadata schema mismatch');
-  invariant(metadata.repository === 'Zakariagattouchi/dorzak', 'Repository mismatch');
+  invariant(metadata.repository === 'Zakariagattouchi/Dorzak-solution', 'Repository mismatch');
   invariant(metadata.integrationBranch === 'main', 'Integration branch mismatch');
   invariant(
     metadata.workflowPath === '.github/workflows/p00-quality.yml',
