@@ -12,7 +12,13 @@ import { useSettingsStore } from './settingsStore';
 import { useToastStore } from './toastStore';
 
 const endpointDoubles = vi.hoisted(() => ({
-  authApi: { login: vi.fn(), logout: vi.fn(), me: vi.fn(), register: vi.fn() },
+  authApi: {
+    endImpersonation: vi.fn(),
+    login: vi.fn(),
+    logout: vi.fn(),
+    me: vi.fn(),
+    register: vi.fn(),
+  },
   catalogApi: {
     categories: vi.fn(),
     createCategory: vi.fn(),
@@ -432,4 +438,232 @@ test('isolates merchant state and suppresses stale auth and tenant request compl
   expect(catalogApi.product).not.toHaveBeenCalled();
   expect(settingsApi.update).toHaveBeenCalledTimes(1);
   expectMerchantStateCleared();
+
+  const endImpersonation = vi.mocked((authApi as any).endImpersonation);
+  endImpersonation.mockReset();
+  vi.mocked(authApi.me).mockReset();
+  const impersonated = session(20, 'impersonation-token');
+  setToken(impersonated.data.token);
+  localStorage.setItem('dorzak-admin-token', 'operator-token');
+  localStorage.setItem('dorzak-impersonating', 'Store 20');
+  useAuthStore.setState({
+    abilities: impersonated.data.abilities,
+    error: null,
+    impersonating: 'Store 20',
+    role: impersonated.data.role,
+    status: 'authenticated',
+    store: impersonated.data.store,
+    user: impersonated.data.user,
+  });
+  seedMerchantState('impersonation-active');
+  endImpersonation.mockImplementationOnce(async () => {
+    expect(getToken()).toBe('impersonation-token');
+    throw { message: 'Still authenticated as merchant', status: 401 };
+  });
+
+  await expect(useAuthStore.getState().stopImpersonating()).rejects.toMatchObject({ status: 401 });
+  expect(endImpersonation).toHaveBeenCalledOnce();
+  expect(authApi.me).not.toHaveBeenCalled();
+  expect(getToken()).toBe('impersonation-token');
+  expect(localStorage.getItem('dorzak-admin-token')).toBe('operator-token');
+  expect(localStorage.getItem('dorzak-impersonating')).toBe('Store 20');
+  expect(useAuthStore.getState()).toMatchObject({
+    impersonating: 'Store 20',
+    status: 'authenticated',
+    store: impersonated.data.store,
+    user: impersonated.data.user,
+  });
+  expect(useProductStore.getState().products[0]?.id).toBe('impersonation-active-product');
+  expect(useCartStore.getState().items[0]?.lineKey).toBe('impersonation-active');
+  expect(useModalStore.getState().payload).toEqual({ id: 'impersonation-active' });
+  expect(useToastStore.getState().toasts).toMatchObject([{ id: 'impersonation-active' }]);
+
+  const operatorSession = {
+    data: {
+      abilities: [],
+      role: 'PLATFORM_ADMIN',
+      store: null,
+      user: {
+        email: 'operator@example.test',
+        id: 900,
+        is_platform_admin: true,
+        name: 'Platform operator',
+      },
+    },
+  };
+  endImpersonation.mockReset();
+  vi.mocked(authApi.me).mockReset();
+  endImpersonation.mockImplementationOnce(async () => {
+    expect(getToken()).toBe('impersonation-token');
+  });
+  vi.mocked(authApi.me).mockImplementationOnce(async () => {
+    expect(getToken()).toBe('operator-token');
+    return operatorSession;
+  });
+  await expect(useAuthStore.getState().stopImpersonating()).resolves.toBe(true);
+  expect(getToken()).toBe('operator-token');
+  expect(localStorage.getItem('dorzak-admin-token')).toBeNull();
+  expect(localStorage.getItem('dorzak-impersonating')).toBeNull();
+  expect(useAuthStore.getState()).toMatchObject({
+    abilities: [],
+    impersonating: null,
+    role: 'PLATFORM_ADMIN',
+    status: 'authenticated',
+    store: null,
+    user: operatorSession.data.user,
+  });
+  expectMerchantStateCleared();
+
+  setToken('impersonation-token');
+  localStorage.setItem('dorzak-admin-token', 'operator-token');
+  localStorage.setItem('dorzak-impersonating', 'Store 20');
+  useAuthStore.setState({
+    abilities: impersonated.data.abilities,
+    error: null,
+    impersonating: 'Store 20',
+    role: impersonated.data.role,
+    status: 'authenticated',
+    store: impersonated.data.store,
+    user: impersonated.data.user,
+  });
+  seedMerchantState('revoked-hydration');
+  endImpersonation.mockReset();
+  vi.mocked(authApi.me).mockReset();
+  endImpersonation.mockImplementationOnce(async () => {
+    expect(getToken()).toBe('impersonation-token');
+  });
+  vi.mocked(authApi.me).mockImplementationOnce(async () => {
+    expect(getToken()).toBe('operator-token');
+    throw { message: 'Operator token rejected', status: 401 };
+  });
+  await expect(useAuthStore.getState().stopImpersonating()).resolves.toBe(false);
+  expect(endImpersonation).toHaveBeenCalledOnce();
+  expect(authApi.me).toHaveBeenCalledOnce();
+  expect(getToken()).toBeNull();
+  expect(localStorage.getItem('dorzak-admin-token')).toBeNull();
+  expect(localStorage.getItem('dorzak-impersonating')).toBeNull();
+  expect(useAuthStore.getState()).toMatchObject({
+    impersonating: null,
+    status: 'guest',
+    store: null,
+    user: null,
+  });
+  expectMerchantStateCleared();
+
+  const installImpersonation = () => {
+    setToken('late-impersonation-token');
+    localStorage.setItem('dorzak-admin-token', 'late-operator-token');
+    localStorage.setItem('dorzak-impersonating', 'Late store');
+    useAuthStore.setState({
+      abilities: impersonated.data.abilities,
+      error: null,
+      impersonating: 'Late store',
+      role: impersonated.data.role,
+      status: 'authenticated',
+      store: impersonated.data.store,
+      user: impersonated.data.user,
+    });
+  };
+
+  installImpersonation();
+  endImpersonation.mockReset();
+  vi.mocked(authApi.login).mockReset();
+  const lateExitSuccess = deferred<unknown>();
+  endImpersonation.mockReturnValueOnce(lateExitSuccess.promise);
+  const pendingExitSuccess = useAuthStore.getState().stopImpersonating();
+  const newerAfterSuccess = session(21, 'newer-token-after-success');
+  vi.mocked(authApi.login).mockResolvedValueOnce(newerAfterSuccess);
+  await useAuthStore.getState().login('newer-success@example.test', 'password');
+  localStorage.setItem('dorzak-admin-token', 'newer-admin-success');
+  localStorage.setItem('dorzak-impersonating', 'Newer banner success');
+  useAuthStore.setState({
+    abilities: ['newer.success'],
+    error: 'newer success state',
+    impersonating: 'Newer banner success',
+    role: 'NEWER_SUCCESS_ROLE',
+  });
+  lateExitSuccess.resolve(undefined);
+  await expect(pendingExitSuccess).resolves.toBe(false);
+  expect(getToken()).toBe('newer-token-after-success');
+  expect(localStorage.getItem('dorzak-admin-token')).toBe('newer-admin-success');
+  expect(localStorage.getItem('dorzak-impersonating')).toBe('Newer banner success');
+  expect(useAuthStore.getState()).toMatchObject({
+    abilities: ['newer.success'],
+    error: 'newer success state',
+    impersonating: 'Newer banner success',
+    role: 'NEWER_SUCCESS_ROLE',
+    status: 'authenticated',
+    store: newerAfterSuccess.data.store,
+    user: newerAfterSuccess.data.user,
+  });
+
+  installImpersonation();
+  endImpersonation.mockReset();
+  vi.mocked(authApi.me).mockReset();
+  vi.mocked(authApi.login).mockReset();
+  endImpersonation.mockResolvedValueOnce(undefined);
+  const lateOperatorHydration = deferred<any>();
+  vi.mocked(authApi.me).mockImplementationOnce(() => {
+    expect(getToken()).toBe('late-operator-token');
+    return lateOperatorHydration.promise;
+  });
+  const pendingHydrationExit = useAuthStore.getState().stopImpersonating();
+  await vi.waitFor(() => expect(authApi.me).toHaveBeenCalledOnce());
+  const newerDuringHydration = session(23, 'newer-token-during-hydration');
+  vi.mocked(authApi.login).mockResolvedValueOnce(newerDuringHydration);
+  await useAuthStore.getState().login('newer-hydration@example.test', 'password');
+  localStorage.setItem('dorzak-admin-token', 'newer-admin-hydration');
+  localStorage.setItem('dorzak-impersonating', 'Newer banner hydration');
+  useAuthStore.setState({
+    abilities: ['newer.hydration'],
+    error: 'newer hydration state',
+    impersonating: 'Newer banner hydration',
+    role: 'NEWER_HYDRATION_ROLE',
+  });
+  lateOperatorHydration.resolve(operatorSession);
+  await expect(pendingHydrationExit).resolves.toBe(false);
+  expect(getToken()).toBe('newer-token-during-hydration');
+  expect(localStorage.getItem('dorzak-admin-token')).toBe('newer-admin-hydration');
+  expect(localStorage.getItem('dorzak-impersonating')).toBe('Newer banner hydration');
+  expect(useAuthStore.getState()).toMatchObject({
+    abilities: ['newer.hydration'],
+    error: 'newer hydration state',
+    impersonating: 'Newer banner hydration',
+    role: 'NEWER_HYDRATION_ROLE',
+    status: 'authenticated',
+    store: newerDuringHydration.data.store,
+    user: newerDuringHydration.data.user,
+  });
+
+  installImpersonation();
+  endImpersonation.mockReset();
+  vi.mocked(authApi.login).mockReset();
+  const lateExitFailure = deferred<unknown>();
+  endImpersonation.mockReturnValueOnce(lateExitFailure.promise);
+  const pendingExitFailure = useAuthStore.getState().stopImpersonating();
+  const newerAfterFailure = session(22, 'newer-token-after-failure');
+  vi.mocked(authApi.login).mockResolvedValueOnce(newerAfterFailure);
+  await useAuthStore.getState().login('newer-failure@example.test', 'password');
+  localStorage.setItem('dorzak-admin-token', 'newer-admin-failure');
+  localStorage.setItem('dorzak-impersonating', 'Newer banner failure');
+  useAuthStore.setState({
+    abilities: ['newer.failure'],
+    error: 'newer failure state',
+    impersonating: 'Newer banner failure',
+    role: 'NEWER_FAILURE_ROLE',
+  });
+  lateExitFailure.reject({ message: 'Late exit failure', status: 503 });
+  await expect(pendingExitFailure).resolves.toBe(false);
+  expect(getToken()).toBe('newer-token-after-failure');
+  expect(localStorage.getItem('dorzak-admin-token')).toBe('newer-admin-failure');
+  expect(localStorage.getItem('dorzak-impersonating')).toBe('Newer banner failure');
+  expect(useAuthStore.getState()).toMatchObject({
+    abilities: ['newer.failure'],
+    error: 'newer failure state',
+    impersonating: 'Newer banner failure',
+    role: 'NEWER_FAILURE_ROLE',
+    status: 'authenticated',
+    store: newerAfterFailure.data.store,
+    user: newerAfterFailure.data.user,
+  });
 });

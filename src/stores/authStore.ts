@@ -64,7 +64,7 @@ interface AuthState {
   }) => Promise<void>;
   logout: () => Promise<void>;
   impersonate: (storeId: number) => Promise<void>;
-  stopImpersonating: () => Promise<void>;
+  stopImpersonating: () => Promise<boolean>;
   can: (ability: string) => boolean;
 }
 
@@ -273,6 +273,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   stopImpersonating: async () => {
     const attempt = beginAuthAttempt();
+    try {
+      await authApi.endImpersonation();
+    } catch (error) {
+      if (!isCurrentAuthAttempt(attempt)) return false;
+      throw error;
+    }
+    if (!isCurrentAuthAttempt(attempt)) return false;
+
     const adminToken = readLocal(ADMIN_TOKEN_KEY);
     withholdMerchantSession(set);
     setToken(adminToken);
@@ -280,6 +288,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     writeLocal(IMPERSONATING_KEY, null);
     set({ impersonating: null });
     await hydrateSession(set, get, attempt, captureAuthSnapshot(get()), true);
+
+    return (
+      isCurrentAuthAttempt(attempt) &&
+      get().status === 'authenticated' &&
+      get().user?.is_platform_admin === true
+    );
   },
 
   can: (ability) => {

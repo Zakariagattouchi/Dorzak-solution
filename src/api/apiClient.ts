@@ -52,6 +52,7 @@ type Options = {
   params?: Record<string, string | number | boolean | undefined>;
   base?: string; // override base (e.g. public storefront)
   auth?: boolean; // attach bearer token (default true)
+  clearAuthenticationOnUnauthorized?: boolean; // default true
 };
 
 export async function request<T = unknown>(path: string, opts: Options = {}): Promise<T> {
@@ -89,7 +90,7 @@ export async function request<T = unknown>(path: string, opts: Options = {}): Pr
   const res = await fetch(url.toString(), { method, headers, body });
 
   if (res.status === 401) {
-    if (usesAuthentication) {
+    if (usesAuthentication && opts.clearAuthenticationOnUnauthorized !== false) {
       clearAuthenticationForRevision(requestAuthRevision);
     }
     throw normalize(res, { message: 'Unauthenticated.' });

@@ -12,14 +12,20 @@ export const ImpersonationBanner: React.FC = () => {
   const navigate = useNavigate();
   const { impersonating, stopImpersonating } = useAuthStore();
   const [exiting, setExiting] = useState(false);
+  const [exitError, setExitError] = useState<string | null>(null);
 
   if (!impersonating) return null;
 
   const handleExit = async () => {
     setExiting(true);
+    setExitError(null);
     try {
-      await stopImpersonating();
-      navigate('/platform');
+      const restoredOperator = await stopImpersonating();
+      if (restoredOperator) {
+        navigate('/platform');
+      }
+    } catch {
+      setExitError('Exit failed. Impersonation is still active. Try again.');
     } finally {
       setExiting(false);
     }
@@ -46,6 +52,7 @@ export const ImpersonationBanner: React.FC = () => {
         Viewing <strong>{impersonating}</strong> as its owner — actions you take affect their live
         store.
       </span>
+      {exitError && <span role="status">{exitError}</span>}
       <button
         type="button"
         onClick={handleExit}

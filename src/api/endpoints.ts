@@ -13,6 +13,8 @@ export const authApi = {
   login: (email: string, password: string) =>
     request('/auth/login', { method: 'POST', body: { email, password, device_name: 'web' } }),
   logout: () => request('/auth/logout', { method: 'POST' }),
+  endImpersonation: () =>
+    request('/auth/logout', { method: 'POST', clearAuthenticationOnUnauthorized: false }),
   me: () => request('/auth/me'),
   register: (payload: {
     name: string;
