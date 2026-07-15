@@ -10,7 +10,7 @@ import {
 const POLL_INTERVAL_MS = 10_000;
 
 export const useOrderPolling = (enabled: boolean): void => {
-  const { orders, fetchOrders, addUnseenOrder } = useOrderStore();
+  const { orders, hasFetchedOrders, fetchOrders, addUnseenOrder } = useOrderStore();
   const { addToast } = useToastStore();
   const previousIdsRef = useRef<Set<string>>(new Set());
   const initializedRef = useRef(false);
@@ -19,6 +19,12 @@ export const useOrderPolling = (enabled: boolean): void => {
     if (!enabled) return;
 
     requestNotificationPermission().catch(() => {});
+
+    if (!hasFetchedOrders) {
+      previousIdsRef.current = new Set();
+      initializedRef.current = false;
+      return;
+    }
 
     const poll = async () => {
       await fetchOrders();
@@ -55,7 +61,7 @@ export const useOrderPolling = (enabled: boolean): void => {
     };
 
     detectNewOrders();
-  }, [orders, enabled, fetchOrders, addUnseenOrder, addToast]);
+  }, [orders, hasFetchedOrders, enabled, fetchOrders, addUnseenOrder, addToast]);
 
   useEffect(() => {
     if (!enabled) return;

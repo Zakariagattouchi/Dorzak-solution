@@ -10,6 +10,7 @@ import {
 
 interface OrderState {
   orders: Order[];
+  hasFetchedOrders: boolean;
   loading: boolean;
   error: string | null;
   unseenOrderIds: string[];
@@ -27,6 +28,7 @@ interface OrderState {
 
 export const useOrderStore = create<OrderState>((set) => ({
   orders: [],
+  hasFetchedOrders: false,
   loading: false,
   error: null,
   unseenOrderIds: [],
@@ -37,7 +39,7 @@ export const useOrderStore = create<OrderState>((set) => ({
     try {
       const res: any = await orderApi.list({ per_page: 100 });
       requireCurrentMerchantScope(scope);
-      set({ orders: res.data.map(toOrder), loading: false });
+      set({ orders: res.data.map(toOrder), hasFetchedOrders: true, loading: false });
     } catch (e: any) {
       if (!isMerchantScopeCurrent(scope)) return;
       set({ loading: false, error: e.message ?? 'Failed to load orders' });

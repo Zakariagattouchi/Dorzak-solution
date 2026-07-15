@@ -104,6 +104,7 @@ function seedMerchantState(label: string) {
   });
   useOrderStore.setState({
     error: `${label} order error`,
+    hasFetchedOrders: true,
     loading: true,
     orders: [{ id: `${label}-order` } as any],
     unseenOrderIds: [`${label}-order`],
@@ -137,6 +138,7 @@ function expectMerchantStateCleared() {
   });
   expect(useOrderStore.getState()).toMatchObject({
     error: null,
+    hasFetchedOrders: false,
     loading: false,
     orders: [],
     unseenOrderIds: [],
@@ -169,7 +171,13 @@ beforeEach(() => {
   });
   useProductStore.setState({ products: [], categories: [], loading: false, error: null });
   useCustomerStore.setState({ customers: [], loading: false, error: null });
-  useOrderStore.setState({ orders: [], loading: false, error: null, unseenOrderIds: [] });
+  useOrderStore.setState({
+    orders: [],
+    loading: false,
+    error: null,
+    unseenOrderIds: [],
+    hasFetchedOrders: false,
+  });
   useSettingsStore.setState({ accountInfo: { ...initialAccountInfo }, loading: false });
   useCartStore.getState().clearCart();
   useModalStore.getState().closeModal();
@@ -389,6 +397,7 @@ test('isolates merchant state and suppresses stale auth and tenant request compl
   });
   expect(useOrderStore.getState()).toMatchObject({
     error: null,
+    hasFetchedOrders: false,
     loading: true,
     orders: [],
     unseenOrderIds: [],

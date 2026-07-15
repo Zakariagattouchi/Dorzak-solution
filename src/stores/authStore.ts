@@ -96,7 +96,13 @@ const clearMerchantState = (): void => {
   invalidateMerchantScope();
   useProductStore.setState({ products: [], categories: [], loading: false, error: null });
   useCustomerStore.setState({ customers: [], loading: false, error: null });
-  useOrderStore.setState({ orders: [], loading: false, error: null, unseenOrderIds: [] });
+  useOrderStore.setState({
+    orders: [],
+    hasFetchedOrders: false,
+    loading: false,
+    error: null,
+    unseenOrderIds: [],
+  });
   useSettingsStore.setState({ accountInfo: { ...initialAccountInfo }, loading: false });
   useCartStore.getState().clearCart();
   useModalStore.getState().closeModal();
