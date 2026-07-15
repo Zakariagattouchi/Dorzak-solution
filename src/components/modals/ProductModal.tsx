@@ -10,6 +10,11 @@ import { useToastStore } from '../../stores/toastStore';
 import { useModalStore } from '../../stores/modalStore';
 import { ProductVariant } from '../../data/mockData';
 import { AppIcon } from '../icons/AppIcon';
+import {
+  captureMerchantScope,
+  isMerchantScopeCurrent,
+  requireCurrentMerchantScope,
+} from '../../stores/merchantScope';
 
 export const ProductModal: React.FC = () => {
   const { activeModal, payload, closeModal } = useModalStore();
@@ -85,8 +90,10 @@ export const ProductModal: React.FC = () => {
       setActiveTab('BASIC');
       return;
     }
+    const scope = captureMerchantScope();
     setLoading(true);
     try {
+      requireCurrentMerchantScope(scope);
       await addProduct({
         name,
         description,
@@ -105,6 +112,7 @@ export const ProductModal: React.FC = () => {
         variants,
         variantGroups: [],
       });
+      requireCurrentMerchantScope(scope);
       addToast(`Product "${name}" created with ${variants.length} variants!`, 'success');
       closeModal();
       // Reset form
@@ -115,9 +123,10 @@ export const ProductModal: React.FC = () => {
       setVariants([]);
       setActiveTab('BASIC');
     } catch (err) {
+      if (!isMerchantScopeCurrent(scope)) return;
       addToast('Failed to create product', 'danger');
     } finally {
-      setLoading(false);
+      if (isMerchantScopeCurrent(scope)) setLoading(false);
     }
   };
 

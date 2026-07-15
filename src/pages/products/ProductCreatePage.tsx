@@ -10,6 +10,11 @@ import { ToggleSwitch } from '../../components/forms/ToggleSwitch';
 import { AppButton } from '../../components/buttons/AppButton';
 import { AppIcon } from '../../components/icons/AppIcon';
 import { ProductVariationGroup, ProductVariant } from '../../data/mockData';
+import {
+  captureMerchantScope,
+  isMerchantScopeCurrent,
+  requireCurrentMerchantScope,
+} from '../../stores/merchantScope';
 
 const uid = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -281,6 +286,7 @@ export const ProductCreatePage: React.FC = () => {
       addToast('Product name and price are required', 'warning');
       return;
     }
+    const scope = captureMerchantScope();
     setSaving(true);
     const product = {
       name: name.trim(),
@@ -309,17 +315,20 @@ export const ProductCreatePage: React.FC = () => {
     };
     const filesToUpload = additionalImageFiles.filter((file): file is File => file !== null);
     try {
+      requireCurrentMerchantScope(scope);
       if (id) await updateProduct(id, product, imageFile, filesToUpload, removePaths);
       else await createProduct(product, imageFile, filesToUpload);
+      requireCurrentMerchantScope(scope);
       addToast(
         editing ? 'Product updated successfully' : 'Product created successfully',
         'success',
       );
       navigate('/products');
     } catch (error: any) {
+      if (!isMerchantScopeCurrent(scope)) return;
       addToast(error.message ?? 'Failed to save product', 'danger');
     } finally {
-      setSaving(false);
+      if (isMerchantScopeCurrent(scope)) setSaving(false);
     }
   };
 

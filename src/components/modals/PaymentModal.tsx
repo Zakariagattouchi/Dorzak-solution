@@ -9,6 +9,11 @@ import { useModalStore } from '../../stores/modalStore';
 import { AppIcon } from '../icons/AppIcon';
 import { useMoney } from '../../hooks/useMoney';
 import { useSettingsStore } from '../../stores/settingsStore';
+import {
+  captureMerchantScope,
+  isMerchantScopeCurrent,
+  requireCurrentMerchantScope,
+} from '../../stores/merchantScope';
 
 export const PaymentModal: React.FC = () => {
   const { activeModal, closeModal, openModal } = useModalStore();
@@ -31,8 +36,10 @@ export const PaymentModal: React.FC = () => {
 
   const handleCompleteSale = async () => {
     if (items.length === 0) return;
+    const scope = captureMerchantScope();
     setLoading(true);
     try {
+      requireCurrentMerchantScope(scope);
       const newOrder = await createOrder(
         {
           customerName: selectedCustomer ? selectedCustomer.name : 'Walk-in Customer',
@@ -56,6 +63,7 @@ export const PaymentModal: React.FC = () => {
         },
         selectedCustomer ? selectedCustomer.id : null,
       );
+      requireCurrentMerchantScope(scope);
 
       addToast(`Sale ${newOrder.id} Completed! (${money(newOrder.total)})`, 'success');
       clearCart();
@@ -63,9 +71,10 @@ export const PaymentModal: React.FC = () => {
       // Stock changed on the server — refresh the catalog.
       useProductStore.getState().fetchProducts();
     } catch (err) {
+      if (!isMerchantScopeCurrent(scope)) return;
       addToast('Failed to process sale', 'danger');
     } finally {
-      setLoading(false);
+      if (isMerchantScopeCurrent(scope)) setLoading(false);
     }
   };
 

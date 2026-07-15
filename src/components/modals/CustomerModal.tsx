@@ -6,6 +6,11 @@ import { useCustomerStore } from '../../stores/customerStore';
 import { useToastStore } from '../../stores/toastStore';
 import { useModalStore } from '../../stores/modalStore';
 import { LocationPicker } from '../forms/LocationPicker';
+import {
+  captureMerchantScope,
+  isMerchantScopeCurrent,
+  requireCurrentMerchantScope,
+} from '../../stores/merchantScope';
 
 export const CustomerModal: React.FC = () => {
   const { activeModal, closeModal } = useModalStore();
@@ -27,9 +32,12 @@ export const CustomerModal: React.FC = () => {
       addToast('Please enter customer name and phone number', 'warning');
       return;
     }
+    const scope = captureMerchantScope();
     setLoading(true);
     try {
+      requireCurrentMerchantScope(scope);
       await addCustomer({ name, email, phone, address, city, latitude, longitude });
+      requireCurrentMerchantScope(scope);
       addToast(`Customer "${name}" added!`, 'success');
       closeModal();
       setName('');
@@ -40,9 +48,10 @@ export const CustomerModal: React.FC = () => {
       setLatitude(undefined);
       setLongitude(undefined);
     } catch (err) {
+      if (!isMerchantScopeCurrent(scope)) return;
       addToast('Failed to add customer', 'danger');
     } finally {
-      setLoading(false);
+      if (isMerchantScopeCurrent(scope)) setLoading(false);
     }
   };
 
