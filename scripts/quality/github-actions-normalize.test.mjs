@@ -125,7 +125,7 @@ function rawArtifacts(job) {
     };
   if (job.name === 'frontend')
     return {
-      'vitest.json': stableJson({ numTotalTests: 8, numFailedTests: 0, numPendingTests: 0 }),
+      'vitest.json': stableJson({ numTotalTests: 10, numFailedTests: 0, numPendingTests: 0 }),
       'bundle.json': stableJson({ fixture: 'bundle' }),
       'vite-build.log': 'accepted fixture warning\n',
     };
