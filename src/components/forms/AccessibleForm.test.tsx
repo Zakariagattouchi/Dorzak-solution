@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { useState } from 'react';
 import { expect, test } from 'vitest';
 import { expectNoA11yViolations } from '../../test/axe';
@@ -59,6 +61,14 @@ test('associates labels and errors and supports keyboard boolean controls', asyn
   await user.keyboard('[Space]');
   expect(toggle).toHaveAttribute('aria-checked', 'true');
   checkbox.focus();
+  expect(checkbox.nextElementSibling).toHaveClass('checkbox-custom');
+  const formsCssUrl = new URL('src/styles/forms.css', pathToFileURL(`${process.cwd()}/`));
+  expect(readFileSync(formsCssUrl, 'utf8')).toContain(
+    `.checkbox-wrapper > input:focus-visible + .checkbox-custom {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}`,
+  );
   await user.keyboard('[Space]');
   expect(checkbox).toBeChecked();
   await expectNoA11yViolations(container);
