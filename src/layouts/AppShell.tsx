@@ -31,14 +31,32 @@ export const AppShell: React.FC = () => {
 
   // Once authenticated as a MERCHANT, hydrate the store data (settings first — money formatting depends on it).
   useEffect(() => {
-    if (status === 'authenticated' && !isPlatformOnly) {
-      fetchSettings();
-      fetchProducts();
-      fetchCategories();
-      fetchCustomers();
-      fetchOrders();
+    if (status !== 'authenticated' || isPlatformOnly) {
+      return;
     }
-  }, [status, isPlatformOnly]);
+
+    let cancelled = false;
+    const hydrate = async () => {
+      await fetchSettings();
+      if (cancelled) return;
+
+      await Promise.all([fetchProducts(), fetchCategories(), fetchCustomers(), fetchOrders()]);
+    };
+
+    void hydrate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    status,
+    isPlatformOnly,
+    fetchSettings,
+    fetchProducts,
+    fetchCategories,
+    fetchCustomers,
+    fetchOrders,
+  ]);
 
   // Live polling for new orders (sound + badge) while logged in.
   useOrderPolling(status === 'authenticated');
