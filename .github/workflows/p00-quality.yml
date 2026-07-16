@@ -783,6 +783,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          APP_KEY="$(php -r 'echo "base64:".base64_encode(random_bytes(32));')"
+          export APP_KEY
+          [[ "$APP_KEY" =~ ^base64:[A-Za-z0-9+/]{43}=$ ]]
           export P00_ARTIFACT_DIR="$RUNNER_TEMP/p00"
           scripts/quality/run-p00 sqlite
           test -d "$P00_ARTIFACT_DIR/sqlite"
@@ -1061,6 +1064,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          APP_KEY="$(php -r 'echo "base64:".base64_encode(random_bytes(32));')"
+          export APP_KEY
+          [[ "$APP_KEY" =~ ^base64:[A-Za-z0-9+/]{43}=$ ]]
           export P00_ARTIFACT_DIR="$RUNNER_TEMP/p00"
           scripts/quality/run-p00 postgresql-16
           test -d "$P00_ARTIFACT_DIR/postgresql-16"

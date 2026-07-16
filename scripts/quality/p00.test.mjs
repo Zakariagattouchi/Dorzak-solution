@@ -181,6 +181,46 @@ test('contract freezes ordered jobs, counts, budget, and open Vite debt', () => 
   assert.equal(contract.bundle.debtStatus, 'accepted-open');
   assert.equal(contract.bundle.expectedOccurrences, 1);
   assert.deepEqual(contract.staticAnalysisDebt, staticAnalysisDebt);
+  const workflow = readFileSync(join(repositoryRoot, '.github/workflows/p00-quality.yml'), 'utf8');
+  const occurrences = (value, needle) => value.split(needle).length - 1;
+  const jobHeaders = [...workflow.matchAll(/^  ([a-z][a-z0-9-]*):\n    name: \1$/gm)];
+  const jobBlocks = new Map(
+    jobHeaders.map((header, index) => [
+      header[1],
+      workflow.slice(header.index, jobHeaders[index + 1]?.index ?? workflow.length),
+    ]),
+  );
+  const appKeyLines = [
+    `          APP_KEY="$(php -r 'echo "base64:".base64_encode(random_bytes(32));')"`,
+    '          export APP_KEY',
+    '          [[ "$APP_KEY" =~ ^base64:[A-Za-z0-9+/]{43}=$ ]]',
+  ];
+  const appKeySetup = appKeyLines.join('\n');
+  for (const job of ['sqlite', 'postgresql-16']) {
+    const block = jobBlocks.get(job);
+    assert.ok(block, `${job} workflow job must exist`);
+    const stepHeader = `      - name: Run ${job}\n`;
+    assert.equal(occurrences(block, stepHeader), 1, `${job} run step must exist exactly once`);
+    const stepStart = block.indexOf(stepHeader);
+    const nextStepStart = block.indexOf('\n      - ', stepStart + stepHeader.length);
+    const step = block.slice(stepStart, nextStepStart === -1 ? block.length : nextStepStart);
+    assert.equal(occurrences(step, appKeySetup), 1, `${job} must set up APP_KEY exactly once`);
+    const strictLine = '          set -euo pipefail';
+    const artifactLine = '          export P00_ARTIFACT_DIR="$RUNNER_TEMP/p00"';
+    const runLine = `          scripts/quality/run-p00 ${job}`;
+    assert.equal(occurrences(step, strictLine), 1);
+    assert.equal(occurrences(step, artifactLine), 1);
+    assert.equal(occurrences(step, runLine), 1);
+    assert.ok(step.indexOf(strictLine) < step.indexOf(appKeySetup));
+    assert.ok(step.indexOf(appKeySetup) < step.indexOf(artifactLine));
+    assert.ok(step.indexOf(artifactLine) < step.indexOf(runLine));
+    assert.doesNotMatch(step, /GITHUB_ENV|GITHUB_OUTPUT|::set-output|secrets\./);
+    assert.doesNotMatch(step, /(?:echo|printf)[^\n]*\$\{?APP_KEY/);
+  }
+  assert.equal(occurrences(workflow, appKeySetup), 2);
+  for (const line of appKeyLines) assert.equal(occurrences(workflow, line), 2);
+  assert.equal(occurrences(workflow, 'APP_KEY'), 6);
+  assert.doesNotMatch(workflow, /base64:[A-Za-z0-9+/]{43}=/);
   assert.deepEqual(p00.measureStaticAnalysisDebt(), staticAnalysisDebt);
   const validDebtRoot = staticDebtFixture('valid');
   assert.deepEqual(
